@@ -117,8 +117,23 @@ const page = ref(1)
 const perPage = ref(20)
 const sortValue = ref('date_desc')
 const toastMessage = ref('')
+const profileImageError = ref(false)
+const headerVisible = ref(true)
 
 const dateRangeRef = ref(null)
+let lastScrollY = 0
+
+function onWindowScroll() {
+  const currentScrollY = Math.max(window.scrollY, 0)
+  if (currentScrollY <= 8) {
+    headerVisible.value = true
+  } else if (currentScrollY > lastScrollY + 4) {
+    headerVisible.value = false
+  } else if (currentScrollY < lastScrollY - 4) {
+    headerVisible.value = true
+  }
+  lastScrollY = currentScrollY
+}
 
 function toggleIn(list, val) {
   return list.includes(val) ? list.filter((v) => v !== val) : [...list, val]
@@ -306,20 +321,28 @@ function onClickOutsideDateRange(e) {
     toCalOpen.value = false
   }
 }
-onMounted(() => document.addEventListener('mousedown', onClickOutsideDateRange))
+onMounted(() => {
+  lastScrollY = window.scrollY
+  document.addEventListener('mousedown', onClickOutsideDateRange)
+  window.addEventListener('scroll', onWindowScroll, { passive: true })
+})
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', onClickOutsideDateRange)
+  window.removeEventListener('scroll', onWindowScroll)
   clearTimeout(toastTimer)
 })
 </script>
 
 <template>
   <div class="min-h-screen bg-bg-canvas font-sans text-text-primary">
-    <header class="h-14 flex items-center justify-between px-8 bg-bg-surface border-b border-slate-100 sticky top-0 z-10">
+    <header
+      class="h-14 flex items-center justify-between px-8 bg-bg-surface border-b border-slate-100 sticky top-0 z-10 transition-transform duration-300 ease-out"
+      :class="headerVisible ? 'translate-y-0' : '-translate-y-full'"
+    >
       <div class="flex items-center gap-8 min-w-0">
         <div class="flex items-center gap-2 shrink-0">
           <div class="w-7 h-7 rounded-sm bg-action-primary"></div>
-          <span class="text-md font-bold text-text-primary tracking-tight">멀티모달 데이터 플랫폼</span>
+          <span class="text-md font-semibold text-text-primary tracking-tight">auroraFS</span>
         </div>
         <nav class="flex items-center gap-1">
           <a href="#" class="flex items-center h-8 px-3 rounded-md text-base font-medium text-text-secondary no-underline hover:bg-bg-surface-hover">멀티모달 검색</a>
@@ -328,7 +351,14 @@ onBeforeUnmount(() => {
       </div>
       <div class="flex items-center gap-3">
         <button class="flex items-center gap-2 bg-transparent border-none cursor-pointer py-1 px-2 rounded-md hover:bg-bg-surface-hover">
-          <span class="w-[30px] h-[30px] rounded-full bg-primary-100 text-primary-700 text-xs font-semibold flex items-center justify-center shrink-0">홍</span>
+          <img
+            v-if="!profileImageError"
+            src="https://i.pravatar.cc/60?img=12"
+            alt="홍길동 프로필 사진"
+            class="w-[30px] h-[30px] rounded-full object-cover shrink-0"
+            @error="profileImageError = true"
+          />
+          <span v-else class="w-[30px] h-[30px] rounded-full bg-primary-100 text-primary-700 text-xs font-semibold flex items-center justify-center shrink-0">홍</span>
           <span class="flex flex-col items-start gap-px">
             <span class="text-sm text-text-primary font-semibold leading-tight">홍길동</span>
             <span class="text-xs text-text-tertiary leading-tight">hong@data-portal.kr</span>
@@ -473,7 +503,7 @@ onBeforeUnmount(() => {
 
       <div class="grid grid-cols-[240px_1fr] gap-10 items-start">
         <!-- 필터 사이드바 -->
-        <aside class="flex flex-col gap-5 self-start">
+        <aside class="sticky top-8 z-[5] flex flex-col gap-5 self-start bg-bg-canvas">
           <h2 class="m-0 text-lg font-bold text-text-primary">필터</h2>
           <div class="border-b border-slate-100 -mt-2"></div>
 
@@ -592,7 +622,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div v-if="selectedIds.length > 0" class="sticky bottom-6 z-40 flex justify-center pointer-events-none">
+          <div v-if="selectedIds.length > 0" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
             <div class="pointer-events-auto flex items-center gap-1 bg-[var(--color-slate-900)] rounded-lg py-1.5 pl-4.5 pr-1.5 shadow-elevation-3">
               <div class="flex items-center gap-2.5 pr-4">
                 <span class="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary-500 text-text-inverse text-xs font-bold [font-feature-settings:'tnum']">{{ selectedIds.length }}</span>
