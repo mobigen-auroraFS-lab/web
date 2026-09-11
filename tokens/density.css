@@ -1,0 +1,9 @@
+:root,[data-density="comfortable"]{
+--density-row-height:var(--row-comfortable);--density-cell-padding-x:var(--space-3);--density-cell-padding-y:var(--space-2);--density-text-size:var(--text-sm-size);
+}
+[data-density="compact"]{
+--density-row-height:var(--row-compact);--density-cell-padding-x:var(--space-2);--density-cell-padding-y:var(--space-1.5);--density-text-size:var(--text-xs-size);
+}
+[data-density="spacious"]{
+--density-row-height:var(--row-spacious);--density-cell-padding-x:var(--space-4);--density-cell-padding-y:var(--space-3);--density-text-size:var(--text-base-size);
+}

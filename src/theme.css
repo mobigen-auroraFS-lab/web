@@ -1,0 +1,129 @@
+/*
+ * Bridges tokens/*.css (the design-system's own custom properties) into
+ * Tailwind v4's @theme so components can use utility classes
+ * (bg-action-primary, rounded-md, shadow-elevation-2, ...) instead of
+ * hand-written CSS.
+ *
+ * Tailwind only turns a variable into a utility if it's declared with that
+ * exact name inside this @theme block — a plain `:root` custom property
+ * (even one already named --color-*) is not picked up automatically. That
+ * means color values are necessarily copied here rather than referenced
+ * from tokens/colors.css: pointing a theme entry at a `:root` variable of
+ * the *same* name would be circular (Tailwind's own generated declaration
+ * would just point back to itself). If a primitive color changes in
+ * tokens/colors.css, mirror the change here too.
+ */
+@theme {
+  --font-sans: var(--font-family-sans);
+
+  /* radius-sm/md/lg/xl/full and space-* already match Tailwind's default
+     scale value-for-value, so they are intentionally not re-declared here —
+     use the built-in rounded-* / p-*, gap-*, m-* utilities directly. */
+
+  --text-2xs: var(--text-2xs-size);
+  --text-2xs--line-height: var(--text-2xs-line);
+  --text-xs: var(--text-xs-size);
+  --text-xs--line-height: var(--text-xs-line);
+  --text-sm: var(--text-sm-size);
+  --text-sm--line-height: var(--text-sm-line);
+  --text-base: var(--text-base-size);
+  --text-base--line-height: var(--text-base-line);
+  --text-md: var(--text-md-size);
+  --text-md--line-height: var(--text-md-line);
+  --text-lg: var(--text-lg-size);
+  --text-lg--line-height: var(--text-lg-line);
+  --text-xl: var(--text-xl-size);
+  --text-xl--line-height: var(--text-xl-line);
+  --text-2xl: var(--text-2xl-size);
+  --text-2xl--line-height: var(--text-2xl-line);
+  --text-3xl: var(--text-3xl-size);
+  --text-3xl--line-height: var(--text-3xl-line);
+
+  --shadow-elevation-1: var(--elevation-1);
+  --shadow-elevation-2: var(--elevation-2);
+  --shadow-elevation-3: var(--elevation-3);
+
+  --ease-standard: var(--easing-standard);
+
+  /* sizing tokens that don't fit the numeric spacing scale get named
+     spacing entries, usable in h-*, w-*, p-*, gap-*, etc. */
+  --spacing-control-xs: var(--control-height-xs);
+  --spacing-control-sm: var(--control-height-sm);
+  --spacing-control-md: var(--control-height-md);
+  --spacing-control-lg: var(--control-height-lg);
+  --spacing-control-xl: var(--control-height-xl);
+  --spacing-icon-sm: var(--icon-size-sm);
+  --spacing-icon-md: var(--icon-size-md);
+  --spacing-icon-lg: var(--icon-size-lg);
+  --spacing-row-compact: var(--row-compact);
+  --spacing-row-comfortable: var(--row-comfortable);
+  --spacing-row-spacious: var(--row-spacious);
+  --spacing-sidebar: var(--sidebar-width);
+  --spacing-panel-sm: var(--panel-width-sm);
+
+  /* --- primitive scale rungs actually used, copied from tokens/colors.css --- */
+  --color-slate-0: #feffff;
+  --color-slate-50: #f7f9fb;
+  --color-slate-100: #eceff2;
+  --color-slate-200: #dbdee2;
+  --color-slate-300: #c1c4c9;
+  --color-slate-400: #a1a5aa;
+  --color-slate-500: #7c8186;
+  --color-slate-600: #5f646a;
+  --color-slate-700: #43484e;
+  --color-slate-800: #292e34;
+  --color-primary-50: #eaf0fa;
+  --color-primary-100: #d3e0f2;
+  --color-primary-500: #5b83c0;
+  --color-primary-600: #4a6fa8;
+  --color-primary-700: #3f5f8f;
+  --color-green-50: #e6f8e6;
+  --color-green-100: #c9edc9;
+  --color-green-700: #186a23;
+  --color-amber-50: #fff3df;
+  --color-amber-100: #ffdfb1;
+  --color-amber-700: #a45f00;
+  --color-red-50: #ffedeb;
+  --color-red-100: #fed2cd;
+  --color-red-700: #a50d1c;
+
+  /* --- semantic layer, mirroring tokens/colors.css's semantic mapping --- */
+  --color-bg-canvas: var(--color-slate-50);
+  --color-bg-surface: var(--color-slate-0);
+  --color-bg-surface-hover: var(--color-slate-100);
+  --color-bg-surface-selected: var(--color-primary-50);
+  --color-bg-disabled: var(--color-slate-100);
+  --color-bg-overlay-scrim: #16161666;
+
+  --color-border-default: var(--color-slate-200);
+  --color-border-strong: var(--color-slate-300);
+  --color-border-disabled: var(--color-slate-200);
+
+  --color-text-primary: var(--color-slate-800);
+  --color-text-secondary: var(--color-slate-600);
+  --color-text-tertiary: var(--color-slate-500);
+  --color-text-disabled: var(--color-slate-400);
+  --color-text-inverse: var(--color-slate-0);
+
+  --color-action-primary: var(--color-primary-600);
+  --color-action-primary-hover: var(--color-primary-700);
+  --color-action-primary-active: var(--color-primary-700);
+  --color-action-secondary-bg: var(--color-slate-0);
+  --color-action-secondary-border: var(--color-slate-300);
+  --color-action-secondary-text: var(--color-slate-700);
+  --color-action-secondary-hover-bg: var(--color-slate-100);
+
+  --color-focus-ring: var(--color-primary-500);
+  --color-icon-default: var(--color-text-secondary);
+
+  --color-status-success-bg: var(--color-green-50);
+  --color-status-success-text: var(--color-green-700);
+  --color-status-warning-bg: var(--color-amber-50);
+  --color-status-warning-text: var(--color-amber-700);
+  --color-status-danger-bg: var(--color-red-50);
+  --color-status-danger-text: var(--color-red-700);
+
+  --color-table-header-bg: var(--color-slate-50);
+  --color-table-header-text: var(--color-text-secondary);
+  --color-table-header-border: var(--color-border-default);
+}

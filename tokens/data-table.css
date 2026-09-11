@@ -1,0 +1,17 @@
+:root{
+/* Component-level aliases (audit #6): keep these off the global Tailwind palette; consume as CSS vars scoped to table components */
+--table-header-bg:var(--color-slate-50);
+--table-header-text:var(--color-text-secondary);
+--table-header-border:var(--color-border-default);
+--table-row-border:var(--color-slate-100);
+--table-row-hover-bg:var(--color-bg-surface-hover);
+--table-row-selected-bg:var(--color-bg-surface-selected);
+--table-cell-padding-x:var(--density-cell-padding-x);
+--table-cell-padding-y:var(--density-cell-padding-y);
+--table-cell-text:var(--color-text-primary);
+--table-cell-muted:var(--color-text-tertiary);
+--table-sticky-header-shadow:var(--elevation-1);
+--table-empty-border:var(--border-style-dashed);
+--table-cell-indicator-dot-filled:var(--color-text-secondary);
+--table-cell-indicator-dot-empty:var(--color-border-default);
+}
