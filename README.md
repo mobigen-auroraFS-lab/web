@@ -18,6 +18,9 @@
 src/
   App.vue              # 최상위 루트 컴포넌트 — URL 해시로 화면 분기
   router.js            # 해시 기반 경량 자체 라우터 (vue-router 미사용)
+  style.css            # CSS 진입점 (Tailwind + 디자인 토큰 + 기본 리셋을 한 파일에서 불러옴)
+  theme.css            # 디자인 토큰을 Tailwind v4 @theme로 연결하는 브릿지
+  tokens/              # 색상·타이포그래피·간격 등 디자인 토큰 원본(css 변수)
   components/          # 재사용 UI 컴포넌트 (AButton, AInput 등)
     layout/             # 화면 공통 레이아웃 (헤더, 기본 레이아웃 틀)
   pages/               # 실제 화면. 화면별 폴더에 로직·목업을 함께 둠
@@ -28,7 +31,6 @@ src/
     DesignGuide/
       DesignGuide.vue      # 디자인 시스템 컴포넌트 카탈로그 (#design-guide)
   main.js              # 앱 마운트 시작점
-tokens/                # 색상·타이포그래피·간격 등 디자인 토큰(css 변수)
 ```
 
 ## 사용 환경
@@ -99,8 +101,9 @@ npm install
 
 ## 기타
 
-- 디자인 토큰(`tokens/*.css`, `src/theme.css`)에 색상·타이포그래피·간격·라운드·그림자 등이
-  정의되어 있고, Tailwind CSS(`src/tailwind.css`)와 연결되어 있습니다.
+- 디자인 토큰(`src/tokens/*.css`)에 색상·타이포그래피·간격·라운드·그림자 등이 정의되어
+  있고, `src/theme.css`를 통해 Tailwind CSS와 연결됩니다. 전체는 `src/style.css`
+  하나에서 불러옵니다.
 - 현재 `src/pages/FileSearch/`는 실제 API 연동 전 단계로, 목업 데이터(`fileSearch.mock.js`)를
   사용합니다. API 연동 시 해당 파일만 교체하면 됩니다.
 - 화면 간 라우팅 라이브러리(Vue Router 등)는 아직 도입되어 있지 않습니다. 대신

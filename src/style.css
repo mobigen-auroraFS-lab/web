@@ -1,0 +1,35 @@
+@import "tailwindcss";
+@import "./theme.css";
+@import "./tokens/colors.css";
+@import "./tokens/fonts.css";
+@import "./tokens/typography.css";
+@import "./tokens/spacing.css";
+@import "./tokens/sizing.css";
+@import "./tokens/radius.css";
+@import "./tokens/border.css";
+@import "./tokens/shadow.css";
+@import "./tokens/grid-breakpoint.css";
+@import "./tokens/iconography.css";
+@import "./tokens/motion.css";
+@import "./tokens/data-viz.css";
+@import "./tokens/density.css";
+@import "./tokens/data-table.css";
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: none;
+}
+input:focus,
+textarea:focus,
+select:focus,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: var(--color-focus-ring) !important;
+}
