@@ -7,10 +7,29 @@
 자산 간 관계 탐색, 주제 기반 탐색, 운영 관리 화면을 제공합니다.
 
 `src/components/`에 Aurora Vue 디자인 시스템 컴포넌트(버튼, 인풋, 테이블 등)가 있고,
-`src/pages/`에 실제 화면(예: 파일 검색)이 있습니다. `App.vue`는 디자인 시스템 컴포넌트를
-한눈에 보여주는 카탈로그 화면입니다.
+`src/pages/`에 실제 화면(예: 파일 검색, 디자인 가이드)이 있습니다. `App.vue`는 URL 해시에
+따라 그중 어떤 화면을 보여줄지 결정하는 최상위 루트 컴포넌트입니다.
 
 > 국책과제 **RS-2025-02215256** 산출물.
+
+## 디렉터리 구조
+
+```
+src/
+  App.vue              # 최상위 루트 컴포넌트 — URL 해시로 화면 분기
+  router.js            # 해시 기반 경량 자체 라우터 (vue-router 미사용)
+  components/          # 재사용 UI 컴포넌트 (AButton, AInput 등)
+    layout/             # 화면 공통 레이아웃 (헤더, 기본 레이아웃 틀)
+  pages/               # 실제 화면. 화면별 폴더에 로직·목업을 함께 둠
+    FileSearch/
+      FileSearch.vue      # 템플릿
+      useFileSearch.js    # 상태/필터링/정렬 로직 (composable)
+      fileSearch.mock.js  # API 연동 전 임시 목업 데이터
+    DesignGuide/
+      DesignGuide.vue      # 디자인 시스템 컴포넌트 카탈로그 (#design-guide)
+  main.js              # 앱 마운트 시작점
+tokens/                # 색상·타이포그래피·간격 등 디자인 토큰(css 변수)
+```
 
 ## 사용 환경
 
@@ -46,9 +65,10 @@ npm install
 ## 실행 예제
 
 1. `npm run dev` 실행 후 브라우저에서 접속
-2. 기본 주소(`http://localhost:5173`) → 디자인 시스템 컴포넌트 카탈로그(`App.vue`)
-3. 주소 뒤에 `#file-search` 를 붙이면(`http://localhost:5173/#file-search`) 파일 검색
-   화면(`src/pages/FileSearch/FileSearch.vue`)으로 전환됩니다.
+2. 기본 주소(`http://localhost:5173`) → 파일 검색 화면(`src/pages/FileSearch/FileSearch.vue`),
+   실제 서비스 화면(제품)의 메인 진입점입니다.
+3. 주소 뒤에 `#design-guide` 를 붙이면(`http://localhost:5173/#design-guide`) 디자인 시스템
+   컴포넌트 카탈로그(`src/pages/DesignGuide/DesignGuide.vue`)로 전환됩니다.
 
 ## 커밋 컨벤션
 
@@ -83,5 +103,7 @@ npm install
   정의되어 있고, Tailwind CSS(`src/tailwind.css`)와 연결되어 있습니다.
 - 현재 `src/pages/FileSearch/`는 실제 API 연동 전 단계로, 목업 데이터(`fileSearch.mock.js`)를
   사용합니다. API 연동 시 해당 파일만 교체하면 됩니다.
-- 화면 간 라우팅 라이브러리(Vue Router 등)는 아직 도입되어 있지 않으며, `main.js`에서
-  URL 해시로 화면을 단순 분기하고 있습니다.
+- 화면 간 라우팅 라이브러리(Vue Router 등)는 아직 도입되어 있지 않습니다. 대신
+  `src/router.js`의 경량 자체 라우터가 URL 해시 변화를 반응형으로 추적하고,
+  `src/App.vue`가 그 값에 따라 화면을 전환합니다 — 새로고침 없이 주소창 해시만
+  바꿔도 화면이 전환됩니다.
