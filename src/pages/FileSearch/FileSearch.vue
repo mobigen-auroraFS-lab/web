@@ -1,42 +1,25 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import {
   Calendar as CalendarIcon, X, Download,
   Image as ImageIcon, FileText, Video, Archive, LogOut
 } from '@lucide/vue'
 
-import AInput from './components/AInput.vue'
-import AButton from './components/AButton.vue'
-import ASelect from './components/ASelect.vue'
-import ACheckbox from './components/ACheckbox.vue'
-import ACalendar from './components/ACalendar.vue'
-import APagination from './components/APagination.vue'
-import ABadge from './components/ABadge.vue'
-import AToast from './components/AToast.vue'
+import AInput from '../../components/AInput.vue'
+import AButton from '../../components/AButton.vue'
+import ASelect from '../../components/ASelect.vue'
+import ACheckbox from '../../components/ACheckbox.vue'
+import ACalendar from '../../components/ACalendar.vue'
+import APagination from '../../components/APagination.vue'
+import ABadge from '../../components/ABadge.vue'
+import AToast from '../../components/AToast.vue'
 
-/* ---------------------------------------------------------------- options */
+import { SORT_OPTIONS } from './fileSearch.mock'
+import { useFileSearch } from './useFileSearch'
 
-const TOPIC_OPTIONS = ['의료', '연구', '교육', '행정', '보험청구', '임상시험', '재활', '영상의학', '병리', '약제', '간호', '진단검사', '응급의료', '건강검진', '재택의료']
-const SUBTOPIC_OPTIONS = ['영상검사', '기록', '판독', '기타', '초음파리포트', '내시경기록', '수술기록', '퇴원요약', '검진결과지', '처방기록', '간호기록', '병리결과']
-const TAG_OPTIONS = ['#흉부', '#판독', '#정기검진', '#CT', '#MRI', '#초음파', '#내시경', '#혈액검사', '#소견서', '#영상판독', '#응급', '#외래', '#입원', '#퇴원요약']
-const FILE_TYPE_OPTIONS = ['JPG', 'PNG', 'PDF', 'XLSX', 'DOCX', 'MP4', 'ZIP']
-const SIZE_RANGE_OPTIONS = [
-  { value: '', label: '전체' },
-  { value: 'under1', label: '1MB 미만' },
-  { value: '1to10', label: '1~10MB' },
-  { value: 'over10', label: '10MB 이상' }
-]
-const SORT_OPTIONS = [
-  { value: 'date_desc', label: '최신 수정일순' },
-  { value: 'date_asc', label: '오래된 수정일순' },
-  { value: 'name_asc', label: '파일명순' },
-  { value: 'size_desc', label: '크기 큰순' }
-]
-const SUGGESTED_KEYWORDS = ['흉부', '판독', 'CT', '정기검진']
-const FILTER_COLLAPSED_COUNT = 10
-const TAGS_COLLAPSED_COUNT = 12
+/* ------------------------------------------------------- 확장자별 표시 스타일 */
+/* API로 대체되는 목업 데이터가 아니라, 확장자 -> 아이콘/색상 표시 규칙(뷰 전용 상수)이라 여기 유지 */
 
-const CATEGORY_BY_EXT = { JPG: '이미지', PNG: '이미지', PDF: '문서', XLSX: '문서', DOCX: '문서', MP4: '영상', ZIP: '기타' }
 const EXT_STYLE_MAP = {
   JPG: { bg: 'color-mix(in oklch, var(--color-viz-2) 16%, white)', text: 'var(--color-viz-2)' },
   PNG: { bg: 'color-mix(in oklch, var(--color-viz-2) 16%, white)', text: 'var(--color-viz-2)' },
@@ -48,78 +31,29 @@ const EXT_STYLE_MAP = {
 }
 const ICON_BY_EXT = { JPG: ImageIcon, PNG: ImageIcon, PDF: FileText, XLSX: FileText, DOCX: FileText, MP4: Video, ZIP: Archive }
 
-/* ------------------------------------------------------------ demo data */
+/* --------------------------------------------------------------- 검색 로직 */
 
-const PROFILES = [
-  { base: '흉부사진', topic: '의료', subtopic: '영상검사', tag: '#흉부' },
-  { base: '흉부CT_소견', topic: '의료', subtopic: '영상검사', tag: '#흉부' },
-  { base: '판독소견서', topic: '의료', subtopic: '판독', tag: '#판독' },
-  { base: '정기검진_결과지', topic: '건강검진', subtopic: '검진결과지', tag: '#정기검진' },
-  { base: '판독의뢰서', topic: '의료', subtopic: '판독', tag: '#영상판독' },
-  { base: '초음파리포트', topic: '의료', subtopic: '초음파리포트', tag: '#초음파' },
-  { base: '내시경기록', topic: '의료', subtopic: '내시경기록', tag: '#내시경' },
-  { base: '수술기록', topic: '의료', subtopic: '수술기록', tag: '#입원' },
-  { base: '퇴원요약', topic: '의료', subtopic: '퇴원요약', tag: '#퇴원요약' },
-  { base: '처방기록', topic: '의료', subtopic: '처방기록', tag: '#외래' },
-  { base: '간호기록', topic: '의료', subtopic: '간호기록', tag: '#응급' },
-  { base: '병리결과', topic: '의료', subtopic: '병리결과', tag: '#소견서' }
-]
+const {
+  files, SUGGESTED_KEYWORDS,
+  searchValue, topics, subtopics, tags, newTagValue, resultQuery,
+  tagsExpanded, topicExpanded, subtopicExpanded, topicSearch, subtopicSearch,
+  dateFrom, dateTo, fileTypes, sizeRange, selectedIds, page, perPage, sortValue,
+  filteredRows, pageCount, pagedRows, allPageSelected,
+  resultKeywordPrefix,
+  topicVisible, subtopicVisible, topicFiltered, subtopicFiltered, topicToggleLabel, subtopicToggleLabel,
+  allTagChips, visibleTagChips, showTagToggle, tagToggleLabel, fileTypeChips, sizeRangeChips,
+  appliedConditions,
+  toggleIn,
+  clearAllConditions, addTag, toggleSelectAllPage, toggleRowSelect, pickFromDate, pickToDate
+} = useFileSearch()
 
-function generateFiles(count = 100) {
-  const list = []
-  for (let i = 1; i <= count; i++) {
-    const ext = FILE_TYPE_OPTIONS[i % FILE_TYPE_OPTIONS.length]
-    const profile = PROFILES[i % PROFILES.length]
-    const secondaryTag = TAG_OPTIONS[(i * 3 + 1) % TAG_OPTIONS.length]
-    const tags = [profile.tag, secondaryTag].filter((v, idx, arr) => arr.indexOf(v) === idx)
-    const month = String(1 + (i % 12)).padStart(2, '0')
-    const day = String(1 + (i % 28)).padStart(2, '0')
-    const sizeMB = ext === 'ZIP' || ext === 'MP4' ? 10 + (i % 40) : +(0.5 + (i % 20) * 0.3).toFixed(1)
-    list.push({
-      id: i,
-      name: `${profile.base}_${String(i).padStart(2, '0')}.${ext.toLowerCase()}`,
-      ext,
-      category: CATEGORY_BY_EXT[ext],
-      topic: profile.topic,
-      subtopic: profile.subtopic,
-      tags,
-      date: `2026-${month}-${day}`,
-      sizeMB,
-      sizeLabel: sizeMB < 1 ? `${Math.round(sizeMB * 1024)}KB` : `${sizeMB}MB`
-    })
-  }
-  return list
-}
+/* ---------------------------------------------------------------- 화면 전용 UI 상태 */
 
-const files = generateFiles()
-
-/* -------------------------------------------------------------- state */
-
-const searchValue = ref('흉부')
-const topics = ref(['의료'])
-const subtopics = ref(['영상검사'])
-const tags = ref(['#흉부'])
-const newTagValue = ref('')
-const resultQuery = ref('')
-const tagsExpanded = ref(false)
-const topicExpanded = ref(false)
-const subtopicExpanded = ref(false)
-const topicSearch = ref('')
-const subtopicSearch = ref('')
-const dateFrom = ref(null)
-const dateTo = ref(null)
-const fromCalOpen = ref(false)
-const toCalOpen = ref(false)
-const fileTypes = ref([])
-const sizeRange = ref('')
-const selectedIds = ref([])
-const page = ref(1)
-const perPage = ref(20)
-const sortValue = ref('date_desc')
 const toastMessage = ref('')
 const profileImageError = ref(false)
 const headerVisible = ref(true)
-
+const fromCalOpen = ref(false)
+const toCalOpen = ref(false)
 const dateRangeRef = ref(null)
 let lastScrollY = 0
 
@@ -135,159 +69,31 @@ function onWindowScroll() {
   lastScrollY = currentScrollY
 }
 
-function toggleIn(list, val) {
-  return list.includes(val) ? list.filter((v) => v !== val) : [...list, val]
-}
-function toISODate(d) {
-  if (!d) return ''
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 function formatDateLabel(d) {
   return d ? d.toLocaleDateString('ko-KR') : '연도. 월. 일.'
 }
-function matchesSizeRange(mb, range) {
-  if (range === 'under1') return mb < 1
-  if (range === '1to10') return mb >= 1 && mb <= 10
-  if (range === 'over10') return mb > 10
-  return true
+
+function toggleFromCal() {
+  fromCalOpen.value = !fromCalOpen.value
+  toCalOpen.value = false
 }
-
-/* ------------------------------------------------------------ filtering */
-
-const filteredRows = computed(() => {
-  let rows = files
-  if (topics.value.length) rows = rows.filter((f) => topics.value.includes(f.topic))
-  if (subtopics.value.length) rows = rows.filter((f) => subtopics.value.includes(f.subtopic))
-  if (tags.value.length) rows = rows.filter((f) => f.tags.some((t) => tags.value.includes(t)))
-  if (fileTypes.value.length) rows = rows.filter((f) => fileTypes.value.includes(f.ext))
-  if (sizeRange.value) rows = rows.filter((f) => matchesSizeRange(f.sizeMB, sizeRange.value))
-  const from = toISODate(dateFrom.value)
-  const to = toISODate(dateTo.value)
-  if (from) rows = rows.filter((f) => f.date >= from)
-  if (to) rows = rows.filter((f) => f.date <= to)
-
-  const mainQuery = searchValue.value.trim().toLowerCase()
-  if (mainQuery) {
-    rows = rows.filter(
-      (f) =>
-        f.name.toLowerCase().includes(mainQuery) ||
-        f.category.includes(mainQuery) ||
-        f.topic.includes(mainQuery) ||
-        f.subtopic.includes(mainQuery) ||
-        f.tags.some((t) => t.toLowerCase().includes(mainQuery))
-    )
+function toggleToCal() {
+  toCalOpen.value = !toCalOpen.value
+  fromCalOpen.value = false
+}
+function onPickFromDate(d) {
+  pickFromDate(d)
+  fromCalOpen.value = false
+}
+function onPickToDate(d) {
+  pickToDate(d)
+  toCalOpen.value = false
+}
+function onClickOutsideDateRange(e) {
+  if (dateRangeRef.value && !dateRangeRef.value.contains(e.target)) {
+    fromCalOpen.value = false
+    toCalOpen.value = false
   }
-  const refineQuery = resultQuery.value.trim().toLowerCase()
-  if (refineQuery) {
-    rows = rows.filter(
-      (f) =>
-        f.name.toLowerCase().includes(refineQuery) ||
-        f.category.includes(refineQuery) ||
-        f.tags.some((t) => t.toLowerCase().includes(refineQuery))
-    )
-  }
-  return rows
-})
-
-const sortedRows = computed(() => {
-  const rows = filteredRows.value.slice()
-  const v = sortValue.value
-  rows.sort((a, b) => {
-    if (v === 'date_asc') return a.date.localeCompare(b.date)
-    if (v === 'name_asc') return a.name.localeCompare(b.name, 'ko')
-    if (v === 'size_desc') return b.sizeMB - a.sizeMB
-    return b.date.localeCompare(a.date)
-  })
-  return rows
-})
-
-const pageCount = computed(() => Math.max(1, Math.ceil(sortedRows.value.length / perPage.value)))
-const pagedRows = computed(() => {
-  const start = (page.value - 1) * perPage.value
-  return sortedRows.value.slice(start, start + perPage.value)
-})
-const pageIds = computed(() => pagedRows.value.map((r) => r.id))
-const allPageSelected = computed(() => pageIds.value.length > 0 && pageIds.value.every((id) => selectedIds.value.includes(id)))
-
-watch([topics, subtopics, tags, fileTypes, sizeRange, dateFrom, dateTo, searchValue, resultQuery, perPage], () => {
-  page.value = 1
-})
-watch(page, (p) => {
-  if (p > pageCount.value) page.value = pageCount.value
-})
-
-/* --------------------------------------------------------------- labels */
-
-const resultKeywordPrefix = computed(() => {
-  const s = searchValue.value.trim()
-  if (s) return `"${s}" 키워드 검색결과 `
-  if (topics.value.length || subtopics.value.length || tags.value.length) return '전체 검색결과 '
-  return '전체 파일 '
-})
-
-/* -------------------------------------------------------- topic/subtopic */
-
-const topicVisible = computed(() => TOPIC_OPTIONS.slice(0, FILTER_COLLAPSED_COUNT))
-const subtopicVisible = computed(() => SUBTOPIC_OPTIONS.slice(0, FILTER_COLLAPSED_COUNT))
-const topicFiltered = computed(() => TOPIC_OPTIONS.filter((v) => v.includes(topicSearch.value.trim())))
-const subtopicFiltered = computed(() => SUBTOPIC_OPTIONS.filter((v) => v.includes(subtopicSearch.value.trim())))
-const topicToggleLabel = computed(() =>
-  topicExpanded.value ? '접기 −' : `더보기 (+${Math.max(TOPIC_OPTIONS.length - FILTER_COLLAPSED_COUNT, 0)})`
-)
-const subtopicToggleLabel = computed(() =>
-  subtopicExpanded.value ? '접기 −' : `더보기 (+${Math.max(SUBTOPIC_OPTIONS.length - FILTER_COLLAPSED_COUNT, 0)})`
-)
-
-/* -------------------------------------------------------------- chips */
-
-const allTagChips = computed(() => TAG_OPTIONS.map((v) => ({ label: v, active: tags.value.includes(v) })))
-const visibleTagChips = computed(() => (tagsExpanded.value ? allTagChips.value : allTagChips.value.slice(0, TAGS_COLLAPSED_COUNT)))
-const showTagToggle = computed(() => allTagChips.value.length > TAGS_COLLAPSED_COUNT)
-const tagToggleLabel = computed(() => (tagsExpanded.value ? '접기' : `더보기 (+${allTagChips.value.length - TAGS_COLLAPSED_COUNT})`))
-
-const fileTypeChips = computed(() => FILE_TYPE_OPTIONS.map((v) => ({ label: v, active: fileTypes.value.includes(v) })))
-const sizeRangeChips = computed(() => SIZE_RANGE_OPTIONS.map((o) => ({ label: o.label, value: o.value, active: sizeRange.value === o.value })))
-
-/* ------------------------------------------------------ applied conditions */
-
-const appliedConditions = computed(() => [
-  ...topics.value.map((t) => ({ label: `주제: ${t}`, remove: () => (topics.value = topics.value.filter((x) => x !== t)) })),
-  ...subtopics.value.map((t) => ({ label: `하위주제: ${t}`, remove: () => (subtopics.value = subtopics.value.filter((x) => x !== t)) })),
-  ...tags.value.map((t) => ({ label: `태그: ${t}`, remove: () => (tags.value = tags.value.filter((x) => x !== t)) })),
-  ...fileTypes.value.map((t) => ({ label: `형식: ${t}`, remove: () => (fileTypes.value = fileTypes.value.filter((x) => x !== t)) })),
-  ...(sizeRange.value
-    ? [{ label: `크기: ${SIZE_RANGE_OPTIONS.find((o) => o.value === sizeRange.value).label}`, remove: () => (sizeRange.value = '') }]
-    : [])
-])
-
-function clearAllConditions() {
-  topics.value = []
-  subtopics.value = []
-  tags.value = []
-  fileTypes.value = []
-  sizeRange.value = ''
-}
-
-/* ------------------------------------------------------------- actions */
-
-function addTag(raw) {
-  const v = raw.trim()
-  if (!v) return
-  const norm = v.startsWith('#') ? v : `#${v}`
-  if (!tags.value.includes(norm)) tags.value = [...tags.value, norm]
-  newTagValue.value = ''
-}
-
-function toggleSelectAllPage() {
-  selectedIds.value = allPageSelected.value
-    ? selectedIds.value.filter((id) => !pageIds.value.includes(id))
-    : [...new Set([...selectedIds.value, ...pageIds.value])]
-}
-function toggleRowSelect(id) {
-  selectedIds.value = toggleIn(selectedIds.value, id)
 }
 
 let toastTimer = null
@@ -299,28 +105,6 @@ function bulkDownload() {
   toastTimer = setTimeout(() => (toastMessage.value = ''), 2500)
 }
 
-function toggleFromCal() {
-  fromCalOpen.value = !fromCalOpen.value
-  toCalOpen.value = false
-}
-function toggleToCal() {
-  toCalOpen.value = !toCalOpen.value
-  fromCalOpen.value = false
-}
-function pickFromDate(d) {
-  dateFrom.value = d
-  fromCalOpen.value = false
-}
-function pickToDate(d) {
-  dateTo.value = d
-  toCalOpen.value = false
-}
-function onClickOutsideDateRange(e) {
-  if (dateRangeRef.value && !dateRangeRef.value.contains(e.target)) {
-    fromCalOpen.value = false
-    toCalOpen.value = false
-  }
-}
 onMounted(() => {
   lastScrollY = window.scrollY
   document.addEventListener('mousedown', onClickOutsideDateRange)
@@ -577,7 +361,7 @@ onBeforeUnmount(() => {
                   <span class="truncate">{{ formatDateLabel(dateFrom) }}</span>
                 </button>
                 <div v-if="fromCalOpen" class="absolute top-[calc(100%+4px)] left-0 z-20">
-                  <ACalendar :model-value="dateFrom" @update:model-value="pickFromDate" />
+                  <ACalendar :model-value="dateFrom" @update:model-value="onPickFromDate" />
                 </div>
               </div>
               <span class="text-text-tertiary text-sm shrink-0">~</span>
@@ -590,7 +374,7 @@ onBeforeUnmount(() => {
                   <span class="truncate">{{ formatDateLabel(dateTo) }}</span>
                 </button>
                 <div v-if="toCalOpen" class="absolute top-[calc(100%+4px)] left-0 z-20">
-                  <ACalendar :model-value="dateTo" @update:model-value="pickToDate" />
+                  <ACalendar :model-value="dateTo" @update:model-value="onPickToDate" />
                 </div>
               </div>
             </div>
