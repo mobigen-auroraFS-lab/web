@@ -13,6 +13,11 @@ import AToast from './components/AToast.vue'
 import ACommand from './components/ACommand.vue'
 import ADialog from './components/ADialog.vue'
 import AFileDetailModal from './components/AFileDetailModal.vue'
+import AFilterChip from './components/AFilterChip.vue'
+import AEmptyState from './components/AEmptyState.vue'
+import ASelectionBar from './components/ASelectionBar.vue'
+import ASegmentedControl from './components/ASegmentedControl.vue'
+import APopover from './components/APopover.vue'
 import logoUrl from './asets/logo.png'
 
 /* ---------------------------------------------------------------- options */
@@ -285,10 +290,6 @@ const fileDetailOpen = ref(false)
 const fileDetailTarget = ref(null)
 const paletteOpen = ref(false)
 const density = ref(readStoredDensity())
-const datePickerRef = ref(null)
-const dateButtonRef = ref(null)
-const dateCalendarRef = ref(null)
-const datePickerPosition = ref({ left: 0, top: 0, transform: 'translateY(-100%)' })
 
 let lastScrollY = 0
 
@@ -309,7 +310,6 @@ function onWindowScroll() {
     headerVisible.value = true
   }
   lastScrollY = currentScrollY
-  if (datePickerOpen.value) updateDatePickerPosition()
 }
 
 function toggleIn(list, val) {
@@ -569,13 +569,6 @@ function clearAllConditions() {
   sizeRange.value = ''
   dateFrom.value = null
   dateTo.value = null
-  topics.value = []
-  subtopics.value = []
-  tags.value = []
-  fileTypes.value = []
-  sizeRange.value = ''
-  dateFrom.value = null
-  dateTo.value = null
 }
 
 /* ------------------------------------------------------------- actions */
@@ -601,39 +594,12 @@ function applyDatePreset(days) {
   dateTo.value = to
 }
 
+/* 위치 계산·바깥 클릭·Escape 는 APopover 가 자체적으로 처리한다 —
+   범위 완성 시에만 여기서 닫아준다 */
 function onDateRangeEnd(date) {
   if (date) datePickerOpen.value = false
 }
 
-function updateDatePickerPosition() {
-  if (!dateButtonRef.value) return
-  const rect = dateButtonRef.value.getBoundingClientRect()
-  const calendarWidth = 280
-  const edgePadding = 8
-  const left = Math.min(
-    Math.max(rect.left, edgePadding),
-    Math.max(edgePadding, window.innerWidth - calendarWidth - edgePadding)
-  )
-  const canOpenAbove = rect.top >= 308
-  datePickerPosition.value = {
-    left,
-    top: canOpenAbove ? rect.top - edgePadding : rect.bottom + edgePadding,
-    transform: canOpenAbove ? 'translateY(-100%)' : 'none'
-  }
-}
-
-function toggleDatePicker() {
-  datePickerOpen.value = !datePickerOpen.value
-  if (datePickerOpen.value) nextTick(updateDatePickerPosition)
-}
-
-function onClickOutsideDatePicker(event) {
-  const clickedButton = datePickerRef.value?.contains(event.target)
-  const clickedCalendar = dateCalendarRef.value?.contains(event.target)
-  if (!clickedButton && !clickedCalendar) {
-    datePickerOpen.value = false
-  }
-}
 function isDatePresetActive(days) {
   if (!dateFrom.value || !dateTo.value) return false
   const expectedFrom = new Date()
@@ -829,7 +795,6 @@ function onGlobalKeydown(e) {
   if (e.key !== 'Escape') return
   if (paletteOpen.value) closePalette()
   else if (facetModal.value) closeFacetModal()
-  else if (datePickerOpen.value) datePickerOpen.value = false
   else if (fileDetailOpen.value) closeFileDetail()
 }
 
@@ -923,8 +888,6 @@ onMounted(() => {
   window.addEventListener('scroll', onWindowScroll, { passive: true })
   window.addEventListener('hashchange', applyUrlState)
   window.addEventListener('keydown', onGlobalKeydown)
-  window.addEventListener('resize', updateDatePickerPosition)
-  document.addEventListener('mousedown', onClickOutsideDatePicker)
   if ('IntersectionObserver' in window) {
     loadObserver = new IntersectionObserver(
       (entries) => {
@@ -943,8 +906,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', onWindowScroll)
   window.removeEventListener('hashchange', applyUrlState)
   window.removeEventListener('keydown', onGlobalKeydown)
-  window.removeEventListener('resize', updateDatePickerPosition)
-  document.removeEventListener('mousedown', onClickOutsideDatePicker)
   loadObserver?.disconnect()
   loadObserver = null
   clearTimeout(urlWriteTimer)
@@ -1025,22 +986,15 @@ watch(filteredRows, (rows) => {
               <button v-if="topics.length" class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover" @click="topics = []">해제</button>
             </div>
             <div class="flex gap-2 flex-wrap items-center">
-              <button
+              <AFilterChip
                 v-for="chip in visibleTopicChips"
                 :key="chip.label"
-                :aria-pressed="chip.active"
+                :label="chip.label"
+                :count="chip.count"
+                :active="chip.active"
                 :disabled="chip.disabled"
-                class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none"
-                :class="chip.active
-                  ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
-                  : chip.disabled
-                    ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
-                    : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'"
                 @click="topics = toggleIn(topics, chip.label)"
-              >
-                {{ chip.label }}
-                <span class="text-2xs [font-feature-settings:'tnum']" :class="chip.active ? 'text-[var(--color-primary-100)]' : chip.disabled ? 'text-text-disabled' : 'text-text-tertiary'">{{ chip.count }}</span>
-              </button>
+              />
               <button
                 v-if="TOPIC_OPTIONS.length > visibleTopicChips.length"
                 class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
@@ -1056,27 +1010,17 @@ watch(filteredRows, (rows) => {
               <span class="text-sm font-bold" :class="topics.length ? 'text-text-primary' : 'text-text-tertiary'">하위주제</span>
               <button v-if="subtopics.length" class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover" @click="subtopics = []">해제</button>
             </div>
-            <div v-if="topics.length === 0" class="flex flex-col items-center gap-1.5 py-5 px-3 rounded-md border border-dashed border-border-default">
-              <Lock class="text-icon-muted" :size="14" :stroke-width="1.5" />
-              <p class="m-0 text-xs text-text-tertiary text-center">주제를 먼저 선택하면<br />하위주제가 열립니다</p>
-            </div>
+            <AEmptyState v-if="topics.length === 0" size="sm" :icon="Lock" :description="'주제를 먼저 선택하면\n하위주제가 열립니다'" />
             <div v-else class="flex gap-2 flex-wrap items-center">
-              <button
+              <AFilterChip
                 v-for="chip in subtopicChips"
                 :key="chip.label"
-                :aria-pressed="chip.active"
+                :label="chip.label"
+                :count="chip.count"
+                :active="chip.active"
                 :disabled="chip.disabled"
-                class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none"
-                :class="chip.active
-                  ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
-                  : chip.disabled
-                    ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
-                    : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'"
                 @click="subtopics = toggleIn(subtopics, chip.label)"
-              >
-                {{ chip.label }}
-                <span class="text-2xs [font-feature-settings:'tnum']" :class="chip.active ? 'text-[var(--color-primary-100)]' : chip.disabled ? 'text-text-disabled' : 'text-text-tertiary'">{{ chip.count }}</span>
-              </button>
+              />
               <button
                 v-if="availableSubtopics.length > subtopicChips.length"
                 class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
@@ -1093,26 +1037,16 @@ watch(filteredRows, (rows) => {
               <span class="text-sm font-bold" :class="subtopics.length ? 'text-text-primary' : 'text-text-tertiary'">태그</span>
               <button v-if="tags.length" class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover" @click="tags = []">해제</button>
             </div>
-            <div v-if="subtopics.length === 0" class="flex flex-col items-center gap-1.5 py-5 px-3 rounded-md border border-dashed border-border-default">
-              <Lock class="text-icon-muted" :size="14" :stroke-width="1.5" />
-              <p class="m-0 text-xs text-text-tertiary text-center">하위주제를 먼저 선택하면<br />관련 태그가 열립니다</p>
-            </div>
+            <AEmptyState v-if="subtopics.length === 0" size="sm" :icon="Lock" :description="'하위주제를 먼저 선택하면\n관련 태그가 열립니다'" />
             <div v-else class="flex gap-2 flex-wrap items-center">
-              <button
+              <AFilterChip
                 v-for="chip in visibleTagChips"
                 :key="chip.label"
-                :aria-pressed="chip.active"
+                :label="chip.label"
+                :active="chip.active"
                 :disabled="chip.disabled"
-                class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none"
-                :class="chip.active
-                  ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
-                  : chip.disabled
-                    ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
-                    : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'"
                 @click="tags = toggleIn(tags, chip.label)"
-              >
-                {{ chip.label }}
-              </button>
+              />
               <button
                 v-if="availableTags.length > visibleTagChips.length"
                 class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
@@ -1129,43 +1063,29 @@ watch(filteredRows, (rows) => {
               <button v-if="fileTypes.length" class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover" @click="fileTypes = []">해제</button>
             </div>
             <div class="flex gap-2 flex-wrap items-center">
-              <button
+              <AFilterChip
                 v-for="chip in fileTypeChips"
                 :key="chip.label"
-                :aria-pressed="chip.active"
+                :label="chip.label"
+                :active="chip.active"
                 :disabled="chip.disabled"
-                class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none"
-                :class="chip.active
-                  ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
-                  : chip.disabled
-                    ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
-                    : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'"
                 @click="fileTypes = toggleIn(fileTypes, chip.label)"
-              >
-                {{ chip.label }}
-              </button>
+              />
             </div>
           </div>
 
           <div class="flex flex-col gap-3 border-t border-slate-100 pt-4">
             <span class="text-sm font-bold text-text-primary">크기</span>
             <div class="flex gap-2 flex-wrap items-center" role="radiogroup" aria-label="크기">
-              <button
+              <AFilterChip
                 v-for="chip in sizeRangeChips"
                 :key="chip.label"
-                role="radio"
-                :aria-checked="chip.active"
+                radio
+                :label="chip.label"
+                :active="chip.active"
                 :disabled="chip.disabled"
-                class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none"
-                :class="chip.active
-                  ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
-                  : chip.disabled
-                    ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
-                    : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'"
                 @click="sizeRange = chip.value"
-              >
-                {{ chip.label }}
-              </button>
+              />
             </div>
           </div>
 
@@ -1175,53 +1095,36 @@ watch(filteredRows, (rows) => {
               <button v-if="dateFrom || dateTo" class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover" @click="clearDateRange">해제</button>
             </div>
             <div class="flex gap-2 flex-wrap items-center">
-              <button
+              <AFilterChip
                 v-for="preset in DATE_PRESETS"
                 :key="preset.days"
-                :aria-pressed="isDatePresetActive(preset.days)"
+                :label="preset.label"
+                :active="isDatePresetActive(preset.days)"
                 :disabled="datePresetCounts[preset.days] === 0 && !isDatePresetActive(preset.days)"
-                class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none"
-                :class="isDatePresetActive(preset.days)
-                  ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
-                  : datePresetCounts[preset.days] === 0
-                    ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
-                    : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'"
                 @click="applyDatePreset(preset.days)"
-              >
-                {{ preset.label }}
-              </button>
+              />
             </div>
-            <div ref="datePickerRef" class="relative">
-              <button
-                ref="dateButtonRef"
-                class="flex items-center gap-2 w-[200px] max-w-full h-control-md px-2.5 bg-bg-surface border border-border-default rounded-md cursor-pointer box-border hover:border-border-strong"
-                :class="dateFrom || dateTo ? 'text-text-primary' : 'text-text-tertiary'"
-                :aria-expanded="datePickerOpen"
-                @click="toggleDatePicker"
-              >
-                <CalendarIcon class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
-                <span class="truncate text-sm">{{ dateRangeLabel }}</span>
-              </button>
-            </div>
-            <Teleport to="body">
-              <div
-                v-if="datePickerOpen"
-                ref="dateCalendarRef"
-                class="fixed z-[60]"
-                :style="{
-                  left: `${datePickerPosition.left}px`,
-                  top: `${datePickerPosition.top}px`,
-                  transform: datePickerPosition.transform
-                }"
-              >
+            <APopover v-model="datePickerOpen" :panel-width="280" :panel-max-height="320">
+              <template #trigger="{ toggle }">
+                <button
+                  class="flex items-center gap-2 w-[200px] max-w-full h-control-md px-2.5 bg-bg-surface border border-border-default rounded-md cursor-pointer box-border hover:border-border-strong"
+                  :class="dateFrom || dateTo ? 'text-text-primary' : 'text-text-tertiary'"
+                  :aria-expanded="datePickerOpen"
+                  @click="toggle"
+                >
+                  <CalendarIcon class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
+                  <span class="truncate text-sm">{{ dateRangeLabel }}</span>
+                </button>
+              </template>
+              <template #content>
                 <ACalendar
                   range
                   v-model:start="dateFrom"
                   v-model:end="dateTo"
                   @update:end="onDateRangeEnd"
                 />
-              </div>
-            </Teleport>
+              </template>
+            </APopover>
           </div>
         </aside>
 
@@ -1357,19 +1260,7 @@ watch(filteredRows, (rows) => {
               <!-- 밀도는 표시 설정일 뿐이라 실제 필터(목록 좁히기)보다 가볍게 둔다.
                    올린 카드가 아니라 눌린 트랙 + 흰 썸 — 높이도 좁히기와 같은 32px.
                    썸에 shadow 를 걸지 않는 건 전역 button{box-shadow:none} 이 유틸리티를 이기기 때문 -->
-              <div class="inline-flex items-center gap-0.5 p-0.5 rounded-md bg-slate-100 font-sans" role="radiogroup" aria-label="목록 밀도">
-                <button
-                  v-for="opt in DENSITY_OPTIONS"
-                  :key="opt.value"
-                  role="radio"
-                  :aria-checked="density === opt.value"
-                  class="inline-flex items-center h-7 px-2.5 rounded-sm text-xs font-medium border-none cursor-pointer"
-                  :class="density === opt.value ? 'bg-bg-surface text-text-primary' : 'bg-transparent text-text-tertiary hover:text-text-primary'"
-                  @click="density = opt.value"
-                >
-                  {{ opt.label }}
-                </button>
-              </div>
+              <ASegmentedControl v-model="density" :options="DENSITY_OPTIONS" aria-label="목록 밀도" />
             </div>
           </div>
           </div>
@@ -1379,24 +1270,15 @@ watch(filteredRows, (rows) => {
           <!-- body 로 Teleport: 결과 컬럼의 등장 애니메이션이 남긴 translate-y-0 이
                transform:translate(0,0) 으로 남아 fixed 의 containing block 을 가로채므로,
                뷰포트 기준 고정을 보장하려면 그 조상 바깥으로 빼내야 한다 -->
-          <Teleport to="body">
-            <div v-if="selectedIds.length > 0" role="status" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100vw-32px)] pointer-events-none">
-              <div class="pointer-events-auto flex items-center gap-1 flex-wrap justify-center bg-[var(--color-slate-900)] rounded-lg py-1.5 pl-4.5 pr-1.5 shadow-elevation-3">
-                <div class="flex items-center gap-2.5 pr-4">
-                  <span class="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-primary-500 text-text-inverse text-xs font-bold [font-feature-settings:'tnum']">{{ selectedIds.length }}</span>
-                  <span class="text-sm text-slate-100 font-medium whitespace-nowrap">건 선택됨</span>
-                </div>
-                <div class="w-px h-[22px] bg-slate-700 shrink-0"></div>
-                <button class="flex items-center gap-1.5 h-[38px] px-4 bg-transparent border-none rounded-md text-sm text-slate-300 font-medium cursor-pointer whitespace-nowrap hover:bg-slate-700 hover:text-slate-100" @click="selectedIds = []">
-                  <X :size="14" :stroke-width="1.5" />
-                  선택 해제
-                </button>
-                <AButton variant="primary" class="!h-[38px] !rounded-md" @click="bulkDownload">
-                  <span class="flex items-center gap-2"><Download :size="15" :stroke-width="1.8" /> 다운로드</span>
-                </AButton>
-              </div>
-            </div>
-          </Teleport>
+          <ASelectionBar :count="selectedIds.length">
+            <button class="flex items-center gap-1.5 h-[38px] px-4 bg-transparent border-none rounded-md text-sm text-slate-300 font-medium cursor-pointer whitespace-nowrap hover:bg-slate-700 hover:text-slate-100" @click="selectedIds = []">
+              <X :size="14" :stroke-width="1.5" />
+              선택 해제
+            </button>
+            <AButton variant="primary" class="!h-[38px] !rounded-md" @click="bulkDownload">
+              <span class="flex items-center gap-2"><Download :size="15" :stroke-width="1.8" /> 다운로드</span>
+            </AButton>
+          </ASelectionBar>
 
           <!-- relative 가 없으면 내부 sr-only(position:absolute)가 overflow 클리핑을 빠져나가
                페이지 가로 스크롤을 만든다 — 스크롤 컨테이너는 스스로 containing block 이어야 한다 -->
@@ -1509,25 +1391,20 @@ watch(filteredRows, (rows) => {
               </div>
             </div>
             <div v-if="visibleRows.length === 0" class="p-6 border-t border-border-default">
-              <div class="flex flex-col items-center gap-3 py-10 px-6 rounded-md border border-dashed border-border-default">
-                <SearchX class="text-icon-muted" :size="28" :stroke-width="1.25" />
-                <div class="flex flex-col items-center gap-1">
-                  <p class="m-0 text-base font-semibold text-text-primary">조건에 해당하는 파일이 없습니다</p>
-                  <p class="m-0 text-sm text-text-tertiary text-center">
-                    적용된 조건 {{ appliedConditions.length }}개가 서로 맞지 않을 수 있습니다. 조건을 줄여보세요.
-                  </p>
-                </div>
-                <div class="flex items-center gap-2 flex-wrap justify-center pt-1">
-                  <button
-                    v-if="searchTerms.length"
-                    class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
-                    @click="setSearch('')"
-                  >
-                    검색어만 지우기
-                  </button>
-                  <AButton v-if="appliedConditions.length" variant="primary" class="!h-control-md" @click="clearAllConditions">조건 모두 해제</AButton>
-                </div>
-              </div>
+              <AEmptyState
+                :icon="SearchX"
+                title="조건에 해당하는 파일이 없습니다"
+                :description="`적용된 조건 ${appliedConditions.length}개가 서로 맞지 않을 수 있습니다. 조건을 줄여보세요.`"
+              >
+                <button
+                  v-if="searchTerms.length"
+                  class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                  @click="setSearch('')"
+                >
+                  검색어만 지우기
+                </button>
+                <AButton v-if="appliedConditions.length" variant="primary" class="!h-control-md" @click="clearAllConditions">조건 모두 해제</AButton>
+              </AEmptyState>
             </div>
 
             <!-- 무한 스크롤 감지선은 실제 스크롤 컨테이너(이 role=table div) 안에 있어야 한다.
