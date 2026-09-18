@@ -115,6 +115,7 @@
 
   --color-focus-ring: var(--color-primary-500);
   --color-icon-default: var(--color-text-secondary);
+  --color-icon-muted: var(--color-text-tertiary);
 
   --color-status-success-bg: var(--color-green-50);
   --color-status-success-text: var(--color-green-700);

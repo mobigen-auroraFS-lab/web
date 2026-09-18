@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { User, CreditCard, Sun, Keyboard, Users, UserPlus, Plus, Code2, LifeBuoy, Cloud, LogOut } from '@lucide/vue'
+import { User, CreditCard, Sun, Keyboard, Users, UserPlus, Plus, Code2, LifeBuoy, Cloud, LogOut, Lock, SearchX, FileText } from '@lucide/vue'
 
 import AButton from '../../components/AButton.vue'
 import ABadge from '../../components/ABadge.vue'
@@ -28,6 +28,12 @@ import ATooltip from '../../components/ATooltip.vue'
 import AToast from '../../components/AToast.vue'
 import APagination from '../../components/APagination.vue'
 import ACalendar from '../../components/ACalendar.vue'
+import AFilterChip from '../../components/AFilterChip.vue'
+import AEmptyState from '../../components/AEmptyState.vue'
+import ASelectionBar from '../../components/ASelectionBar.vue'
+import ASegmentedControl from '../../components/ASegmentedControl.vue'
+import APopover from '../../components/APopover.vue'
+import AFileDetailModal from '../../components/AFileDetailModal.vue'
 
 const dialogOpen = ref(false)
 const alertDialogOpen = ref(false)
@@ -43,6 +49,8 @@ const page = ref(1)
 const perPage = ref(10)
 const selectedRow = ref(3)
 const calendarDate = ref(new Date(2024, 0, 22))
+const calendarRangeStart = ref(new Date(2024, 0, 15))
+const calendarRangeEnd = ref(new Date(2024, 0, 18))
 
 const dropdownSections = [
   [
@@ -77,6 +85,16 @@ const commandItems = [
   { label: 'Search Emoji' },
   { label: 'Calculator', disabled: true }
 ]
+/* hint는 항목 오른쪽에 보조 정보(카테고리·단축키 등)를 붙일 때만 넘기면 된다 —
+   생략하면 예전 Command 사용처처럼 라벨만 나온다 */
+const commandItemsWithHint = [
+  { label: '새 문서 만들기', hint: '동작' },
+  { label: '검색 결과 내보내기', hint: '동작' },
+  { label: '흉부CT_소견_25.docx', hint: '파일' },
+  { label: '판독소견서_09.pdf', hint: '파일' },
+  { label: '설정', hint: '이동', disabled: true }
+]
+const commandPaletteRef = ref(null)
 
 const tableColumns = [
   { key: 'status', label: 'Status' },
@@ -88,6 +106,64 @@ const tableRows = [
   { id: 2, status: 'Processing', email: 'abe45@gmail.com', amount: '$242.00' },
   { id: 3, status: 'Selected', email: 'monserrat44@gmail.com', amount: '$837.00' }
 ]
+
+/* -------------------------------------------------------- Filter Chip */
+
+const filterChipDemo = ref(['의료'])
+const filterChipOptions = [
+  { label: '의료', count: 42 },
+  { label: '연구', count: 8 },
+  { label: '건강검진', count: 0 }
+]
+function toggleFilterChip(label) {
+  filterChipDemo.value = filterChipDemo.value.includes(label)
+    ? filterChipDemo.value.filter((v) => v !== label)
+    : [...filterChipDemo.value, label]
+}
+
+/* -------------------------------------------------------- Selection Bar */
+
+const selectionBarDemo = ref(2)
+
+/* -------------------------------------------------------- Segmented Control */
+
+const segmentedDemo = ref('comfortable')
+const segmentedOptions = [
+  { value: 'compact', label: '좁게' },
+  { value: 'comfortable', label: '보통' },
+  { value: 'spacious', label: '넓게' }
+]
+
+/* -------------------------------------------------------- Popover */
+
+const popoverOpen = ref(false)
+const popoverDate = ref(new Date(2024, 0, 22))
+
+/* -------------------------------------------------------- File Detail Modal */
+
+const fileDetailDemoOpen = ref(false)
+const fileDetailDemoFile = {
+  id: 'demo-1',
+  name: '흉부CT_소견_25.docx',
+  typeBadge: '문서',
+  typeBadgeStyle: { bg: 'color-mix(in oklch, var(--color-viz-1) 16%, white)', text: 'var(--color-viz-1)' },
+  fileFormat: 'docx',
+  sizeLabel: '2MB',
+  uploadedAt: '2026-02-26',
+  source: '자동 수집',
+  breadcrumb: [{ label: '의료', level: 'topic' }, { label: '영상검사', level: 'subtopic' }],
+  extractedInfo: { summary: '의료 · 영상검사 분류로 등록된 자료입니다. #흉부, #내시경 관련 내용을 포함하고 있습니다.' },
+  fullText: '흉부CT_소견_25.docx 원문 추출 텍스트 예시입니다. 도입부에서는 배경과 목적을 설명하고, 본론에서는 세부 절차를 단계별로 기술합니다.',
+  fullTextStatus: 'ready',
+  basicInfo: [
+    { key: 'format', label: 'format', value: 'docx' },
+    { key: 'file_size', label: 'file_size', value: '2MB' },
+    { key: 'page_count', label: '페이지 수', value: '12쪽' }
+  ],
+  topics: [{ id: '영상검사', label: '의료 · 영상검사', relatedCount: 17, clickable: true }],
+  multimodalMeta: [{ id: '#흉부', label: '#흉부', count: 17 }, { id: '#내시경', label: '#내시경', count: 3 }],
+  relations: { related: [], sameTopic: [] }
+}
 
 /* ---------------------------------------------------------- Design Foundation */
 
@@ -232,7 +308,13 @@ const navGroups = [
       { id: 'tooltip', label: 'Tooltip' },
       { id: 'toast', label: 'Toast' },
       { id: 'pagination', label: 'Pagination' },
-      { id: 'calendar', label: 'Calendar' }
+      { id: 'calendar', label: 'Calendar' },
+      { id: 'filter-chip', label: 'Filter Chip' },
+      { id: 'empty-state', label: 'Empty State' },
+      { id: 'selection-bar', label: 'Selection Bar' },
+      { id: 'segmented-control', label: 'Segmented Control' },
+      { id: 'popover', label: 'Popover' },
+      { id: 'file-detail-modal', label: 'File Detail Modal' }
     ]
   }
 ]
@@ -632,7 +714,19 @@ onBeforeUnmount(() => sectionObserver?.disconnect())
 
     <section id="command">
       <h2>Command</h2>
-      <ACommand group-label="Suggestions" :items="commandItems" />
+      <div class="stack">
+        <span class="caption">기본 — 라벨만, ↑↓ 로 이동 · Enter 로 선택</span>
+        <ACommand group-label="Suggestions" :items="commandItems" />
+        <span class="caption">hint · width · limit — 항목 오른쪽 보조 정보, 폭 지정, 표시 개수 제한</span>
+        <ACommand
+          ref="commandPaletteRef"
+          group-label="필터를 고르거나 파일명을 입력하세요"
+          placeholder="명령 또는 파일 검색…"
+          :items="commandItemsWithHint"
+          width="420px"
+          :limit="10"
+        />
+      </div>
     </section>
 
     <section id="data-table">
@@ -670,7 +764,93 @@ onBeforeUnmount(() => sectionObserver?.disconnect())
 
     <section id="calendar">
       <h2>Calendar</h2>
-      <ACalendar v-model="calendarDate" />
+      <div class="stack">
+        <span class="caption">단일 선택 — 요일·월 라벨은 document.documentElement.lang 을 따른다</span>
+        <ACalendar v-model="calendarDate" />
+        <span class="caption">range — v-model:start / v-model:end, 시작만 고르면 호버로 범위 미리보기</span>
+        <ACalendar range v-model:start="calendarRangeStart" v-model:end="calendarRangeEnd" />
+      </div>
+    </section>
+
+    <section id="filter-chip">
+      <h2>Filter Chip</h2>
+      <p class="section-desc">라벨 + (선택) 결과 개수 + active/disabled 상태를 갖는 필터 토글 칩. count=0 인 항목은 배경은 그대로 두고 글자만 흐리게 해 "버튼처럼 보이되 고를 수 없음"을 표현한다.</p>
+      <div class="row">
+        <AFilterChip
+          v-for="opt in filterChipOptions"
+          :key="opt.label"
+          :label="opt.label"
+          :count="opt.count"
+          :active="filterChipDemo.includes(opt.label)"
+          :disabled="opt.count === 0 && !filterChipDemo.includes(opt.label)"
+          @click="toggleFilterChip(opt.label)"
+        />
+      </div>
+      <div class="row">
+        <span class="label">radio</span>
+        <AFilterChip radio label="전체" :active="true" />
+        <AFilterChip radio label="1MB 미만" :active="false" />
+      </div>
+    </section>
+
+    <section id="empty-state">
+      <h2>Empty State</h2>
+      <div class="row" style="align-items: flex-start">
+        <div style="width: 220px">
+          <span class="caption" style="display: block; margin-bottom: 8px">sm — 인라인 잠금 안내</span>
+          <AEmptyState size="sm" :icon="Lock" :description="'상위 조건을 먼저 선택하면\n이 필터가 열립니다'" />
+        </div>
+        <div style="width: 360px">
+          <span class="caption" style="display: block; margin-bottom: 8px">md — 결과 없음 + 복구 액션</span>
+          <AEmptyState :icon="SearchX" title="조건에 해당하는 파일이 없습니다" description="적용된 조건 3개가 서로 맞지 않을 수 있습니다.">
+            <AButton variant="secondary">조건 모두 해제</AButton>
+          </AEmptyState>
+        </div>
+      </div>
+    </section>
+
+    <section id="selection-bar">
+      <h2>Selection Bar</h2>
+      <div class="row">
+        <AButton variant="secondary" @click="selectionBarDemo = selectionBarDemo > 0 ? 0 : 2">
+          {{ selectionBarDemo > 0 ? '선택 비우기' : '2건 선택하기' }}
+        </AButton>
+        <span class="caption">화면 하단 중앙에 뜬다 — count=0 이면 렌더링하지 않는다</span>
+      </div>
+      <ASelectionBar :count="selectionBarDemo">
+        <button
+          style="height: 38px; padding: 0 16px; background: transparent; border: none; border-radius: var(--radius-md); color: var(--color-slate-300); font-size: var(--text-sm-size); cursor: pointer"
+          @click="selectionBarDemo = 0"
+        >
+          선택 해제
+        </button>
+        <AButton variant="primary" style="height: 38px; border-radius: var(--radius-md)">다운로드</AButton>
+      </ASelectionBar>
+    </section>
+
+    <section id="segmented-control">
+      <h2>Segmented Control</h2>
+      <ASegmentedControl v-model="segmentedDemo" :options="segmentedOptions" aria-label="데모 밀도" />
+    </section>
+
+    <section id="popover">
+      <h2>Popover</h2>
+      <p class="section-desc">뷰포트 밖으로 나가지 않게 위치를 clamp 하고, 아래에 펼칠 자리가 없으면 위로 뒤집는다. 트리거가 스크롤 가능한 조상 안에 있어도 body 로 teleport 되어 잘리지 않는다.</p>
+      <APopover v-model="popoverOpen" :panel-width="280" :panel-max-height="320">
+        <template #trigger="{ toggle }">
+          <AButton variant="secondary" @click="toggle">기간 선택 열기</AButton>
+        </template>
+        <template #content>
+          <ACalendar v-model="popoverDate" />
+        </template>
+      </APopover>
+    </section>
+
+    <section id="file-detail-modal">
+      <h2>File Detail Modal</h2>
+      <p class="section-desc">목록/카드에서 항목을 열어 원본 메타데이터·추출 정보·관계 파일을 한 화면에서 보여주는 대형 중앙 모달. 컴포넌트 상단 JSDoc 의 FileDetail 타입대로 데이터를 맞추면 그대로 연결된다.</p>
+      <AButton variant="secondary" @click="fileDetailDemoOpen = true">파일 상세 정보 열기</AButton>
+      <AFileDetailModal v-model:open="fileDetailDemoOpen" :file="fileDetailDemoFile" :icon="FileText" />
     </section>
     </main>
   </div>
@@ -762,6 +942,19 @@ h2 {
 }
 .label {
   width: 64px;
+  font-size: var(--text-xs-size);
+  color: var(--color-text-tertiary);
+}
+.section-desc {
+  max-width: 560px;
+  margin: 0 0 12px;
+  font-size: var(--text-sm-size);
+  color: var(--color-text-tertiary);
+  line-height: 1.5;
+}
+/* .label 은 .row 안 64px 고정폭 프리픽스 태그용 — 여러 단어짜리 설명 캡션에
+   그대로 쓰면 글자가 세로로 쪼개진다. 캡션은 이 클래스를 쓴다 */
+.caption {
   font-size: var(--text-xs-size);
   color: var(--color-text-tertiary);
 }
