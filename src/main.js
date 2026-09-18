@@ -1,8 +1,5 @@
 import { createApp } from 'vue'
 import App from './App.vue'
-import FileSearch from './FileSearch.vue'
-import './tailwind.css'
-import '../styles.css'
+import './style.css'
 
-const root = location.hash === '#file-search' ? FileSearch : App
-createApp(root).mount('#app')
+createApp(App).mount('#app')

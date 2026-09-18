@@ -1,5 +1,5 @@
 /*
- * Bridges tokens/*.css (the design-system's own custom properties) into
+ * Bridges src/tokens/*.css (the design-system's own custom properties) into
  * Tailwind v4's @theme so components can use utility classes
  * (bg-action-primary, rounded-md, shadow-elevation-2, ...) instead of
  * hand-written CSS.
@@ -11,7 +11,7 @@
  * from tokens/colors.css: pointing a theme entry at a `:root` variable of
  * the *same* name would be circular (Tailwind's own generated declaration
  * would just point back to itself). If a primitive color changes in
- * tokens/colors.css, mirror the change here too.
+ * src/tokens/colors.css, mirror the change here too.
  */
 @theme {
   --font-sans: var(--font-family-sans);
@@ -115,6 +115,7 @@
 
   --color-focus-ring: var(--color-primary-500);
   --color-icon-default: var(--color-text-secondary);
+  --color-icon-muted: var(--color-text-tertiary);
 
   --color-status-success-bg: var(--color-green-50);
   --color-status-success-text: var(--color-green-700);
