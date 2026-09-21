@@ -44,9 +44,9 @@ onBeforeUnmount(() => {
     :class="headerVisible ? 'translate-y-0' : '-translate-y-full'"
   >
     <div class="flex items-center gap-8 min-w-0">
-      <div class="flex items-center gap-2 shrink-0">
+      <a href="#file-search" class="flex items-center shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
         <img :src="logoUrl" alt="AuroraFS · 파일 검색 홈으로 이동" class="h-5 w-auto object-contain" />
-      </div>
+      </a>
       <nav class="flex items-center gap-1">
         <a
           v-for="item in NAV_ITEMS"
@@ -61,7 +61,7 @@ onBeforeUnmount(() => {
       <button class="flex items-center gap-2 bg-transparent border-none cursor-pointer py-1 px-2 rounded-md hover:bg-bg-surface-hover">
         <img
           v-if="!profileImageError"
-          src="https://i.pravatar.cc/60?img=12"
+          src="https://api.dicebear.com/9.x/notionists/svg?seed=hong-gildong&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&backgroundType=gradientLinear"
           alt="홍길동 프로필 사진"
           class="w-[30px] h-[30px] rounded-full object-cover shrink-0"
           @error="profileImageError = true"
