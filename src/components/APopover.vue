@@ -95,7 +95,7 @@ defineExpose({ updatePosition })
 </script>
 
 <template>
-  <span ref="triggerRef" class="contents">
+  <span ref="triggerRef">
     <slot name="trigger" :open="modelValue" :toggle="toggle" :close="close" />
   </span>
   <Teleport to="body">
