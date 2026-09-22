@@ -1,3 +1,19 @@
+<template>
+  <span ref="triggerRef">
+    <slot name="trigger" :open="modelValue" :toggle="toggle" :close="close" />
+  </span>
+  <Teleport to="body">
+    <div
+      v-if="modelValue"
+      ref="panelRef"
+      class="fixed z-[60]"
+      :style="{ left: `${position.left}px`, top: `${position.top}px`, transform: position.transform }"
+    >
+      <slot name="content" :close="close" />
+    </div>
+  </Teleport>
+</template>
+
 <script setup>
 /**
  * 트리거 옆에 뜨는 위치 인식 플로팅 패널. 뷰포트 가장자리를 벗어나지 않도록
@@ -38,10 +54,7 @@ function updatePosition() {
   if (!triggerRef.value) return
   const rect = triggerRef.value.getBoundingClientRect()
   const edgePadding = 8
-  const left = Math.min(
-    Math.max(rect.left, edgePadding),
-    Math.max(edgePadding, window.innerWidth - props.panelWidth - edgePadding)
-  )
+  const left = Math.min(Math.max(rect.left, edgePadding), Math.max(edgePadding, window.innerWidth - props.panelWidth - edgePadding))
   const canOpenAbove = rect.top >= props.panelMaxHeight + edgePadding * 2
   position.value = {
     left,
@@ -93,19 +106,3 @@ onBeforeUnmount(unbindGlobalListeners)
 
 defineExpose({ updatePosition })
 </script>
-
-<template>
-  <span ref="triggerRef">
-    <slot name="trigger" :open="modelValue" :toggle="toggle" :close="close" />
-  </span>
-  <Teleport to="body">
-    <div
-      v-if="modelValue"
-      ref="panelRef"
-      class="fixed z-[60]"
-      :style="{ left: `${position.left}px`, top: `${position.top}px`, transform: position.transform }"
-    >
-      <slot name="content" :close="close" />
-    </div>
-  </Teleport>
-</template>

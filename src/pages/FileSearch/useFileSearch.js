@@ -1,8 +1,20 @@
 import { ref, computed, watch } from 'vue'
 import {
-  TOPIC_OPTIONS, SUBTOPIC_OPTIONS, TAG_OPTIONS, FILE_TYPE_OPTIONS, SIZE_RANGE_OPTIONS,
-  SORTABLE, DATE_PRESETS, DENSITY_OPTIONS, TOPIC_SUBTOPIC_MAP, SUBTOPIC_TAG_MAP, FACET_VISIBLE_COUNT,
-  generateFiles, buildFileDetail, readStoredDensity, DENSITY_STORAGE_KEY
+  TOPIC_OPTIONS,
+  SUBTOPIC_OPTIONS,
+  TAG_OPTIONS,
+  FILE_TYPE_OPTIONS,
+  SIZE_RANGE_OPTIONS,
+  SORTABLE,
+  DATE_PRESETS,
+  DENSITY_OPTIONS,
+  TOPIC_SUBTOPIC_MAP,
+  SUBTOPIC_TAG_MAP,
+  FACET_VISIBLE_COUNT,
+  generateFiles,
+  buildFileDetail,
+  readStoredDensity,
+  DENSITY_STORAGE_KEY
 } from './fileSearch.mock'
 
 function toggleIn(list, val) {
@@ -266,9 +278,7 @@ export function useFileSearch() {
 
   const appliedConditions = computed(() => [
     ...searchTerms.value.map((t) => ({ label: `검색어: ${t}`, remove: () => removeSearchTerm(t) })),
-    ...(resultSearchTerms.value.length
-      ? [{ label: `목록 좁히기: ${resultSearchValue.value}`, remove: () => setResultSearch('') }]
-      : []),
+    ...(resultSearchTerms.value.length ? [{ label: `목록 좁히기: ${resultSearchValue.value}`, remove: () => setResultSearch('') }] : []),
     ...topics.value.map((t) => ({ label: `주제: ${t}`, remove: () => (topics.value = topics.value.filter((x) => x !== t)) })),
     ...subtopics.value.map((t) => ({ label: `하위주제: ${t}`, remove: () => (subtopics.value = subtopics.value.filter((x) => x !== t)) })),
     ...tags.value.map((t) => ({ label: `태그: ${t}`, remove: () => (tags.value = tags.value.filter((x) => x !== t)) })),
@@ -277,7 +287,15 @@ export function useFileSearch() {
       ? [{ label: `크기: ${SIZE_RANGE_OPTIONS.find((o) => o.value === sizeRange.value).label}`, remove: () => (sizeRange.value = '') }]
       : []),
     ...(dateFrom.value || dateTo.value
-      ? [{ label: `기간: ${dateRangeLabel.value}`, remove: () => { dateFrom.value = null; dateTo.value = null } }]
+      ? [
+          {
+            label: `기간: ${dateRangeLabel.value}`,
+            remove: () => {
+              dateFrom.value = null
+              dateTo.value = null
+            }
+          }
+        ]
       : [])
   ])
 
@@ -570,48 +588,107 @@ export function useFileSearch() {
 
   /* ------------------------------------------------------------- density */
 
-  watch(density, (v) => {
-    document.documentElement.dataset.density = v
-    try {
-      localStorage.setItem(DENSITY_STORAGE_KEY, v)
-    } catch {
-      /* 저장할 수 없으면 이번 세션에만 적용된다 */
-    }
-  }, { immediate: true })
+  watch(
+    density,
+    (v) => {
+      document.documentElement.dataset.density = v
+      try {
+        localStorage.setItem(DENSITY_STORAGE_KEY, v)
+      } catch {
+        /* 저장할 수 없으면 이번 세션에만 적용된다 */
+      }
+    },
+    { immediate: true }
+  )
 
   return {
     files,
 
-    searchDraft, resultSearchDraft, topics, subtopics, tags,
-    dateFrom, dateTo, fileTypes, sizeRange, selectedIds, sortKey, sortDir,
-    toastMessage, fileDetailOpen, fileDetailTarget, density,
-    facetModal, facetQuery,
+    searchDraft,
+    resultSearchDraft,
+    topics,
+    subtopics,
+    tags,
+    dateFrom,
+    dateTo,
+    fileTypes,
+    sizeRange,
+    selectedIds,
+    sortKey,
+    sortDir,
+    toastMessage,
+    fileDetailOpen,
+    fileDetailTarget,
+    density,
+    facetModal,
+    facetQuery,
 
-    searchTerms, searchDirty,
-    commitSearch, setSearch, commitResultSearch, setResultSearch,
+    searchTerms,
+    searchDirty,
+    commitSearch,
+    setSearch,
+    commitResultSearch,
+    setResultSearch,
 
-    filteredRows, sortedRows, visibleRows, visibleIds, allVisibleSelected, allResultsSelected, canSelectAllResults,
+    filteredRows,
+    sortedRows,
+    visibleRows,
+    visibleIds,
+    allVisibleSelected,
+    allResultsSelected,
+    canSelectAllResults,
     resultKeywordPrefix,
 
-    visibleTopicChips, availableSubtopics, subtopicChips, availableTags, visibleTagChips,
-    fileTypeChips, sizeRangeChips, dateRangeLabel, datePresetCounts,
-    appliedConditions, clearAllConditions, clearDateRange,
+    visibleTopicChips,
+    availableSubtopics,
+    subtopicChips,
+    availableTags,
+    visibleTagChips,
+    fileTypeChips,
+    sizeRangeChips,
+    dateRangeLabel,
+    datePresetCounts,
+    appliedConditions,
+    clearAllConditions,
+    clearDateRange,
 
-    toggleSort, ariaSortFor,
-    applyDatePreset, isDatePresetActive,
+    toggleSort,
+    ariaSortFor,
+    applyDatePreset,
+    isDatePresetActive,
 
-    selectAllResults, toggleSelectAllVisible, toggleRowSelect, loadMoreRows,
+    selectAllResults,
+    toggleSelectAllVisible,
+    toggleRowSelect,
+    loadMoreRows,
 
-    bulkDownload, downloadOne,
+    bulkDownload,
+    downloadOne,
 
-    openFileDetail, closeFileDetail, onRowClick, fileDetail,
-    onDownloadOriginal, onDownloadZip, onCopyLinkDetail,
-    onBreadcrumbClickDetail, onTopicClickDetail, onMetaClickDetail, onRelationClickDetail,
+    openFileDetail,
+    closeFileDetail,
+    onRowClick,
+    fileDetail,
+    onDownloadOriginal,
+    onDownloadZip,
+    onCopyLinkDetail,
+    onBreadcrumbClickDetail,
+    onTopicClickDetail,
+    onMetaClickDetail,
+    onRelationClickDetail,
 
-    openFacetModal, closeFacetModal, confirmFacetModal,
-    facetModalTitle, facetModalTotal, facetModalRows, toggleFacetValue,
+    openFacetModal,
+    closeFacetModal,
+    confirmFacetModal,
+    facetModalTitle,
+    facetModalTotal,
+    facetModalRows,
+    toggleFacetValue,
 
-    paletteOpen, paletteItems, closePalette, runPaletteItem,
+    paletteOpen,
+    paletteItems,
+    closePalette,
+    runPaletteItem,
 
     applyUrlState,
 

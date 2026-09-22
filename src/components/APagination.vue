@@ -1,16 +1,3 @@
-<script setup>
-import { ChevronLeft, ChevronRight, ChevronDown } from '@lucide/vue'
-
-defineProps({
-  page: { type: Number, required: true },
-  pageCount: { type: Number, required: true },
-  perPage: { type: Number, default: 10 },
-  perPageOptions: { type: Array, default: () => [10, 20, 50] }
-})
-
-defineEmits(['update:page', 'update:perPage'])
-</script>
-
 <template>
   <div class="flex items-center justify-between gap-4 font-sans">
     <div class="flex gap-2">
@@ -46,3 +33,16 @@ defineEmits(['update:page', 'update:perPage'])
     </div>
   </div>
 </template>
+
+<script setup>
+import { ChevronLeft, ChevronRight, ChevronDown } from '@lucide/vue'
+
+defineProps({
+  page: { type: Number, required: true },
+  pageCount: { type: Number, required: true },
+  perPage: { type: Number, default: 10 },
+  perPageOptions: { type: Array, default: () => [10, 20, 50] }
+})
+
+defineEmits(['update:page', 'update:perPage'])
+</script>

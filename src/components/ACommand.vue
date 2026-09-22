@@ -1,3 +1,38 @@
+<template>
+  <div class="bg-bg-surface border border-border-default rounded-lg shadow-elevation-2 font-sans" :style="{ width }">
+    <input
+      ref="inputEl"
+      v-model="query"
+      class="block box-border w-full p-4 border-b border-border-default text-2xs text-text-primary outline-none placeholder:text-text-tertiary"
+      :placeholder="placeholder"
+      @keydown.down.prevent="move(1)"
+      @keydown.up.prevent="move(-1)"
+      @keydown.enter.prevent="select(filtered[highlighted])"
+    />
+    <div class="flex flex-col px-1.5 pb-1.5">
+      <div v-if="groupLabel" class="text-2xs text-text-tertiary px-2 pt-2 pb-1">{{ groupLabel }}</div>
+      <div ref="listEl" class="flex flex-col max-h-[320px] overflow-y-auto">
+        <div
+          v-for="(item, i) in filtered"
+          :key="item.label"
+          class="flex items-center justify-between gap-3 p-2 rounded-sm text-sm"
+          :class="
+            item.disabled
+              ? 'text-text-disabled cursor-not-allowed'
+              : ['text-text-primary cursor-pointer', highlighted === i ? 'bg-bg-surface-hover' : '']
+          "
+          @mouseenter="highlighted = i"
+          @click="select(item)"
+        >
+          <span class="truncate">{{ item.label }}</span>
+          <span v-if="item.hint" class="text-2xs text-text-tertiary shrink-0">{{ item.hint }}</span>
+        </div>
+      </div>
+      <div v-if="filtered.length === 0" class="px-2 py-3 text-sm text-text-tertiary text-center">결과 없음</div>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 
@@ -53,38 +88,3 @@ function reset() {
 }
 defineExpose({ focus, reset })
 </script>
-
-<template>
-  <div class="bg-bg-surface border border-border-default rounded-lg shadow-elevation-2 font-sans" :style="{ width }">
-    <input
-      ref="inputEl"
-      v-model="query"
-      class="block box-border w-full p-4 border-b border-border-default text-2xs text-text-primary outline-none placeholder:text-text-tertiary"
-      :placeholder="placeholder"
-      @keydown.down.prevent="move(1)"
-      @keydown.up.prevent="move(-1)"
-      @keydown.enter.prevent="select(filtered[highlighted])"
-    />
-    <div class="flex flex-col px-1.5 pb-1.5">
-      <div v-if="groupLabel" class="text-2xs text-text-tertiary px-2 pt-2 pb-1">{{ groupLabel }}</div>
-      <div ref="listEl" class="flex flex-col max-h-[320px] overflow-y-auto">
-        <div
-          v-for="(item, i) in filtered"
-          :key="item.label"
-          class="flex items-center justify-between gap-3 p-2 rounded-sm text-sm"
-          :class="
-            item.disabled
-              ? 'text-text-disabled cursor-not-allowed'
-              : ['text-text-primary cursor-pointer', highlighted === i ? 'bg-bg-surface-hover' : '']
-          "
-          @mouseenter="highlighted = i"
-          @click="select(item)"
-        >
-          <span class="truncate">{{ item.label }}</span>
-          <span v-if="item.hint" class="text-2xs text-text-tertiary shrink-0">{{ item.hint }}</span>
-        </div>
-      </div>
-      <div v-if="filtered.length === 0" class="px-2 py-3 text-sm text-text-tertiary text-center">결과 없음</div>
-    </div>
-  </div>
-</template>

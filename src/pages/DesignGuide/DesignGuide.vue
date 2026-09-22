@@ -1,356 +1,3 @@
-<script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { User, CreditCard, Sun, Keyboard, Users, UserPlus, Plus, Code2, LifeBuoy, Cloud, LogOut, Lock, SearchX, FileText } from '@lucide/vue'
-
-import AButton from '../../components/AButton.vue'
-import ABadge from '../../components/ABadge.vue'
-import AAlert from '../../components/AAlert.vue'
-import ADialog from '../../components/ADialog.vue'
-import AAlertDialog from '../../components/AAlertDialog.vue'
-import ACard from '../../components/ACard.vue'
-import AAccordion from '../../components/AAccordion.vue'
-import ACheckbox from '../../components/ACheckbox.vue'
-import ASwitch from '../../components/ASwitch.vue'
-import ARadioGroup from '../../components/ARadioGroup.vue'
-import AChoiceCard from '../../components/AChoiceCard.vue'
-import AInput from '../../components/AInput.vue'
-import ATextarea from '../../components/ATextarea.vue'
-import ASelect from '../../components/ASelect.vue'
-import ACombobox from '../../components/ACombobox.vue'
-import ADropdownMenu from '../../components/ADropdownMenu.vue'
-import AContextMenu from '../../components/AContextMenu.vue'
-import AMenubar from '../../components/AMenubar.vue'
-import ALineTabs from '../../components/ALineTabs.vue'
-import ACommand from '../../components/ACommand.vue'
-import ADataTable from '../../components/ADataTable.vue'
-import AHoverCard from '../../components/AHoverCard.vue'
-import ATooltip from '../../components/ATooltip.vue'
-import AToast from '../../components/AToast.vue'
-import APagination from '../../components/APagination.vue'
-import ACalendar from '../../components/ACalendar.vue'
-import AFilterChip from '../../components/AFilterChip.vue'
-import AEmptyState from '../../components/AEmptyState.vue'
-import ASelectionBar from '../../components/ASelectionBar.vue'
-import ASegmentedControl from '../../components/ASegmentedControl.vue'
-import APopover from '../../components/APopover.vue'
-import AFileDetailModal from '../../components/AFileDetailModal.vue'
-
-const dialogOpen = ref(false)
-const alertDialogOpen = ref(false)
-const checked = ref(true)
-const switchOn = ref(true)
-const radioValue = ref('comfortable')
-const choiceValue = ref('kubernetes')
-const inputValue = ref('')
-const textareaValue = ref('')
-const selectValue = ref('')
-const comboboxValue = ref('')
-const page = ref(1)
-const perPage = ref(10)
-const selectedRow = ref(3)
-const calendarDate = ref(new Date(2024, 0, 22))
-const calendarRangeStart = ref(new Date(2024, 0, 15))
-const calendarRangeEnd = ref(new Date(2024, 0, 18))
-
-const dropdownSections = [
-  [
-    { label: 'Profile', kbd: '⇧⌘P', icon: User },
-    { label: 'Billing', kbd: '⌘B', icon: CreditCard },
-    { label: 'Settings', kbd: '⌘S', icon: Sun },
-    { label: 'Keyboard shortcuts', kbd: '⌘K', icon: Keyboard }
-  ],
-  [
-    { label: 'Team', icon: Users },
-    { label: 'Invite users', kbd: '›', icon: UserPlus },
-    { label: 'New Team', kbd: '⌘+T', icon: Plus }
-  ],
-  [
-    { label: 'GitHub', icon: Code2 },
-    { label: 'Support', icon: LifeBuoy },
-    { label: 'API', icon: Cloud, disabled: true }
-  ],
-  [{ label: 'Log out', kbd: '⇧⌘Q', icon: LogOut }]
-]
-
-const contextMenuItems = [
-  { label: 'Back' },
-  { label: 'Forward' },
-  { label: 'Reload', disabled: true },
-  { divider: true },
-  { label: 'Show Bookmarks' }
-]
-
-const commandItems = [
-  { label: 'Calendar' },
-  { label: 'Search Emoji' },
-  { label: 'Calculator', disabled: true }
-]
-/* hint는 항목 오른쪽에 보조 정보(카테고리·단축키 등)를 붙일 때만 넘기면 된다 —
-   생략하면 예전 Command 사용처처럼 라벨만 나온다 */
-const commandItemsWithHint = [
-  { label: '새 문서 만들기', hint: '동작' },
-  { label: '검색 결과 내보내기', hint: '동작' },
-  { label: '흉부CT_소견_25.docx', hint: '파일' },
-  { label: '판독소견서_09.pdf', hint: '파일' },
-  { label: '설정', hint: '이동', disabled: true }
-]
-const commandPaletteRef = ref(null)
-
-const tableColumns = [
-  { key: 'status', label: 'Status' },
-  { key: 'email', label: 'Email' },
-  { key: 'amount', label: 'Amount' }
-]
-const tableRows = [
-  { id: 1, status: 'Success', email: 'ken99@yahoo.com', amount: '$316.00' },
-  { id: 2, status: 'Processing', email: 'abe45@gmail.com', amount: '$242.00' },
-  { id: 3, status: 'Selected', email: 'monserrat44@gmail.com', amount: '$837.00' }
-]
-
-/* -------------------------------------------------------- Filter Chip */
-
-const filterChipDemo = ref(['의료'])
-const filterChipOptions = [
-  { label: '의료', count: 42 },
-  { label: '연구', count: 8 },
-  { label: '건강검진', count: 0 }
-]
-function toggleFilterChip(label) {
-  filterChipDemo.value = filterChipDemo.value.includes(label)
-    ? filterChipDemo.value.filter((v) => v !== label)
-    : [...filterChipDemo.value, label]
-}
-
-/* -------------------------------------------------------- Selection Bar */
-
-const selectionBarDemo = ref(2)
-
-/* -------------------------------------------------------- Segmented Control */
-
-const segmentedDemo = ref('comfortable')
-const segmentedOptions = [
-  { value: 'compact', label: '좁게' },
-  { value: 'comfortable', label: '보통' },
-  { value: 'spacious', label: '넓게' }
-]
-
-/* -------------------------------------------------------- Popover */
-
-const popoverOpen = ref(false)
-const popoverDate = ref(new Date(2024, 0, 22))
-
-/* -------------------------------------------------------- File Detail Modal */
-
-const fileDetailDemoOpen = ref(false)
-const fileDetailDemoFile = {
-  id: 'demo-1',
-  name: '흉부CT_소견_25.docx',
-  typeBadge: '문서',
-  typeBadgeStyle: { bg: 'color-mix(in oklch, var(--color-viz-1) 16%, white)', text: 'var(--color-viz-1)' },
-  fileFormat: 'docx',
-  sizeLabel: '2MB',
-  uploadedAt: '2026-02-26',
-  source: '자동 수집',
-  breadcrumb: [{ label: '의료', level: 'topic' }, { label: '영상검사', level: 'subtopic' }],
-  extractedInfo: { summary: '의료 · 영상검사 분류로 등록된 자료입니다. #흉부, #내시경 관련 내용을 포함하고 있습니다.' },
-  fullText: '흉부CT_소견_25.docx 원문 추출 텍스트 예시입니다. 도입부에서는 배경과 목적을 설명하고, 본론에서는 세부 절차를 단계별로 기술합니다.',
-  fullTextStatus: 'ready',
-  basicInfo: [
-    { key: 'format', label: 'format', value: 'docx' },
-    { key: 'file_size', label: 'file_size', value: '2MB' },
-    { key: 'page_count', label: '페이지 수', value: '12쪽' }
-  ],
-  topics: [{ id: '영상검사', label: '의료 · 영상검사', relatedCount: 17, clickable: true }],
-  multimodalMeta: [{ id: '#흉부', label: '#흉부', count: 17 }, { id: '#내시경', label: '#내시경', count: 3 }],
-  relations: { related: [], sameTopic: [] }
-}
-
-/* ---------------------------------------------------------- Design Foundation */
-
-const neutralScale = ['0', '50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950']
-const primaryScale = ['0', '50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950']
-const statusScales = [
-  { name: 'Success', prefix: 'green', steps: ['50', '100', '600', '700'] },
-  { name: 'Warning', prefix: 'amber', steps: ['50', '100', '600', '700'] },
-  { name: 'Danger', prefix: 'red', steps: ['50', '100', '600', '700'] },
-  { name: 'Info', prefix: 'info', steps: ['50', '100', '600', '700'] }
-]
-const semanticColors = [
-  { label: 'bg-canvas', var: '--color-bg-canvas' },
-  { label: 'bg-surface', var: '--color-bg-surface' },
-  { label: 'bg-surface-hover', var: '--color-bg-surface-hover' },
-  { label: 'bg-surface-selected', var: '--color-bg-surface-selected' },
-  { label: 'border-default', var: '--color-border-default' },
-  { label: 'border-strong', var: '--color-border-strong' },
-  { label: 'text-primary', var: '--color-text-primary' },
-  { label: 'text-secondary', var: '--color-text-secondary' },
-  { label: 'text-tertiary', var: '--color-text-tertiary' },
-  { label: 'action-primary', var: '--color-action-primary' },
-  { label: 'focus-ring', var: '--color-focus-ring' },
-  { label: 'link', var: '--color-link' },
-  { label: 'status-success', var: '--color-status-success-bg' },
-  { label: 'status-warning', var: '--color-status-warning-bg' },
-  { label: 'status-danger', var: '--color-status-danger-bg' },
-  { label: 'status-info', var: '--color-status-info-bg' }
-]
-
-const typeScale = [
-  { key: '2xs', size: '11px', line: '1.4', weight: '400' },
-  { key: 'xs', size: '12px', line: '1.4', weight: '500' },
-  { key: 'sm', size: '13px', line: '1.4', weight: '400' },
-  { key: 'base', size: '14px', line: '1.5', weight: '400' },
-  { key: 'md', size: '16px', line: '1.4', weight: '500' },
-  { key: 'lg', size: '18px', line: '1.3', weight: '600' },
-  { key: 'xl', size: '20px', line: '1.3', weight: '600' },
-  { key: '2xl', size: '24px', line: '1.25', weight: '600' },
-  { key: '3xl', size: '28px', line: '1.2', weight: '600' }
-]
-
-const spacingScale = [
-  { key: '0.5', px: '2px' }, { key: '1', px: '4px' }, { key: '1.5', px: '6px' }, { key: '2', px: '8px' },
-  { key: '2.5', px: '10px' }, { key: '3', px: '12px' }, { key: '4', px: '16px' }, { key: '5', px: '20px' },
-  { key: '6', px: '24px' }, { key: '8', px: '32px' }, { key: '10', px: '40px' }, { key: '12', px: '48px' },
-  { key: '16', px: '64px' }
-]
-
-const controlHeights = [
-  { key: 'xs', px: '24px' }, { key: 'sm', px: '28px' }, { key: 'md', px: '32px' },
-  { key: 'lg', px: '36px' }, { key: 'xl', px: '40px' }
-]
-const rowHeights = [
-  { key: 'compact', px: '32px' }, { key: 'comfortable', px: '40px' }, { key: 'spacious', px: '48px' }
-]
-
-const radiusScale = [
-  { key: 'none', px: '0px' }, { key: 'sm', px: '4px' }, { key: 'md', px: '6px' },
-  { key: 'lg', px: '8px' }, { key: 'xl', px: '12px' }, { key: 'full', px: '999px' }
-]
-
-const elevationScale = ['0', '1', '2', '3']
-
-const breakpoints = [
-  { label: 'bp-min', value: '1280px' },
-  { label: 'bp-lg', value: '1440px' },
-  { label: 'bp-xl', value: '1920px' }
-]
-const gridInfo = [
-  { label: 'columns', value: '12' },
-  { label: 'gutter', value: 'space-4 (16px)' },
-  { label: 'margin', value: 'space-6 (24px)' },
-  { label: 'max-width-form', value: '720px' }
-]
-
-const iconSizes = [
-  { key: 'sm', px: '16px' }, { key: 'md', px: '20px' }, { key: 'lg', px: '24px' }
-]
-
-const motionDurations = [
-  { key: 'fast', value: '120ms' }, { key: 'base', value: '180ms' }, { key: 'slow', value: '220ms' }
-]
-
-const vizColors = [
-  { key: '1', hex: '#0d7dd4' }, { key: '2', hex: '#8c5ad3' }, { key: '3', hex: '#31983d' }, { key: '4', hex: '#d78d00' },
-  { key: '5', hex: '#d44567' }, { key: '6', hex: '#00919b' }, { key: '7', hex: '#de6907' }, { key: '8', hex: '#009ed8' }
-]
-
-const densityLevels = [
-  { key: 'compact', row: 'row-compact', padX: '8px', padY: '6px', text: '12px' },
-  { key: 'comfortable', row: 'row-comfortable', padX: '12px', padY: '8px', text: '13px' },
-  { key: 'spacious', row: 'row-spacious', padX: '16px', padY: '12px', text: '14px' }
-]
-
-/* ---------------------------------------------------------------- Side nav */
-
-const navGroups = [
-  {
-    label: 'Design Foundation',
-    items: [
-      { id: 'color-neutral', label: 'Color — Neutral' },
-      { id: 'color-primary', label: 'Color — Primary' },
-      { id: 'color-status', label: 'Color — Status' },
-      { id: 'color-semantic', label: 'Color — Semantic' },
-      { id: 'typography', label: 'Typography' },
-      { id: 'spacing', label: 'Spacing' },
-      { id: 'sizing', label: 'Sizing' },
-      { id: 'radius', label: 'Radius' },
-      { id: 'border', label: 'Border' },
-      { id: 'shadow', label: 'Shadow' },
-      { id: 'grid-breakpoint', label: 'Grid & Breakpoint' },
-      { id: 'iconography', label: 'Iconography' },
-      { id: 'motion', label: 'Motion' },
-      { id: 'data-viz', label: 'Data Visualization' },
-      { id: 'density', label: 'Density' }
-    ]
-  },
-  {
-    label: 'Components',
-    items: [
-      { id: 'button', label: 'Button' },
-      { id: 'badge', label: 'Badge' },
-      { id: 'alert', label: 'Alert' },
-      { id: 'dialog', label: 'Dialog / Alert Dialog' },
-      { id: 'card', label: 'Card' },
-      { id: 'accordion', label: 'Accordion' },
-      { id: 'checkbox-switch', label: 'Checkbox / Switch' },
-      { id: 'radio-group', label: 'Radio Group' },
-      { id: 'choice-card', label: 'Choice Card' },
-      { id: 'input-label', label: 'Input / Label' },
-      { id: 'textarea', label: 'Textarea' },
-      { id: 'select', label: 'Select Box' },
-      { id: 'combobox', label: 'Combobox' },
-      { id: 'dropdown-menu', label: 'Dropdown Menu' },
-      { id: 'context-menu', label: 'Context Menu' },
-      { id: 'menubar', label: 'Menubar' },
-      { id: 'line-tabs', label: 'Line Tabs' },
-      { id: 'command', label: 'Command' },
-      { id: 'data-table', label: 'Data Table' },
-      { id: 'hover-card', label: 'Hover Card' },
-      { id: 'tooltip', label: 'Tooltip' },
-      { id: 'toast', label: 'Toast' },
-      { id: 'pagination', label: 'Pagination' },
-      { id: 'calendar', label: 'Calendar' },
-      { id: 'filter-chip', label: 'Filter Chip' },
-      { id: 'empty-state', label: 'Empty State' },
-      { id: 'selection-bar', label: 'Selection Bar' },
-      { id: 'segmented-control', label: 'Segmented Control' },
-      { id: 'popover', label: 'Popover' },
-      { id: 'file-detail-modal', label: 'File Detail Modal' }
-    ]
-  }
-]
-
-const activeId = ref(navGroups[0].items[0].id)
-let sectionObserver = null
-
-function scrollToSection(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
-onMounted(() => {
-  const sections = navGroups
-    .flatMap((g) => g.items)
-    .map((i) => document.getElementById(i.id))
-    .filter(Boolean)
-
-  const lastEntry = new Map()
-  sectionObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((e) => lastEntry.set(e.target.id, e))
-      const visible = [...lastEntry.values()].filter((e) => e.isIntersecting)
-      if (visible.length) {
-        activeId.value = visible.reduce((a, b) =>
-          a.boundingClientRect.top <= b.boundingClientRect.top ? a : b
-        ).target.id
-      }
-    },
-    { rootMargin: '0px 0px -70% 0px', threshold: 0 }
-  )
-  sections.forEach((el) => sectionObserver.observe(el))
-})
-
-onBeforeUnmount(() => sectionObserver?.disconnect())
-</script>
-
 <template>
   <div class="page">
     <nav class="sidenav">
@@ -855,6 +502,359 @@ onBeforeUnmount(() => sectionObserver?.disconnect())
     </main>
   </div>
 </template>
+
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { User, CreditCard, Sun, Keyboard, Users, UserPlus, Plus, Code2, LifeBuoy, Cloud, LogOut, Lock, SearchX, FileText } from '@lucide/vue'
+
+import AButton from '../../components/AButton.vue'
+import ABadge from '../../components/ABadge.vue'
+import AAlert from '../../components/AAlert.vue'
+import ADialog from '../../components/ADialog.vue'
+import AAlertDialog from '../../components/AAlertDialog.vue'
+import ACard from '../../components/ACard.vue'
+import AAccordion from '../../components/AAccordion.vue'
+import ACheckbox from '../../components/ACheckbox.vue'
+import ASwitch from '../../components/ASwitch.vue'
+import ARadioGroup from '../../components/ARadioGroup.vue'
+import AChoiceCard from '../../components/AChoiceCard.vue'
+import AInput from '../../components/AInput.vue'
+import ATextarea from '../../components/ATextarea.vue'
+import ASelect from '../../components/ASelect.vue'
+import ACombobox from '../../components/ACombobox.vue'
+import ADropdownMenu from '../../components/ADropdownMenu.vue'
+import AContextMenu from '../../components/AContextMenu.vue'
+import AMenubar from '../../components/AMenubar.vue'
+import ALineTabs from '../../components/ALineTabs.vue'
+import ACommand from '../../components/ACommand.vue'
+import ADataTable from '../../components/ADataTable.vue'
+import AHoverCard from '../../components/AHoverCard.vue'
+import ATooltip from '../../components/ATooltip.vue'
+import AToast from '../../components/AToast.vue'
+import APagination from '../../components/APagination.vue'
+import ACalendar from '../../components/ACalendar.vue'
+import AFilterChip from '../../components/AFilterChip.vue'
+import AEmptyState from '../../components/AEmptyState.vue'
+import ASelectionBar from '../../components/ASelectionBar.vue'
+import ASegmentedControl from '../../components/ASegmentedControl.vue'
+import APopover from '../../components/APopover.vue'
+import AFileDetailModal from '../../components/AFileDetailModal.vue'
+
+const dialogOpen = ref(false)
+const alertDialogOpen = ref(false)
+const checked = ref(true)
+const switchOn = ref(true)
+const radioValue = ref('comfortable')
+const choiceValue = ref('kubernetes')
+const inputValue = ref('')
+const textareaValue = ref('')
+const selectValue = ref('')
+const comboboxValue = ref('')
+const page = ref(1)
+const perPage = ref(10)
+const selectedRow = ref(3)
+const calendarDate = ref(new Date(2024, 0, 22))
+const calendarRangeStart = ref(new Date(2024, 0, 15))
+const calendarRangeEnd = ref(new Date(2024, 0, 18))
+
+const dropdownSections = [
+  [
+    { label: 'Profile', kbd: '⇧⌘P', icon: User },
+    { label: 'Billing', kbd: '⌘B', icon: CreditCard },
+    { label: 'Settings', kbd: '⌘S', icon: Sun },
+    { label: 'Keyboard shortcuts', kbd: '⌘K', icon: Keyboard }
+  ],
+  [
+    { label: 'Team', icon: Users },
+    { label: 'Invite users', kbd: '›', icon: UserPlus },
+    { label: 'New Team', kbd: '⌘+T', icon: Plus }
+  ],
+  [
+    { label: 'GitHub', icon: Code2 },
+    { label: 'Support', icon: LifeBuoy },
+    { label: 'API', icon: Cloud, disabled: true }
+  ],
+  [{ label: 'Log out', kbd: '⇧⌘Q', icon: LogOut }]
+]
+
+const contextMenuItems = [
+  { label: 'Back' },
+  { label: 'Forward' },
+  { label: 'Reload', disabled: true },
+  { divider: true },
+  { label: 'Show Bookmarks' }
+]
+
+const commandItems = [
+  { label: 'Calendar' },
+  { label: 'Search Emoji' },
+  { label: 'Calculator', disabled: true }
+]
+/* hint는 항목 오른쪽에 보조 정보(카테고리·단축키 등)를 붙일 때만 넘기면 된다 —
+   생략하면 예전 Command 사용처처럼 라벨만 나온다 */
+const commandItemsWithHint = [
+  { label: '새 문서 만들기', hint: '동작' },
+  { label: '검색 결과 내보내기', hint: '동작' },
+  { label: '흉부CT_소견_25.docx', hint: '파일' },
+  { label: '판독소견서_09.pdf', hint: '파일' },
+  { label: '설정', hint: '이동', disabled: true }
+]
+const commandPaletteRef = ref(null)
+
+const tableColumns = [
+  { key: 'status', label: 'Status' },
+  { key: 'email', label: 'Email' },
+  { key: 'amount', label: 'Amount' }
+]
+const tableRows = [
+  { id: 1, status: 'Success', email: 'ken99@yahoo.com', amount: '$316.00' },
+  { id: 2, status: 'Processing', email: 'abe45@gmail.com', amount: '$242.00' },
+  { id: 3, status: 'Selected', email: 'monserrat44@gmail.com', amount: '$837.00' }
+]
+
+/* -------------------------------------------------------- Filter Chip */
+
+const filterChipDemo = ref(['의료'])
+const filterChipOptions = [
+  { label: '의료', count: 42 },
+  { label: '연구', count: 8 },
+  { label: '건강검진', count: 0 }
+]
+function toggleFilterChip(label) {
+  filterChipDemo.value = filterChipDemo.value.includes(label)
+    ? filterChipDemo.value.filter((v) => v !== label)
+    : [...filterChipDemo.value, label]
+}
+
+/* -------------------------------------------------------- Selection Bar */
+
+const selectionBarDemo = ref(2)
+
+/* -------------------------------------------------------- Segmented Control */
+
+const segmentedDemo = ref('comfortable')
+const segmentedOptions = [
+  { value: 'compact', label: '좁게' },
+  { value: 'comfortable', label: '보통' },
+  { value: 'spacious', label: '넓게' }
+]
+
+/* -------------------------------------------------------- Popover */
+
+const popoverOpen = ref(false)
+const popoverDate = ref(new Date(2024, 0, 22))
+
+/* -------------------------------------------------------- File Detail Modal */
+
+const fileDetailDemoOpen = ref(false)
+const fileDetailDemoFile = {
+  id: 'demo-1',
+  name: '흉부CT_소견_25.docx',
+  typeBadge: '문서',
+  typeBadgeStyle: { bg: 'color-mix(in oklch, var(--color-viz-1) 16%, white)', text: 'var(--color-viz-1)' },
+  fileFormat: 'docx',
+  sizeLabel: '2MB',
+  uploadedAt: '2026-02-26',
+  source: '자동 수집',
+  breadcrumb: [{ label: '의료', level: 'topic' }, { label: '영상검사', level: 'subtopic' }],
+  extractedInfo: { summary: '의료 · 영상검사 분류로 등록된 자료입니다. #흉부, #내시경 관련 내용을 포함하고 있습니다.' },
+  fullText: '흉부CT_소견_25.docx 원문 추출 텍스트 예시입니다. 도입부에서는 배경과 목적을 설명하고, 본론에서는 세부 절차를 단계별로 기술합니다.',
+  fullTextStatus: 'ready',
+  basicInfo: [
+    { key: 'format', label: 'format', value: 'docx' },
+    { key: 'file_size', label: 'file_size', value: '2MB' },
+    { key: 'page_count', label: '페이지 수', value: '12쪽' }
+  ],
+  topics: [{ id: '영상검사', label: '의료 · 영상검사', relatedCount: 17, clickable: true }],
+  multimodalMeta: [{ id: '#흉부', label: '#흉부', count: 17 }, { id: '#내시경', label: '#내시경', count: 3 }],
+  relations: { related: [], sameTopic: [] }
+}
+
+/* ---------------------------------------------------------- Design Foundation */
+
+const neutralScale = ['0', '50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950']
+const primaryScale = ['0', '50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950']
+const statusScales = [
+  { name: 'Success', prefix: 'green', steps: ['50', '100', '600', '700'] },
+  { name: 'Warning', prefix: 'amber', steps: ['50', '100', '600', '700'] },
+  { name: 'Danger', prefix: 'red', steps: ['50', '100', '600', '700'] },
+  { name: 'Info', prefix: 'info', steps: ['50', '100', '600', '700'] }
+]
+const semanticColors = [
+  { label: 'bg-canvas', var: '--color-bg-canvas' },
+  { label: 'bg-surface', var: '--color-bg-surface' },
+  { label: 'bg-surface-hover', var: '--color-bg-surface-hover' },
+  { label: 'bg-surface-selected', var: '--color-bg-surface-selected' },
+  { label: 'border-default', var: '--color-border-default' },
+  { label: 'border-strong', var: '--color-border-strong' },
+  { label: 'text-primary', var: '--color-text-primary' },
+  { label: 'text-secondary', var: '--color-text-secondary' },
+  { label: 'text-tertiary', var: '--color-text-tertiary' },
+  { label: 'action-primary', var: '--color-action-primary' },
+  { label: 'focus-ring', var: '--color-focus-ring' },
+  { label: 'link', var: '--color-link' },
+  { label: 'status-success', var: '--color-status-success-bg' },
+  { label: 'status-warning', var: '--color-status-warning-bg' },
+  { label: 'status-danger', var: '--color-status-danger-bg' },
+  { label: 'status-info', var: '--color-status-info-bg' }
+]
+
+const typeScale = [
+  { key: '2xs', size: '11px', line: '1.4', weight: '400' },
+  { key: 'xs', size: '12px', line: '1.4', weight: '500' },
+  { key: 'sm', size: '13px', line: '1.4', weight: '400' },
+  { key: 'base', size: '14px', line: '1.5', weight: '400' },
+  { key: 'md', size: '16px', line: '1.4', weight: '500' },
+  { key: 'lg', size: '18px', line: '1.3', weight: '600' },
+  { key: 'xl', size: '20px', line: '1.3', weight: '600' },
+  { key: '2xl', size: '24px', line: '1.25', weight: '600' },
+  { key: '3xl', size: '28px', line: '1.2', weight: '600' }
+]
+
+const spacingScale = [
+  { key: '0.5', px: '2px' }, { key: '1', px: '4px' }, { key: '1.5', px: '6px' }, { key: '2', px: '8px' },
+  { key: '2.5', px: '10px' }, { key: '3', px: '12px' }, { key: '4', px: '16px' }, { key: '5', px: '20px' },
+  { key: '6', px: '24px' }, { key: '8', px: '32px' }, { key: '10', px: '40px' }, { key: '12', px: '48px' },
+  { key: '16', px: '64px' }
+]
+
+const controlHeights = [
+  { key: 'xs', px: '24px' }, { key: 'sm', px: '28px' }, { key: 'md', px: '32px' },
+  { key: 'lg', px: '36px' }, { key: 'xl', px: '40px' }
+]
+const rowHeights = [
+  { key: 'compact', px: '32px' }, { key: 'comfortable', px: '40px' }, { key: 'spacious', px: '48px' }
+]
+
+const radiusScale = [
+  { key: 'none', px: '0px' }, { key: 'sm', px: '4px' }, { key: 'md', px: '6px' },
+  { key: 'lg', px: '8px' }, { key: 'xl', px: '12px' }, { key: 'full', px: '999px' }
+]
+
+const elevationScale = ['0', '1', '2', '3']
+
+const breakpoints = [
+  { label: 'bp-min', value: '1280px' },
+  { label: 'bp-lg', value: '1440px' },
+  { label: 'bp-xl', value: '1920px' }
+]
+const gridInfo = [
+  { label: 'columns', value: '12' },
+  { label: 'gutter', value: 'space-4 (16px)' },
+  { label: 'margin', value: 'space-6 (24px)' },
+  { label: 'max-width-form', value: '720px' }
+]
+
+const iconSizes = [
+  { key: 'sm', px: '16px' }, { key: 'md', px: '20px' }, { key: 'lg', px: '24px' }
+]
+
+const motionDurations = [
+  { key: 'fast', value: '120ms' }, { key: 'base', value: '180ms' }, { key: 'slow', value: '220ms' }
+]
+
+const vizColors = [
+  { key: '1', hex: '#0d7dd4' }, { key: '2', hex: '#8c5ad3' }, { key: '3', hex: '#31983d' }, { key: '4', hex: '#d78d00' },
+  { key: '5', hex: '#d44567' }, { key: '6', hex: '#00919b' }, { key: '7', hex: '#de6907' }, { key: '8', hex: '#009ed8' }
+]
+
+const densityLevels = [
+  { key: 'compact', row: 'row-compact', padX: '8px', padY: '6px', text: '12px' },
+  { key: 'comfortable', row: 'row-comfortable', padX: '12px', padY: '8px', text: '13px' },
+  { key: 'spacious', row: 'row-spacious', padX: '16px', padY: '12px', text: '14px' }
+]
+
+/* ---------------------------------------------------------------- Side nav */
+
+const navGroups = [
+  {
+    label: 'Design Foundation',
+    items: [
+      { id: 'color-neutral', label: 'Color — Neutral' },
+      { id: 'color-primary', label: 'Color — Primary' },
+      { id: 'color-status', label: 'Color — Status' },
+      { id: 'color-semantic', label: 'Color — Semantic' },
+      { id: 'typography', label: 'Typography' },
+      { id: 'spacing', label: 'Spacing' },
+      { id: 'sizing', label: 'Sizing' },
+      { id: 'radius', label: 'Radius' },
+      { id: 'border', label: 'Border' },
+      { id: 'shadow', label: 'Shadow' },
+      { id: 'grid-breakpoint', label: 'Grid & Breakpoint' },
+      { id: 'iconography', label: 'Iconography' },
+      { id: 'motion', label: 'Motion' },
+      { id: 'data-viz', label: 'Data Visualization' },
+      { id: 'density', label: 'Density' }
+    ]
+  },
+  {
+    label: 'Components',
+    items: [
+      { id: 'button', label: 'Button' },
+      { id: 'badge', label: 'Badge' },
+      { id: 'alert', label: 'Alert' },
+      { id: 'dialog', label: 'Dialog / Alert Dialog' },
+      { id: 'card', label: 'Card' },
+      { id: 'accordion', label: 'Accordion' },
+      { id: 'checkbox-switch', label: 'Checkbox / Switch' },
+      { id: 'radio-group', label: 'Radio Group' },
+      { id: 'choice-card', label: 'Choice Card' },
+      { id: 'input-label', label: 'Input / Label' },
+      { id: 'textarea', label: 'Textarea' },
+      { id: 'select', label: 'Select Box' },
+      { id: 'combobox', label: 'Combobox' },
+      { id: 'dropdown-menu', label: 'Dropdown Menu' },
+      { id: 'context-menu', label: 'Context Menu' },
+      { id: 'menubar', label: 'Menubar' },
+      { id: 'line-tabs', label: 'Line Tabs' },
+      { id: 'command', label: 'Command' },
+      { id: 'data-table', label: 'Data Table' },
+      { id: 'hover-card', label: 'Hover Card' },
+      { id: 'tooltip', label: 'Tooltip' },
+      { id: 'toast', label: 'Toast' },
+      { id: 'pagination', label: 'Pagination' },
+      { id: 'calendar', label: 'Calendar' },
+      { id: 'filter-chip', label: 'Filter Chip' },
+      { id: 'empty-state', label: 'Empty State' },
+      { id: 'selection-bar', label: 'Selection Bar' },
+      { id: 'segmented-control', label: 'Segmented Control' },
+      { id: 'popover', label: 'Popover' },
+      { id: 'file-detail-modal', label: 'File Detail Modal' }
+    ]
+  }
+]
+
+const activeId = ref(navGroups[0].items[0].id)
+let sectionObserver = null
+
+function scrollToSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+onMounted(() => {
+  const sections = navGroups
+    .flatMap((g) => g.items)
+    .map((i) => document.getElementById(i.id))
+    .filter(Boolean)
+
+  const lastEntry = new Map()
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => lastEntry.set(e.target.id, e))
+      const visible = [...lastEntry.values()].filter((e) => e.isIntersecting)
+      if (visible.length) {
+        activeId.value = visible.reduce((a, b) =>
+          a.boundingClientRect.top <= b.boundingClientRect.top ? a : b
+        ).target.id
+      }
+    },
+    { rootMargin: '0px 0px -70% 0px', threshold: 0 }
+  )
+  sections.forEach((el) => sectionObserver.observe(el))
+})
+
+onBeforeUnmount(() => sectionObserver?.disconnect())
+</script>
 
 <style scoped>
 .page {

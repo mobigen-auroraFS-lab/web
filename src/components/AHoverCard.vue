@@ -1,11 +1,3 @@
-<script setup>
-defineProps({
-  title: { type: String, default: '' },
-  description: { type: String, default: '' },
-  meta: { type: String, default: '' }
-})
-</script>
-
 <template>
   <div class="relative inline-flex group font-sans">
     <slot name="trigger" />
@@ -21,3 +13,11 @@ defineProps({
     </div>
   </div>
 </template>
+
+<script setup>
+defineProps({
+  title: { type: String, default: '' },
+  description: { type: String, default: '' },
+  meta: { type: String, default: '' }
+})
+</script>

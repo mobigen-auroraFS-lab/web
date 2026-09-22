@@ -1,15 +1,7 @@
-<script setup>
-defineProps({
-  title: { type: String, required: true },
-  description: { type: String, default: '' },
-  actionLabel: { type: String, default: '' }
-})
-
-defineEmits(['action'])
-</script>
-
 <template>
-  <div class="bg-bg-surface border border-border-default rounded-lg p-5 flex items-center justify-between gap-8 w-[340px] shadow-elevation-2 font-sans">
+  <div
+    class="bg-bg-surface border border-border-default rounded-lg p-5 flex items-center justify-between gap-8 w-[340px] shadow-elevation-2 font-sans"
+  >
     <div class="flex flex-col gap-2">
       <div class="text-sm font-medium text-text-primary">{{ title }}</div>
       <div v-if="description" class="text-xs text-text-tertiary">{{ description }}</div>
@@ -23,3 +15,13 @@ defineEmits(['action'])
     </button>
   </div>
 </template>
+
+<script setup>
+defineProps({
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  actionLabel: { type: String, default: '' }
+})
+
+defineEmits(['action'])
+</script>

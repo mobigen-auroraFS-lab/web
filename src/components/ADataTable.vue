@@ -1,21 +1,3 @@
-<script setup>
-defineProps({
-  columns: {
-    type: Array,
-    required: true
-    // [{ key, label }]
-  },
-  rows: {
-    type: Array,
-    required: true
-    // [{ id, ...cells }]
-  },
-  modelValue: { type: [String, Number], default: null }
-})
-
-defineEmits(['update:modelValue'])
-</script>
-
 <template>
   <div class="rounded-sm border border-border-default overflow-hidden font-sans">
     <div
@@ -40,3 +22,21 @@ defineEmits(['update:modelValue'])
     </div>
   </div>
 </template>
+
+<script setup>
+defineProps({
+  columns: {
+    type: Array,
+    required: true
+    // [{ key, label }]
+  },
+  rows: {
+    type: Array,
+    required: true
+    // [{ id, ...cells }]
+  },
+  modelValue: { type: [String, Number], default: null }
+})
+
+defineEmits(['update:modelValue'])
+</script>

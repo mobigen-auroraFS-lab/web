@@ -1,22 +1,3 @@
-<script setup>
-import { ref } from 'vue'
-import { ChevronDown } from '@lucide/vue'
-
-defineProps({
-  items: {
-    type: Array,
-    required: true
-    // [{ title: string, content: string }]
-  }
-})
-
-const openIndex = ref(-1)
-
-function toggle(i) {
-  openIndex.value = openIndex.value === i ? -1 : i
-}
-</script>
-
 <template>
   <div class="flex flex-col font-sans">
     <div v-for="(item, i) in items" :key="i" class="border-b border-border-default">
@@ -44,3 +25,22 @@ function toggle(i) {
     </div>
   </div>
 </template>
+
+<script setup>
+import { ref } from 'vue'
+import { ChevronDown } from '@lucide/vue'
+
+defineProps({
+  items: {
+    type: Array,
+    required: true
+    // [{ title: string, content: string }]
+  }
+})
+
+const openIndex = ref(-1)
+
+function toggle(i) {
+  openIndex.value = openIndex.value === i ? -1 : i
+}
+</script>
