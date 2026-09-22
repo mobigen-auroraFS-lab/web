@@ -58,7 +58,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { LogOut } from '@lucide/vue'
-import logoUrl from '../../assets/logo.png'
+import logoUrl from '../assets/images/logo.png'
 
 /* 여러 제품 페이지가 생기면 이 목록에 항목만 추가하면 된다 */
 const NAV_ITEMS = [
