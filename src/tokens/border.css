@@ -1,3 +1,5 @@
-:root{
---border-width-hairline:1px;--border-width-thick:2px;--border-style-dashed:dashed; /* @kind other */
+:root {
+  --border-width-hairline: 1px;
+  --border-width-thick: 2px;
+  --border-style-dashed: dashed; /* @kind other */
 }

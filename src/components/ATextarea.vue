@@ -1,21 +1,6 @@
-<script setup>
-defineProps({
-  modelValue: { type: String, default: '' },
-  label: { type: String, default: '' },
-  placeholder: { type: String, default: '' },
-  disabled: { type: Boolean, default: false }
-})
-
-defineEmits(['update:modelValue'])
-</script>
-
 <template>
   <div class="flex flex-col gap-1.5 font-sans">
-    <label
-      v-if="label"
-      class="text-base font-medium"
-      :class="disabled ? 'text-text-disabled' : 'text-text-primary'"
-    >
+    <label v-if="label" class="text-base font-medium" :class="disabled ? 'text-text-disabled' : 'text-text-primary'">
       {{ label }}
     </label>
     <textarea
@@ -27,3 +12,14 @@ defineEmits(['update:modelValue'])
     />
   </div>
 </template>
+
+<script setup>
+defineProps({
+  modelValue: { type: String, default: '' },
+  label: { type: String, default: '' },
+  placeholder: { type: String, default: '' },
+  disabled: { type: Boolean, default: false }
+})
+
+defineEmits(['update:modelValue'])
+</script>

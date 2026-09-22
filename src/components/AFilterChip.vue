@@ -1,3 +1,30 @@
+<template>
+  <button
+    type="button"
+    :role="radio ? 'radio' : undefined"
+    :aria-pressed="!radio ? active : undefined"
+    :aria-checked="radio ? active : undefined"
+    :disabled="disabled"
+    class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none font-sans"
+    :class="
+      active
+        ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
+        : disabled
+          ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
+          : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'
+    "
+    @click="$emit('click')"
+  >
+    {{ label }}
+    <span
+      v-if="count !== null"
+      class="text-2xs [font-feature-settings:'tnum']"
+      :class="active ? 'text-[var(--color-primary-100)]' : disabled ? 'text-text-disabled' : 'text-text-tertiary'"
+      >{{ count }}</span
+    >
+  </button>
+</template>
+
 <script setup>
 /**
  * 필터 토글 칩 — 주제/하위주제/태그/파일형식/크기/기간프리셋 등
@@ -20,27 +47,3 @@ defineProps({
 })
 defineEmits(['click'])
 </script>
-
-<template>
-  <button
-    type="button"
-    :role="radio ? 'radio' : undefined"
-    :aria-pressed="!radio ? active : undefined"
-    :aria-checked="radio ? active : undefined"
-    :disabled="disabled"
-    class="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-md text-xs font-medium whitespace-nowrap box-border border-none font-sans"
-    :class="active
-      ? 'bg-action-primary text-text-inverse font-semibold cursor-pointer'
-      : disabled
-        ? 'bg-slate-100 text-text-disabled cursor-not-allowed'
-        : 'bg-slate-100 text-text-secondary hover:bg-slate-200 cursor-pointer'"
-    @click="$emit('click')"
-  >
-    {{ label }}
-    <span
-      v-if="count !== null"
-      class="text-2xs [font-feature-settings:'tnum']"
-      :class="active ? 'text-[var(--color-primary-100)]' : disabled ? 'text-text-disabled' : 'text-text-tertiary'"
-    >{{ count }}</span>
-  </button>
-</template>

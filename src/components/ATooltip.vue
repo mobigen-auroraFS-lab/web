@@ -1,9 +1,3 @@
-<script setup>
-defineProps({
-  text: { type: String, required: true }
-})
-</script>
-
 <template>
   <div class="relative inline-flex group font-sans">
     <slot />
@@ -17,3 +11,9 @@ defineProps({
     </div>
   </div>
 </template>
+
+<script setup>
+defineProps({
+  text: { type: String, required: true }
+})
+</script>

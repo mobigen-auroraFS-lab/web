@@ -1,13 +1,3 @@
-<script setup>
-defineProps({
-  tone: {
-    type: String,
-    default: 'default',
-    validator: (v) => ['default', 'success', 'danger'].includes(v)
-  }
-})
-</script>
-
 <template>
   <span
     class="inline-flex items-center px-2.5 py-1 rounded-full font-sans text-xs"
@@ -20,3 +10,13 @@ defineProps({
     <slot />
   </span>
 </template>
+
+<script setup>
+defineProps({
+  tone: {
+    type: String,
+    default: 'default',
+    validator: (v) => ['default', 'success', 'danger'].includes(v)
+  }
+})
+</script>

@@ -1,14 +1,3 @@
-<script setup>
-import { Check } from '@lucide/vue'
-
-defineProps({
-  modelValue: { type: Boolean, default: false },
-  disabled: { type: Boolean, default: false }
-})
-
-defineEmits(['update:modelValue'])
-</script>
-
 <template>
   <label
     class="flex items-center gap-2 font-sans text-base"
@@ -37,3 +26,14 @@ defineEmits(['update:modelValue'])
     <slot />
   </label>
 </template>
+
+<script setup>
+import { Check } from '@lucide/vue'
+
+defineProps({
+  modelValue: { type: Boolean, default: false },
+  disabled: { type: Boolean, default: false }
+})
+
+defineEmits(['update:modelValue'])
+</script>

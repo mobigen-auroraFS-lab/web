@@ -1,26 +1,6 @@
-<script setup>
-import { Search } from '@lucide/vue'
-
-defineProps({
-  modelValue: { type: String, default: '' },
-  label: { type: String, default: '' },
-  placeholder: { type: String, default: '' },
-  disabled: { type: Boolean, default: false },
-  error: { type: String, default: '' },
-  search: { type: Boolean, default: false },
-  type: { type: String, default: 'text' }
-})
-
-defineEmits(['update:modelValue'])
-</script>
-
 <template>
   <div class="flex flex-col gap-1.5 font-sans">
-    <label
-      v-if="label"
-      class="text-base font-medium"
-      :class="disabled ? 'text-text-disabled' : 'text-text-primary'"
-    >
+    <label v-if="label" class="text-base font-medium" :class="disabled ? 'text-text-disabled' : 'text-text-primary'">
       {{ label }}
     </label>
     <div class="relative flex items-center">
@@ -43,3 +23,19 @@ defineEmits(['update:modelValue'])
     <span v-if="error" class="text-xs text-status-danger-text">{{ error }}</span>
   </div>
 </template>
+
+<script setup>
+import { Search } from '@lucide/vue'
+
+defineProps({
+  modelValue: { type: String, default: '' },
+  label: { type: String, default: '' },
+  placeholder: { type: String, default: '' },
+  disabled: { type: Boolean, default: false },
+  error: { type: String, default: '' },
+  search: { type: Boolean, default: false },
+  type: { type: String, default: 'text' }
+})
+
+defineEmits(['update:modelValue'])
+</script>

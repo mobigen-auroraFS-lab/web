@@ -1,16 +1,16 @@
-:root{
-/* Categorical — approximated within spec chroma range 0.14–0.22 (exact source values not provided) */
---color-viz-1:#0d7dd4; /* blue */
---color-viz-2:#8c5ad3; /* violet */
---color-viz-3:#31983d; /* green */
---color-viz-4:#d78d00; /* amber */
---color-viz-5:#d44567; /* rose */
---color-viz-6:#00919b; /* teal */
---color-viz-7:#de6907; /* orange */
---color-viz-8:#009ed8; /* cyan */
---color-viz-axis:var(--color-text-tertiary);
---color-viz-gridline:var(--color-border-default);
---color-viz-null:var(--color-border-strong);
---color-viz-positive:var(--color-status-success-text);
---color-viz-negative:var(--color-status-danger-text);
+:root {
+  /* Categorical — approximated within spec chroma range 0.14–0.22 (exact source values not provided) */
+  --color-viz-1: #0d7dd4; /* blue */
+  --color-viz-2: #8c5ad3; /* violet */
+  --color-viz-3: #31983d; /* green */
+  --color-viz-4: #d78d00; /* amber */
+  --color-viz-5: #d44567; /* rose */
+  --color-viz-6: #00919b; /* teal */
+  --color-viz-7: #de6907; /* orange */
+  --color-viz-8: #009ed8; /* cyan */
+  --color-viz-axis: var(--color-text-tertiary);
+  --color-viz-gridline: var(--color-border-default);
+  --color-viz-null: var(--color-border-strong);
+  --color-viz-positive: var(--color-status-success-text);
+  --color-viz-negative: var(--color-status-danger-text);
 }

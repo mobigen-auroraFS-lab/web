@@ -1,3 +1,29 @@
+<template>
+  <div ref="wrap" class="flex gap-6 border-b border-border-default relative font-sans">
+    <button
+      v-for="(tab, i) in tabs"
+      :key="tab.label"
+      :ref="(el) => setTabRef(el, i)"
+      class="bg-transparent border-none py-2 px-0.5 pb-3 -mb-px text-base"
+      :class="
+        tab.disabled
+          ? 'text-text-disabled cursor-not-allowed font-medium'
+          : active === tab.label
+            ? 'text-text-primary font-semibold cursor-pointer'
+            : 'text-text-tertiary font-medium cursor-pointer'
+      "
+      :disabled="tab.disabled"
+      @click="select(tab)"
+    >
+      {{ tab.label }}
+    </button>
+    <span
+      class="absolute -bottom-px h-0.5 bg-text-primary transition-[left,width] duration-[180ms] ease-standard"
+      :style="underlineStyle"
+    />
+  </div>
+</template>
+
 <script setup>
 import { ref, nextTick, onMounted } from 'vue'
 
@@ -39,29 +65,3 @@ function select(tab) {
 
 onMounted(() => nextTick(updateUnderline))
 </script>
-
-<template>
-  <div ref="wrap" class="flex gap-6 border-b border-border-default relative font-sans">
-    <button
-      v-for="(tab, i) in tabs"
-      :key="tab.label"
-      :ref="(el) => setTabRef(el, i)"
-      class="bg-transparent border-none py-2 px-0.5 pb-3 -mb-px text-base"
-      :class="
-        tab.disabled
-          ? 'text-text-disabled cursor-not-allowed font-medium'
-          : active === tab.label
-            ? 'text-text-primary font-semibold cursor-pointer'
-            : 'text-text-tertiary font-medium cursor-pointer'
-      "
-      :disabled="tab.disabled"
-      @click="select(tab)"
-    >
-      {{ tab.label }}
-    </button>
-    <span
-      class="absolute -bottom-px h-0.5 bg-text-primary transition-[left,width] duration-[180ms] ease-standard"
-      :style="underlineStyle"
-    />
-  </div>
-</template>

@@ -1,3 +1,50 @@
+<template>
+  <div
+    class="bg-bg-surface border border-border-default rounded-lg pt-3 px-3 pb-4 w-[280px] flex flex-col items-center gap-3 shadow-elevation-2 font-sans box-border"
+  >
+    <div class="flex items-center justify-between w-full">
+      <button
+        aria-label="이전 달"
+        class="w-7 h-7 rounded-sm border border-border-default bg-bg-surface inline-flex items-center justify-center text-icon-default cursor-pointer hover:bg-bg-surface-hover"
+        @click="prevMonth"
+      >
+        <ChevronLeft :size="16" :stroke-width="1.5" />
+      </button>
+      <span class="text-base font-semibold text-text-primary">{{ label }}</span>
+      <button
+        aria-label="다음 달"
+        class="w-7 h-7 rounded-sm border border-border-default bg-bg-surface inline-flex items-center justify-center text-icon-default cursor-pointer hover:bg-bg-surface-hover"
+        @click="nextMonth"
+      >
+        <ChevronRight :size="16" :stroke-width="1.5" />
+      </button>
+    </div>
+
+    <div class="grid grid-cols-7 w-full" @mouseleave="hovered = null">
+      <span v-for="wd in weekdays" :key="wd" class="text-xs text-text-tertiary text-center pb-1">{{ wd }}</span>
+      <!-- 범위 띠가 칸 사이에서 끊기지 않도록 가로 간격을 두지 않는다 -->
+      <div v-for="(date, i) in cells" :key="i" class="h-9 flex items-center justify-center" :class="barClass(date)">
+        <button
+          v-if="date"
+          type="button"
+          :aria-pressed="isEdge(date)"
+          class="w-9 h-9 rounded-full text-xs border-none cursor-pointer flex items-center justify-center"
+          :class="[
+            isEdge(date)
+              ? 'bg-action-primary text-text-inverse font-semibold'
+              : 'bg-transparent text-text-primary hover:bg-bg-surface-hover',
+            isToday(date) && !isEdge(date) ? 'border border-border-strong' : ''
+          ]"
+          @click="selectDate(date)"
+          @mouseenter="hovered = date"
+        >
+          {{ date.getDate() }}
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script setup>
 import { ref, computed } from 'vue'
 import { ChevronLeft, ChevronRight } from '@lucide/vue'
@@ -19,9 +66,7 @@ const locale = (typeof document !== 'undefined' && document.documentElement.lang
 const viewDate = ref(new Date(props.modelValue || props.start || today))
 const hovered = ref(null)
 
-const label = computed(() =>
-  new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(viewDate.value)
-)
+const label = computed(() => new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(viewDate.value))
 const weekdays = computed(() => {
   const fmt = new Intl.DateTimeFormat(locale, { weekday: 'short' })
   /* 2024-09-01 은 일요일 — 요일 이름만 뽑기 위한 기준일 */
@@ -95,46 +140,3 @@ function nextMonth() {
   viewDate.value = new Date(viewDate.value.getFullYear(), viewDate.value.getMonth() + 1, 1)
 }
 </script>
-
-<template>
-  <div class="bg-bg-surface border border-border-default rounded-lg pt-3 px-3 pb-4 w-[280px] flex flex-col items-center gap-3 shadow-elevation-2 font-sans box-border">
-    <div class="flex items-center justify-between w-full">
-      <button
-        aria-label="이전 달"
-        class="w-7 h-7 rounded-sm border border-border-default bg-bg-surface inline-flex items-center justify-center text-icon-default cursor-pointer hover:bg-bg-surface-hover"
-        @click="prevMonth"
-      >
-        <ChevronLeft :size="16" :stroke-width="1.5" />
-      </button>
-      <span class="text-base font-semibold text-text-primary">{{ label }}</span>
-      <button
-        aria-label="다음 달"
-        class="w-7 h-7 rounded-sm border border-border-default bg-bg-surface inline-flex items-center justify-center text-icon-default cursor-pointer hover:bg-bg-surface-hover"
-        @click="nextMonth"
-      >
-        <ChevronRight :size="16" :stroke-width="1.5" />
-      </button>
-    </div>
-
-    <div class="grid grid-cols-7 w-full" @mouseleave="hovered = null">
-      <span v-for="wd in weekdays" :key="wd" class="text-xs text-text-tertiary text-center pb-1">{{ wd }}</span>
-      <!-- 범위 띠가 칸 사이에서 끊기지 않도록 가로 간격을 두지 않는다 -->
-      <div v-for="(date, i) in cells" :key="i" class="h-9 flex items-center justify-center" :class="barClass(date)">
-        <button
-          v-if="date"
-          type="button"
-          :aria-pressed="isEdge(date)"
-          class="w-9 h-9 rounded-full text-xs border-none cursor-pointer flex items-center justify-center"
-          :class="[
-            isEdge(date) ? 'bg-action-primary text-text-inverse font-semibold' : 'bg-transparent text-text-primary hover:bg-bg-surface-hover',
-            isToday(date) && !isEdge(date) ? 'border border-border-strong' : ''
-          ]"
-          @click="selectDate(date)"
-          @mouseenter="hovered = date"
-        >
-          {{ date.getDate() }}
-        </button>
-      </div>
-    </div>
-  </div>
-</template>

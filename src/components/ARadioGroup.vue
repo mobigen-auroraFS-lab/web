@@ -1,16 +1,3 @@
-<script setup>
-defineProps({
-  modelValue: { type: [String, Number], default: null },
-  options: {
-    type: Array,
-    required: true
-    // [{ value, label, disabled }]
-  }
-})
-
-defineEmits(['update:modelValue'])
-</script>
-
 <template>
   <div class="flex flex-col gap-3 font-sans text-base">
     <label
@@ -34,3 +21,16 @@ defineEmits(['update:modelValue'])
     </label>
   </div>
 </template>
+
+<script setup>
+defineProps({
+  modelValue: { type: [String, Number], default: null },
+  options: {
+    type: Array,
+    required: true
+    // [{ value, label, disabled }]
+  }
+})
+
+defineEmits(['update:modelValue'])
+</script>

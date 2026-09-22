@@ -1,8 +1,10 @@
-:root{
---layout-columns:12; /* @kind other */
---layout-gutter:var(--space-4);
---layout-margin:var(--space-6);
---content-max-width-form:720px;
---content-max-width-table:none; /* @kind other */
---bp-min:1280px;--bp-lg:1440px;--bp-xl:1920px;
+:root {
+  --layout-columns: 12; /* @kind other */
+  --layout-gutter: var(--space-4);
+  --layout-margin: var(--space-6);
+  --content-max-width-form: 720px;
+  --content-max-width-table: none; /* @kind other */
+  --bp-min: 1280px;
+  --bp-lg: 1440px;
+  --bp-xl: 1920px;
 }

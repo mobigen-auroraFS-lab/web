@@ -11,11 +11,15 @@
   - `<화면명>.vue` — 템플릿. 로직은 최대한 넣지 않고 composable 결과를 템플릿에 연결만 함
   - `use<화면명>.js` — 상태/필터링/정렬 등 로직을 담는 composable
   - `<화면명>.mock.js` — 실제 API 연동 전까지 쓰는 임시 데이터. API 연동 시 이 파일만 교체
+- `src/DesignGuide/`는 `pages/`와 별개입니다. 요구사항에 있는 제품 화면이 아니라 개발자·
+  디자이너가 컴포넌트를 확인하는 내부 카탈로그라서, 실제 화면들과 섞이지 않도록 `pages/`
+  바깥에 둡니다.
 - `src/components/`에 재사용 가능한 디자인 시스템 컴포넌트(A 접두사: AButton, AInput 등)가
   있습니다. 새 화면을 만들 때 여기 먼저 확인하고 재사용하세요. 없는 스타일이 필요하면
   `!important` 인라인 오버라이드보다 컴포넌트에 variant를 추가하는 걸 우선 고려하세요.
-- `src/components/layout/`에 화면 공통 레이아웃(`AppHeader.vue`, `DefaultLayout.vue`)이
-  있습니다. 여러 화면이 공유하는 UI만 여기 둡니다.
+- `src/layout/`에 화면 공통 레이아웃(`AppHeader.vue`, `DefaultLayout.vue`)이 있습니다.
+  재사용 가능한 디자인 시스템 컴포넌트(`src/components/`)와 달리 이 앱 자체의 뼈대이므로
+  별도 폴더로 둡니다. 여러 화면이 공유하는 UI만 여기 둡니다.
 - CSS 진입점은 `src/style.css` 하나입니다 (Tailwind + `src/tokens/*.css` 디자인 토큰 +
   기본 리셋). `src/theme.css`는 토큰을 Tailwind v4 `@theme`로 연결하는 브릿지이며, 색상 값이
   `src/tokens/colors.css`와 일부 중복 선언되어 있는 건 Tailwind v4의 제약 때문에 의도된
