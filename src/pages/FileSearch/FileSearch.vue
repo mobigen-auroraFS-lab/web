@@ -3,188 +3,40 @@
        본문만 남은 폭을 채우며 늘어난다. 그 아래 화면은 기존처럼 페이지 전체가 스크롤된다 -->
   <div class="grid grid-cols-1 xl:flex gap-6 xl:gap-0 items-start xl:items-stretch xl:h-full">
     <!-- 필터 사이드바 -->
-    <aside
-      aria-label="검색 필터"
-      class="flex flex-col gap-5 self-start bg-bg-surface transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard xl:w-[var(--sidebar-width)] xl:shrink-0 xl:h-full xl:overflow-y-auto xl:border-r xl:border-border-default xl:pl-6 xl:pr-5 xl:pt-8 xl:pb-16"
-      :class="revealed.filter ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'"
+    <FilterSidebar
+      :class="['transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard', revealed.filter ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2']"
       style="transition-delay: 60ms"
-    >
-      <h2 class="m-0 text-lg font-bold text-text-primary">필터</h2>
-      <div class="border-b border-slate-100 -mt-2"></div>
-
-      <div class="flex flex-col gap-3" role="group" aria-label="주제">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold text-text-primary">주제</span>
-          <button
-            v-if="topics.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="topics = []"
-          >
-            해제
-          </button>
-        </div>
-        <div class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in visibleTopicChips"
-            :key="chip.label"
-            :label="chip.label"
-            :count="chip.count"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="topics = toggleIn(topics, chip.label)"
-          />
-          <button
-            v-if="visibleTopicChips.length < TOPIC_OPTIONS.length"
-            class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
-            @click="openFacetModal('topic')"
-          >
-            전체 보기
-          </button>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="하위주제">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold" :class="topics.length ? 'text-text-primary' : 'text-text-tertiary'">하위주제</span>
-          <button
-            v-if="subtopics.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="subtopics = []"
-          >
-            해제
-          </button>
-        </div>
-        <AEmptyState v-if="topics.length === 0" size="sm" :icon="Lock" description="주제를 먼저 선택하면&#10;하위주제가 열립니다" />
-        <div v-else class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in subtopicChips"
-            :key="chip.label"
-            :label="chip.label"
-            :count="chip.count"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="subtopics = toggleIn(subtopics, chip.label)"
-          />
-          <button
-            v-if="subtopicChips.length < availableSubtopics.length"
-            class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
-            @click="openFacetModal('subtopic')"
-          >
-            전체 보기
-          </button>
-          <span v-if="subtopicChips.length === 0" class="text-xs text-text-tertiary">해당 주제의 하위주제가 없습니다.</span>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="태그">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold" :class="subtopics.length ? 'text-text-primary' : 'text-text-tertiary'">태그</span>
-          <button
-            v-if="tags.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="tags = []"
-          >
-            해제
-          </button>
-        </div>
-        <AEmptyState v-if="subtopics.length === 0" size="sm" :icon="Lock" description="하위주제를 먼저 선택하면&#10;관련 태그가 열립니다" />
-        <div v-else class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in visibleTagChips"
-            :key="chip.label"
-            :label="chip.label"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="tags = toggleIn(tags, chip.label)"
-          />
-          <button
-            v-if="visibleTagChips.length < availableTags.length"
-            class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
-            @click="openFacetModal('tag')"
-          >
-            전체 보기
-          </button>
-          <span v-if="visibleTagChips.length === 0" class="text-xs text-text-tertiary">해당 하위주제의 태그가 없습니다.</span>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="파일 형식">
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-bold text-text-primary">파일 형식</span>
-          <button
-            v-if="fileTypes.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="fileTypes = []"
-          >
-            해제
-          </button>
-        </div>
-        <div class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in fileTypeChips"
-            :key="chip.label"
-            :label="chip.label"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="fileTypes = toggleIn(fileTypes, chip.label)"
-          />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4">
-        <span class="text-sm font-bold text-text-primary">크기</span>
-        <div class="flex gap-2 flex-wrap items-center" role="radiogroup" aria-label="크기">
-          <AFilterChip
-            v-for="chip in sizeRangeChips"
-            :key="chip.label"
-            radio
-            :label="chip.label"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="sizeRange = chip.value"
-          />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="기간">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold text-text-primary">기간</span>
-          <button
-            v-if="dateFrom || dateTo"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="clearDateRange"
-          >
-            해제
-          </button>
-        </div>
-        <div class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="preset in DATE_PRESETS"
-            :key="preset.days"
-            :label="preset.label"
-            :active="isDatePresetActive(preset.days)"
-            :disabled="datePresetCounts[preset.days] === 0 && !isDatePresetActive(preset.days)"
-            @click="applyDatePreset(preset.days)"
-          />
-        </div>
-        <APopover v-model="datePickerOpen" :panel-width="280" :panel-max-height="320">
-          <template #trigger="{ toggle }">
-            <button
-              class="flex items-center gap-2 w-[200px] max-w-full h-control-md px-2.5 bg-bg-surface border border-border-default rounded-md cursor-pointer box-border hover:border-border-strong"
-              :class="dateFrom || dateTo ? 'text-text-primary' : 'text-text-tertiary'"
-              :aria-expanded="datePickerOpen"
-              @click="toggle"
-            >
-              <CalendarIcon class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
-              <span class="truncate text-sm">{{ dateRangeLabel }}</span>
-            </button>
-          </template>
-          <template #content>
-            <ACalendar range v-model:start="dateFrom" v-model:end="dateTo" @update:end="onDateRangeEnd" />
-          </template>
-        </APopover>
-      </div>
-    </aside>
+      :topics="topics"
+      :subtopics="subtopics"
+      :tags="tags"
+      :file-types="fileTypes"
+      :date-from="dateFrom"
+      :date-to="dateTo"
+      :visible-topic-chips="visibleTopicChips"
+      :subtopic-chips="subtopicChips"
+      :visible-tag-chips="visibleTagChips"
+      :file-type-chips="fileTypeChips"
+      :size-range-chips="sizeRangeChips"
+      :date-preset-chips="datePresetChips"
+      :date-range-label="dateRangeLabel"
+      :show-more-topics="showMoreTopics"
+      :show-more-subtopics="showMoreSubtopics"
+      :show-more-tags="showMoreTags"
+      @clear-topics="topics = []"
+      @clear-subtopics="subtopics = []"
+      @clear-tags="tags = []"
+      @clear-file-types="fileTypes = []"
+      @clear-date-range="clearDateRange"
+      @toggle-topic="(label) => (topics = toggleIn(topics, label))"
+      @toggle-subtopic="(label) => (subtopics = toggleIn(subtopics, label))"
+      @toggle-tag="(label) => (tags = toggleIn(tags, label))"
+      @toggle-file-type="(label) => (fileTypes = toggleIn(fileTypes, label))"
+      @select-size="(value) => (sizeRange = value)"
+      @apply-date-preset="applyDatePreset"
+      @open-facet="openFacetModal"
+      @update:date-from="(d) => (dateFrom = d)"
+      @update:date-to="(d) => (dateTo = d)"
+    />
 
     <!-- 결과: xl 이상에서는 이 컬럼 자체가 여백 없는 2단 구조다 —
          위(헤더 묶음)는 고정, 아래(테이블)만 남은 세로 공간을 채우며 자체 스크롤한다 -->
@@ -587,24 +439,22 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { Calendar as CalendarIcon, X, Download, SearchX, ArrowUp, ListFilter, Info, Lock } from '@lucide/vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { X, Download, SearchX, ArrowUp, ListFilter, Info } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
 import ACheckbox from '../../components/ACheckbox.vue'
-import ACalendar from '../../components/ACalendar.vue'
 import AToast from '../../components/AToast.vue'
 import ADialog from '../../components/ADialog.vue'
 import AFileDetailModal from '../../components/AFileDetailModal.vue'
 import ACommand from '../../components/ACommand.vue'
-import AFilterChip from '../../components/AFilterChip.vue'
 import AEmptyState from '../../components/AEmptyState.vue'
 import ASelectionBar from '../../components/ASelectionBar.vue'
 import ASegmentedControl from '../../components/ASegmentedControl.vue'
-import APopover from '../../components/APopover.vue'
+import FilterSidebar from '../../layout/FilterSidebar.vue'
 
-import { ICON_BY_EXT, EXT_STYLE_MAP, TOPIC_OPTIONS, DATE_PRESETS, DENSITY_OPTIONS } from './fileSearch.mock'
+import { ICON_BY_EXT, EXT_STYLE_MAP, DENSITY_OPTIONS } from './fileSearch.mock'
 import { useFileSearch } from './useFileSearch'
 
 const {
@@ -641,21 +491,21 @@ const {
   canSelectAllResults,
   resultKeywordPrefix,
   visibleTopicChips,
-  availableSubtopics,
+  showMoreTopics,
   subtopicChips,
-  availableTags,
+  showMoreSubtopics,
   visibleTagChips,
+  showMoreTags,
   fileTypeChips,
   sizeRangeChips,
+  datePresetChips,
   dateRangeLabel,
-  datePresetCounts,
   appliedConditions,
   clearAllConditions,
   clearDateRange,
   toggleSort,
   ariaSortFor,
   applyDatePreset,
-  isDatePresetActive,
   selectAllResults,
   toggleSelectAllVisible,
   toggleRowSelect,
@@ -702,16 +552,6 @@ let loadObserver = null
 function observeLoadMore() {
   if (!loadObserver || !loadMoreRef.value) return
   loadObserver.observe(loadMoreRef.value)
-}
-
-/* --------------------------------------------------------- 기간 선택 팝오버 */
-
-/* 위치 계산·바깥 클릭·Escape는 APopover가 자체적으로 처리한다 —
-   범위 완성 시에만 여기서 닫아준다 */
-const datePickerOpen = ref(false)
-
-function onDateRangeEnd(date) {
-  if (date) datePickerOpen.value = false
 }
 
 /* --------------------------------------------------------- command palette */

@@ -247,6 +247,7 @@ export function useFileSearch() {
   }
 
   const visibleTopicChips = computed(() => topFacetChips(TOPIC_OPTIONS, topics.value, topicCounts.value))
+  const showMoreTopics = computed(() => visibleTopicChips.value.length < TOPIC_OPTIONS.length)
 
   const availableSubtopics = computed(() => {
     const set = new Set()
@@ -254,6 +255,7 @@ export function useFileSearch() {
     return SUBTOPIC_OPTIONS.filter((s) => set.has(s))
   })
   const subtopicChips = computed(() => topFacetChips(availableSubtopics.value, subtopics.value, subtopicCounts.value))
+  const showMoreSubtopics = computed(() => subtopicChips.value.length < availableSubtopics.value.length)
 
   const availableTags = computed(() => {
     const set = new Set()
@@ -261,6 +263,7 @@ export function useFileSearch() {
     return TAG_OPTIONS.filter((t) => set.has(t))
   })
   const visibleTagChips = computed(() => topFacetChips(availableTags.value, tags.value, tagCounts.value))
+  const showMoreTags = computed(() => visibleTagChips.value.length < availableTags.value.length)
 
   const fileTypeChips = computed(() => FILE_TYPE_OPTIONS.map((v) => toChip(v, fileTypes.value.includes(v), fileTypeCounts.value[v] || 0)))
   const sizeRangeChips = computed(() =>
@@ -347,6 +350,14 @@ export function useFileSearch() {
     expectedFrom.setDate(expectedFrom.getDate() - (days - 1))
     return toISODate(dateFrom.value) === toISODate(expectedFrom) && toISODate(dateTo.value) === toISODate(new Date())
   }
+  const datePresetChips = computed(() =>
+    DATE_PRESETS.map((preset) => ({
+      label: preset.label,
+      days: preset.days,
+      active: isDatePresetActive(preset.days),
+      disabled: datePresetCounts.value[preset.days] === 0 && !isDatePresetActive(preset.days)
+    }))
+  )
 
   /* ------------------------------------------------------------- selection */
 
@@ -640,14 +651,15 @@ export function useFileSearch() {
     resultKeywordPrefix,
 
     visibleTopicChips,
-    availableSubtopics,
+    showMoreTopics,
     subtopicChips,
-    availableTags,
+    showMoreSubtopics,
     visibleTagChips,
+    showMoreTags,
     fileTypeChips,
     sizeRangeChips,
+    datePresetChips,
     dateRangeLabel,
-    datePresetCounts,
     appliedConditions,
     clearAllConditions,
     clearDateRange,
@@ -655,7 +667,6 @@ export function useFileSearch() {
     toggleSort,
     ariaSortFor,
     applyDatePreset,
-    isDatePresetActive,
 
     selectAllResults,
     toggleSelectAllVisible,
