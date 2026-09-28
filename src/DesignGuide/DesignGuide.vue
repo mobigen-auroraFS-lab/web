@@ -492,20 +492,13 @@
         </template>
       </APopover>
     </section>
-
-    <section id="file-detail-modal">
-      <h2>File Detail Modal</h2>
-      <p class="section-desc">목록/카드에서 항목을 열어 원본 메타데이터·추출 정보·관계 파일을 한 화면에서 보여주는 대형 중앙 모달. 컴포넌트 상단 JSDoc 의 FileDetail 타입대로 데이터를 맞추면 그대로 연결된다.</p>
-      <AButton variant="secondary" @click="fileDetailDemoOpen = true">파일 상세 정보 열기</AButton>
-      <AFileDetailModal v-model:open="fileDetailDemoOpen" :file="fileDetailDemoFile" :icon="FileText" />
-    </section>
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { User, CreditCard, Sun, Keyboard, Users, UserPlus, Plus, Code2, LifeBuoy, Cloud, LogOut, Lock, SearchX, FileText } from '@lucide/vue'
+import { User, CreditCard, Sun, Keyboard, Users, UserPlus, Plus, Code2, LifeBuoy, Cloud, LogOut, Lock, SearchX } from '@lucide/vue'
 
 import AButton from '../components/AButton.vue'
 import ABadge from '../components/ABadge.vue'
@@ -538,7 +531,6 @@ import AEmptyState from '../components/AEmptyState.vue'
 import ASelectionBar from '../components/ASelectionBar.vue'
 import ASegmentedControl from '../components/ASegmentedControl.vue'
 import APopover from '../components/APopover.vue'
-import AFileDetailModal from '../components/AFileDetailModal.vue'
 
 const dialogOpen = ref(false)
 const alertDialogOpen = ref(false)
@@ -643,32 +635,6 @@ const segmentedOptions = [
 
 const popoverOpen = ref(false)
 const popoverDate = ref(new Date(2024, 0, 22))
-
-/* -------------------------------------------------------- File Detail Modal */
-
-const fileDetailDemoOpen = ref(false)
-const fileDetailDemoFile = {
-  id: 'demo-1',
-  name: '흉부CT_소견_25.docx',
-  typeBadge: '문서',
-  typeBadgeStyle: { bg: 'color-mix(in oklch, var(--color-viz-1) 16%, white)', text: 'var(--color-viz-1)' },
-  fileFormat: 'docx',
-  sizeLabel: '2MB',
-  uploadedAt: '2026-02-26',
-  source: '자동 수집',
-  breadcrumb: [{ label: '의료', level: 'topic' }, { label: '영상검사', level: 'subtopic' }],
-  extractedInfo: { summary: '의료 · 영상검사 분류로 등록된 자료입니다. #흉부, #내시경 관련 내용을 포함하고 있습니다.' },
-  fullText: '흉부CT_소견_25.docx 원문 추출 텍스트 예시입니다. 도입부에서는 배경과 목적을 설명하고, 본론에서는 세부 절차를 단계별로 기술합니다.',
-  fullTextStatus: 'ready',
-  basicInfo: [
-    { key: 'format', label: 'format', value: 'docx' },
-    { key: 'file_size', label: 'file_size', value: '2MB' },
-    { key: 'page_count', label: '페이지 수', value: '12쪽' }
-  ],
-  topics: [{ id: '영상검사', label: '의료 · 영상검사', relatedCount: 17, clickable: true }],
-  multimodalMeta: [{ id: '#흉부', label: '#흉부', count: 17 }, { id: '#내시경', label: '#내시경', count: 3 }],
-  relations: { related: [], sameTopic: [] }
-}
 
 /* ---------------------------------------------------------- Design Foundation */
 
@@ -818,8 +784,7 @@ const navGroups = [
       { id: 'empty-state', label: 'Empty State' },
       { id: 'selection-bar', label: 'Selection Bar' },
       { id: 'segmented-control', label: 'Segmented Control' },
-      { id: 'popover', label: 'Popover' },
-      { id: 'file-detail-modal', label: 'File Detail Modal' }
+      { id: 'popover', label: 'Popover' }
     ]
   }
 ]

@@ -167,7 +167,7 @@ export function generateFiles(count = 100) {
 
 /* ------------------------------------------------ 파일 상세 정보 샘플 데이터 */
 
-/* AFileDetailModal이 기대하는 FileDetail 모양으로 목록 행을 부풀린다.
+/* FileDetailModal이 기대하는 FileDetail 모양으로 목록 행을 부풀린다.
    실제 API가 붙으면 이 함수를 fetch 결과로 바꿔치기하면 된다 — 컴포넌트는
    이 값의 출처를 모른다 */
 function buildBasicInfo(item) {
@@ -248,7 +248,7 @@ function buildRelations(item, allFiles) {
 /**
  * @param {*} item 목록의 파일 한 건
  * @param {*[]} allFiles 관계/통계 계산에 쓰이는 전체 목록
- * @returns {import('../../components/AFileDetailModal.vue').FileDetail|null}
+ * @returns {import('./FileDetailModal.vue').FileDetail|null}
  */
 export function buildFileDetail(item, allFiles) {
   if (!item) return null

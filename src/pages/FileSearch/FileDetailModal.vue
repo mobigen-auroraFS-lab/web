@@ -377,7 +377,7 @@
 
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
 import { X, Download, ChevronDown, Share2, Star, Database, Calendar, LoaderCircle, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
-import ALineTabs from './ALineTabs.vue'
+import ALineTabs from '../../components/ALineTabs.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },

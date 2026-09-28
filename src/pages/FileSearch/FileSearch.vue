@@ -81,7 +81,7 @@
               type="button"
               aria-label="명령 팔레트 열기 (Cmd/Ctrl+K)"
               class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
-              @click="openPalette"
+              @click="paletteOpen = true"
             >
               <kbd
                 class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
@@ -365,7 +365,7 @@
   </div>
 
   <!-- 파일 상세 정보 모달 -->
-  <AFileDetailModal
+  <FileDetailModal
     v-model:open="fileDetailOpen"
     :file="fileDetail"
     :icon="fileDetailIcon"
@@ -417,21 +417,7 @@
   </ADialog>
 
   <!-- ⌘K 커맨드 팔레트 -->
-  <div
-    v-if="paletteOpen"
-    class="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] px-4 bg-bg-overlay-scrim"
-    @click.self="closePalette"
-  >
-    <ACommand
-      ref="paletteRef"
-      width="520px"
-      :limit="12"
-      group-label="필터를 고르거나 파일명을 입력하세요"
-      placeholder="명령 또는 파일 검색…"
-      :items="paletteItems"
-      @select="runPaletteItem"
-    />
-  </div>
+  <CommandPalette v-model:open="paletteOpen" :items="paletteItems" @select="runPaletteItem" />
 
   <div v-if="toastMessage" class="fixed bottom-6 right-6 z-50">
     <AToast :title="toastMessage" />
@@ -439,7 +425,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { X, Download, SearchX, ArrowUp, ListFilter, Info } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
@@ -447,12 +433,12 @@ import AButton from '../../components/AButton.vue'
 import ACheckbox from '../../components/ACheckbox.vue'
 import AToast from '../../components/AToast.vue'
 import ADialog from '../../components/ADialog.vue'
-import AFileDetailModal from '../../components/AFileDetailModal.vue'
-import ACommand from '../../components/ACommand.vue'
 import AEmptyState from '../../components/AEmptyState.vue'
 import ASelectionBar from '../../components/ASelectionBar.vue'
 import ASegmentedControl from '../../components/ASegmentedControl.vue'
 import FilterSidebar from '../../layout/FilterSidebar.vue'
+import FileDetailModal from './FileDetailModal.vue'
+import CommandPalette from './CommandPalette.vue'
 
 import { ICON_BY_EXT, EXT_STYLE_MAP, DENSITY_OPTIONS } from './fileSearch.mock'
 import { useFileSearch } from './useFileSearch'
@@ -554,24 +540,12 @@ function observeLoadMore() {
   loadObserver.observe(loadMoreRef.value)
 }
 
-/* --------------------------------------------------------- command palette */
-
-const paletteRef = ref(null)
-
-function openPalette() {
-  paletteOpen.value = true
-  nextTick(() => {
-    paletteRef.value?.reset()
-    paletteRef.value?.focus()
-  })
-}
-
 /* ------------------------------------------------------------- 키보드 단축키 */
 
 function onGlobalKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    paletteOpen.value ? closePalette() : openPalette()
+    paletteOpen.value = !paletteOpen.value
     return
   }
   if (e.key !== 'Escape') return
