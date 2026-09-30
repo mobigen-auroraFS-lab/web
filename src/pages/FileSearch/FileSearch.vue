@@ -162,6 +162,9 @@
               <X :size="14" :stroke-width="1.5" />
               선택 해제
             </button>
+            <AButton variant="primary" class="!h-[38px] !rounded-md" @click="notifyDownloadUnavailable">
+              <span class="flex items-center gap-2"><Download :size="15" :stroke-width="1.8" /> 다운로드</span>
+            </AButton>
           </ASelectionBar>
 
           <div
@@ -172,13 +175,9 @@
             <div role="rowgroup" class="sticky top-0 z-[1]">
               <div
                 role="row"
-                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px] min-w-[820px] bg-table-header-bg border-b border-table-header-border"
+                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px] bg-table-header-bg border-b border-table-header-border"
               >
-                <div role="columnheader" class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
-                  <ACheckbox :model-value="allVisibleSelected" @update:model-value="toggleSelectAllVisible">
-                    <span class="sr-only">현재 표시된 파일 전체 선택</span>
-                  </ACheckbox>
-                </div>
+                <div role="columnheader" class="py-[var(--table-cell-padding-y)]"><span class="sr-only">선택</span></div>
                 <div role="columnheader" :aria-sort="ariaSortFor('name')" class="flex">
                   <button
                     class="flex items-center gap-1 w-full py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] bg-transparent border-none text-xs font-medium cursor-pointer hover:text-text-primary"
@@ -227,6 +226,7 @@
                     <ArrowUp v-if="sortKey === 'size'" :size="12" :stroke-width="2" :class="sortDir === 'desc' ? 'rotate-180' : ''" />
                   </button>
                 </div>
+                <div role="columnheader" class="py-[var(--table-cell-padding-y)] px-2"><span class="sr-only">작업</span></div>
               </div>
             </div>
 
@@ -236,7 +236,7 @@
                 :key="item.id"
                 role="row"
                 :aria-selected="selectedIds.includes(item.id)"
-                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px] min-w-[820px]"
+                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px]"
                 :class="[
                   i === visibleRows.length - 1 ? '' : 'border-b border-slate-100',
                   selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-[var(--table-row-hover-bg)]'
@@ -287,6 +287,15 @@
                 >
                   {{ item.sizeLabel }}
                 </div>
+                <div role="cell" class="py-[var(--table-cell-padding-y)] px-1.5 flex items-center justify-center gap-0.5">
+                  <button
+                    :aria-label="`${item.name} 다운로드`"
+                    class="w-8 h-8 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard hover:bg-bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
+                    @click="notifyDownloadUnavailable"
+                  >
+                    <Download :size="15" :stroke-width="1.8" />
+                  </button>
+                </div>
               </div>
             </div>
             <div v-if="!listLoading && visibleRows.length === 0" class="p-6">
@@ -327,6 +336,8 @@
     :status="fileDetailStatus"
     :error-message="fileDetailError"
     @retry="retryFileDetail"
+    @download-original="notifyDownloadUnavailable"
+    @download-zip="notifyDownloadUnavailable"
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
@@ -380,14 +391,15 @@
     @select="runPaletteItem"
   />
 
-  <div v-if="toastMessage" class="fixed bottom-6 right-6 z-50">
+  <!-- 상세 모달(z-70) 안에서 누른 버튼의 안내도 보이도록 모달보다 위에 둔다 -->
+  <div v-if="toastMessage" class="fixed bottom-6 right-6 z-[80]">
     <AToast :title="toastMessage" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { X, SearchX, ArrowUp, ListFilter } from '@lucide/vue'
+import { X, Download, SearchX, ArrowUp, ListFilter } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
@@ -428,7 +440,6 @@ const {
   commitResultSearch,
   setResultSearch,
   visibleRows,
-  allVisibleSelected,
   resultKeywordPrefix,
   totalLabel,
   listLoading,
@@ -449,9 +460,9 @@ const {
   toggleSort,
   ariaSortFor,
   applyDatePreset,
-  toggleSelectAllVisible,
   toggleRowSelect,
   loadMoreRows,
+  notifyDownloadUnavailable,
   openFileDetail,
   closeFileDetail,
   fileDetail,
