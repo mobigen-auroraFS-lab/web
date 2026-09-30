@@ -223,8 +223,9 @@ function buildMultimodalMeta(item, allFiles) {
 }
 
 function buildRelations(item, allFiles) {
-  const toRelation = (f, relationType, description) => ({
+  const toRelation = (f, relationType, description, reason) => ({
     id: String(f.id),
+    reason,
     typeBadge: f.category,
     /* 테이블의 '종류' 배지와 같은 확장자별 색을 그대로 물려준다 — 파일 유형이라는
        같은 정보를 모달에서만 다른 색으로 보여줄 이유가 없다 */
@@ -238,10 +239,16 @@ function buildRelations(item, allFiles) {
   })
   const related = allFiles
     .filter((f) => f.id !== item.id && f.subtopic === item.subtopic)
-    .map((f) => toRelation(f, '유사 자료', `같은 ${item.subtopic} 분류에 속한 자료로, 관련 태그(${f.tags.join(', ')})를 공유합니다.`))
+    .map((f) => {
+      const sharedTags = f.tags.filter((t) => item.tags.includes(t))
+      const reason = sharedTags.length ? `공통 태그 ${sharedTags.join(' · ')}` : `같은 분류 · ${item.subtopic}`
+      return toRelation(f, '유사 자료', `같은 ${item.subtopic} 분류에 속한 자료로, 관련 태그(${f.tags.join(', ')})를 공유합니다.`, reason)
+    })
   const sameTopic = allFiles
     .filter((f) => f.id !== item.id && f.topic === item.topic && f.subtopic !== item.subtopic)
-    .map((f) => toRelation(f, '동일 주제', `${item.topic} 주제 안에서 서로 다른 하위 분류로 등록되어 있습니다.`))
+    .map((f) =>
+      toRelation(f, '동일 주제', `${item.topic} 주제 안에서 서로 다른 하위 분류로 등록되어 있습니다.`, `${f.topic} · ${f.subtopic}`)
+    )
   return { related, sameTopic }
 }
 

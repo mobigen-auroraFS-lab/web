@@ -285,13 +285,13 @@
                 />
                 <AInput
                   v-model="resultSearchDraft"
-                  placeholder="목록 좁히기"
+                  placeholder="결과 내 검색"
                   class="[&_input]:h-8 [&_input]:text-sm [&_input]:pl-8 [&_input]:pr-8 [&_input]:bg-slate-100 [&_input]:border-transparent hover:[&_input]:bg-slate-200"
                   @keydown.enter.prevent="commitResultSearch"
                 />
                 <button
                   v-if="resultSearchDraft"
-                  aria-label="목록 좁히기 지우기"
+                  aria-label="결과 내 검색어 지우기"
                   class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 border-none bg-transparent text-text-tertiary rounded-full cursor-pointer flex items-center justify-center p-0 hover:bg-bg-surface-hover"
                   @click="setResultSearch('')"
                 >
@@ -325,7 +325,7 @@
             <div role="rowgroup" class="sticky top-0 z-[1]">
               <div
                 role="row"
-                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_76px] min-w-[896px] bg-table-header-bg border-b border-table-header-border"
+                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px] bg-table-header-bg border-b border-table-header-border"
               >
                 <div role="columnheader" class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
                   <ACheckbox :model-value="allVisibleSelected" @update:model-value="toggleSelectAllVisible">
@@ -386,7 +386,7 @@
 
             <div
               v-if="canSelectAllResults || allResultsSelected"
-              class="flex items-center justify-center gap-2 flex-wrap min-w-[896px] py-2 px-4 bg-bg-surface-selected border-b border-border-default text-sm"
+              class="flex items-center justify-center gap-2 flex-wrap min-w-[864px] py-2 px-4 bg-bg-surface-selected border-b border-border-default text-sm"
             >
               <template v-if="allResultsSelected">
                 <span class="text-text-secondary">검색결과 {{ sortedRows.length.toLocaleString() }}건을 모두 선택했습니다.</span>
@@ -413,12 +413,11 @@
                 :key="item.id"
                 role="row"
                 :aria-selected="selectedIds.includes(item.id)"
-                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_76px] min-w-[896px]"
+                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px]"
                 :class="[
                   i === visibleRows.length - 1 ? '' : 'border-b border-slate-100',
-                  selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-bg-surface-hover'
+                  selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-[var(--table-row-hover-bg)]'
                 ]"
-                @click="onRowClick(item, $event)"
               >
                 <div role="cell" class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
                   <ACheckbox :model-value="selectedIds.includes(item.id)" @update:model-value="toggleRowSelect(item.id)">
@@ -467,13 +466,6 @@
                 </div>
                 <div role="cell" class="py-[var(--table-cell-padding-y)] px-1.5 flex items-center justify-center gap-0.5">
                   <button
-                    :aria-label="`${item.name} 상세 보기`"
-                    class="w-8 h-8 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard hover:bg-bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
-                    @click="openFileDetail(item)"
-                  >
-                    <Info :size="15" :stroke-width="1.8" />
-                  </button>
-                  <button
                     :aria-label="`${item.name} 다운로드`"
                     class="w-8 h-8 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard hover:bg-bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
                     @click="downloadOne(item)"
@@ -483,7 +475,7 @@
                 </div>
               </div>
             </div>
-            <div v-if="visibleRows.length === 0" class="p-6 border-t border-border-default">
+            <div v-if="visibleRows.length === 0" class="p-6">
               <AEmptyState
                 :icon="SearchX"
                 title="조건에 해당하는 파일이 없습니다"
@@ -519,7 +511,6 @@
     :icon="fileDetailIcon"
     @download-original="onDownloadOriginal"
     @download-zip="onDownloadZip"
-    @copy-link="onCopyLinkDetail"
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
@@ -588,7 +579,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { Calendar as CalendarIcon, X, Download, SearchX, ArrowUp, ListFilter, Info, Lock } from '@lucide/vue'
+import { Calendar as CalendarIcon, X, Download, SearchX, ArrowUp, ListFilter, Lock } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
@@ -664,11 +655,9 @@ const {
   downloadOne,
   openFileDetail,
   closeFileDetail,
-  onRowClick,
   fileDetail,
   onDownloadOriginal,
   onDownloadZip,
-  onCopyLinkDetail,
   onBreadcrumbClickDetail,
   onTopicClickDetail,
   onMetaClickDetail,

@@ -54,27 +54,6 @@
           <h2 v-else :id="titleId" class="m-0 flex-1 text-xl font-bold text-text-primary">파일 상세 정보</h2>
 
           <div class="flex items-center gap-2 shrink-0">
-            <button
-              v-if="file"
-              type="button"
-              :aria-pressed="isFavorite"
-              aria-label="즐겨찾기"
-              class="w-9 h-9 flex items-center justify-center rounded-md bg-bg-surface border border-border-default cursor-pointer hover:bg-bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              :class="isFavorite ? 'text-status-warning-text border-status-warning-text' : 'text-icon-default'"
-              @click="toggleFavorite"
-            >
-              <Star :size="16" :stroke-width="1.5" :fill="isFavorite ? 'currentColor' : 'none'" />
-            </button>
-            <button
-              v-if="file"
-              type="button"
-              aria-label="링크 공유"
-              class="w-9 h-9 flex items-center justify-center rounded-md bg-bg-surface border border-border-default text-icon-default cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              @click="$emit('copy-link', file)"
-            >
-              <Share2 :size="16" :stroke-width="1.5" />
-            </button>
-
             <div v-if="file" ref="downloadMenuRef" class="relative">
               <button
                 type="button"
@@ -214,8 +193,8 @@
                 </section>
               </div>
 
-              <!-- 우측: 훑어보는 상세 정보 — 두 그룹은 테두리 대신 넓은 간격으로만 구분한다 -->
-              <div class="flex flex-col gap-12 min-w-0">
+              <!-- 우측: 훑어보는 상세 정보 — 공통 항목 뒤에 파일 형식별 확장 메타를 이어 붙인다 -->
+              <div class="min-w-0">
                 <section class="flex flex-col gap-3 min-w-0">
                   <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">상세 정보</h3>
                   <dl class="m-0">
@@ -239,21 +218,11 @@
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">등록일</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.uploadedAt }}</dd>
                     </div>
-                    <div v-if="file.source" class="flex items-baseline gap-4 py-3.5">
+                    <div v-if="file.source" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">출처</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.source }}</dd>
                     </div>
-                  </dl>
-                </section>
-
-                <section v-if="extendedMeta.length" class="flex flex-col gap-3 min-w-0">
-                  <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">확장 메타</h3>
-                  <dl class="m-0">
-                    <div
-                      v-for="item in extendedMeta"
-                      :key="item.key"
-                      class="flex items-baseline gap-4 py-3.5 border-b border-slate-100 last:border-b-0"
-                    >
+                    <div v-for="item in extendedMeta" :key="item.key" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">{{ item.label }}</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">
                         {{ item.value ?? '정보 없음' }}
@@ -282,9 +251,15 @@
                     v-for="rel in visibleRelations"
                     :key="rel.id"
                     type="button"
-                    class="flex flex-col items-start gap-1.5 min-w-0 text-left p-3 rounded-lg border border-border-default bg-bg-surface cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    class="group relative flex flex-col items-start gap-1.5 min-w-0 text-left p-3 rounded-lg border border-border-default bg-bg-surface cursor-pointer hover:bg-bg-surface-hover-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     @click="$emit('relation-click', rel)"
                   >
+                    <ArrowUpRight
+                      class="absolute top-3 right-3 text-icon-muted opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard group-hover:opacity-100 group-focus-visible:opacity-100"
+                      :size="14"
+                      :stroke-width="1.8"
+                      aria-hidden="true"
+                    />
                     <span
                       class="inline-flex items-center h-5 px-1.5 rounded-sm text-[10px] font-bold tracking-wide"
                       :style="
@@ -298,7 +273,7 @@
                       <component :is="rel.icon" v-if="rel.icon" class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
                       <span class="text-sm font-semibold text-text-primary truncate">{{ rel.name }}</span>
                     </span>
-                    <span v-if="rel.relationType" class="w-full text-xs text-text-tertiary truncate">{{ rel.relationType }}</span>
+                    <span v-if="rel.reason" class="w-full text-xs text-text-tertiary truncate">{{ rel.reason }}</span>
                   </button>
                 </div>
 
@@ -354,6 +329,7 @@
  * @property {Object|Function} [icon]  목록의 확장자 아이콘과 동일한 컴포넌트 — 없으면 아이콘 생략
  * @property {string} name           파일명
  * @property {string} [relationType] 관계 유형 (예: 동일 촬영, 참조, 연계)
+ * @property {string} [reason]       카드에 한 줄로 보여줄 연관 근거 (예: '공통 태그 #흉부 · #CT')
  *
  * @typedef {Object} FileDetail
  * @property {string} id
@@ -376,7 +352,7 @@
  */
 
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
-import { X, Download, ChevronDown, Share2, Star, Database, Calendar, LoaderCircle, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
+import { X, Download, ChevronDown, ArrowUpRight, Database, Calendar, LoaderCircle, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
 import ALineTabs from './ALineTabs.vue'
 
 const props = defineProps({
@@ -394,8 +370,6 @@ const emit = defineEmits([
   'update:open',
   'download-original',
   'download-zip',
-  'copy-link',
-  'toggle-favorite',
   'breadcrumb-click',
   'topic-click',
   'meta-click',
@@ -479,14 +453,6 @@ function selectDownload(kind) {
 
 const breadcrumbPathLabel = computed(() => (props.file?.breadcrumb ?? []).map((c) => c.label).join(' / '))
 
-/* 즐겨찾기는 이 컴포넌트가 자체 보유하는 시각 상태다 — 영속화가 필요하면
-   호출 쪽에서 'toggle-favorite' 를 받아 file.isFavorite 로 되돌려 넣으면 된다 */
-const isFavorite = ref(false)
-function toggleFavorite() {
-  isFavorite.value = !isFavorite.value
-  emit('toggle-favorite', props.file, isFavorite.value)
-}
-
 /* --------------------------------------------------------------- 상세 정보 */
 
 /* 'format' 은 배지·'파일 형식' 행, 'file_size' 는 헤더 메타 줄로 이미 나가므로 확장 메타에서는 뺀다 */
@@ -498,7 +464,6 @@ watch(
   () => props.file,
   () => {
     downloadMenuOpen.value = false
-    isFavorite.value = false
   }
 )
 const fullTextStatus = computed(() => props.file?.fullTextStatus || (props.file?.fullText ? 'ready' : 'empty'))

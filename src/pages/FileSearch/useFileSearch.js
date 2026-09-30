@@ -278,7 +278,7 @@ export function useFileSearch() {
 
   const appliedConditions = computed(() => [
     ...searchTerms.value.map((t) => ({ label: `검색어: ${t}`, remove: () => removeSearchTerm(t) })),
-    ...(resultSearchTerms.value.length ? [{ label: `목록 좁히기: ${resultSearchValue.value}`, remove: () => setResultSearch('') }] : []),
+    ...(resultSearchTerms.value.length ? [{ label: `결과 내 검색: ${resultSearchValue.value}`, remove: () => setResultSearch('') }] : []),
     ...topics.value.map((t) => ({ label: `주제: ${t}`, remove: () => (topics.value = topics.value.filter((x) => x !== t)) })),
     ...subtopics.value.map((t) => ({ label: `하위주제: ${t}`, remove: () => (subtopics.value = subtopics.value.filter((x) => x !== t)) })),
     ...tags.value.map((t) => ({ label: `태그: ${t}`, remove: () => (tags.value = tags.value.filter((x) => x !== t)) })),
@@ -393,11 +393,6 @@ export function useFileSearch() {
   function closeFileDetail() {
     fileDetailOpen.value = false
   }
-  /* 체크박스나 액션 버튼을 누른 것은 행 열기로 치지 않는다 */
-  function onRowClick(item, e) {
-    if (e.target.closest('button, input, label')) return
-    openFileDetail(item)
-  }
 
   const fileDetail = computed(() => buildFileDetail(fileDetailTarget.value, files.value))
 
@@ -406,14 +401,6 @@ export function useFileSearch() {
   }
   function onDownloadZip(detail) {
     showToast(`${detail.name}의 관계 파일을 ZIP으로 묶어 다운로드합니다.`)
-  }
-  async function onCopyLinkDetail(detail) {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      showToast(`${detail.name} 링크를 복사했습니다.`)
-    } catch {
-      showToast('링크 복사에 실패했습니다.')
-    }
   }
   /* 주제 크럼은 대분류만, 하위주제 크럼은 대분류+하위주제를 함께 건다 —
      하위주제 필터는 대분류가 선택돼 있어야 열리는 잠금 구조를 그대로 따른다 */
@@ -667,11 +654,9 @@ export function useFileSearch() {
 
     openFileDetail,
     closeFileDetail,
-    onRowClick,
     fileDetail,
     onDownloadOriginal,
     onDownloadZip,
-    onCopyLinkDetail,
     onBreadcrumbClickDetail,
     onTopicClickDetail,
     onMetaClickDetail,

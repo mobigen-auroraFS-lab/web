@@ -684,6 +684,7 @@ const semanticColors = [
   { label: 'bg-canvas', var: '--color-bg-canvas' },
   { label: 'bg-surface', var: '--color-bg-surface' },
   { label: 'bg-surface-hover', var: '--color-bg-surface-hover' },
+  { label: 'bg-surface-hover-subtle', var: '--color-bg-surface-hover-subtle' },
   { label: 'bg-surface-selected', var: '--color-bg-surface-selected' },
   { label: 'border-default', var: '--color-border-default' },
   { label: 'border-strong', var: '--color-border-strong' },
