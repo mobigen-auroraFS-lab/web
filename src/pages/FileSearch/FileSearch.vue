@@ -408,7 +408,13 @@
   </ADialog>
 
   <!-- ⌘K 커맨드 팔레트 -->
-  <CommandPalette v-model:open="paletteOpen" :items="paletteItems" @select="runPaletteItem" />
+  <CommandPalette
+    v-model:open="paletteOpen"
+    :items="paletteItems"
+    group-label="필터를 고르거나 파일명을 입력하세요"
+    placeholder="명령 또는 파일 검색…"
+    @select="runPaletteItem"
+  />
 
   <div v-if="toastMessage" class="fixed bottom-6 right-6 z-50">
     <AToast :title="toastMessage" />
@@ -429,7 +435,7 @@ import ASelectionBar from '../../components/ASelectionBar.vue'
 import ASegmentedControl from '../../components/ASegmentedControl.vue'
 import FilterSidebar from '../../layout/FilterSidebar.vue'
 import FileDetailModal from './FileDetailModal.vue'
-import CommandPalette from './CommandPalette.vue'
+import CommandPalette from '../../layout/CommandPalette.vue'
 
 import { ICON_BY_EXT, EXT_STYLE_MAP, DENSITY_OPTIONS } from './fileSearch.mock'
 import { useFileSearch } from './useFileSearch'
