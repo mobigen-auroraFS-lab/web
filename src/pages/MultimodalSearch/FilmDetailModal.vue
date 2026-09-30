@@ -92,12 +92,12 @@
             <!-- 우측: 헤더와 겹치는 작품 정보 표 대신, 모달리티 구성을 둔다 -->
             <div class="flex flex-col gap-3 min-w-0">
               <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">모달리티 구성</h3>
-              <!-- 없는 모달리티도 자리를 지켜 빈 곳이 드러나게 한다 -->
-              <ul class="m-0 p-0 list-none flex-1 min-w-0 flex flex-col">
+              <!-- 2×2 배열 — 없는 모달리티도 자리를 지켜 빈 곳이 드러나게 한다. 마지막 줄 두 칸은 아래 선을 뺀다 -->
+              <ul class="m-0 p-0 list-none min-w-0 grid grid-cols-2 gap-x-6">
                 <li
                   v-for="(n, m) in film.modalityCounts"
                   :key="m"
-                  class="flex items-center gap-2.5 py-2.5 border-b border-slate-100 last:border-b-0"
+                  class="flex items-center gap-2.5 min-w-0 py-2.5 border-b border-slate-100 [&:nth-last-child(-n+2)]:border-b-0"
                 >
                   <span
                     class="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
@@ -178,19 +178,49 @@
                 <div class="flex-1 min-w-0 flex flex-col gap-0.5">
                   <div class="flex items-center gap-2 min-w-0 text-sm">
                     <span class="shrink-0 font-semibold text-text-primary">{{ a.label }}</span>
-                    <span class="shrink-0 text-xs text-text-tertiary [font-feature-settings:'tnum']">{{ a.locator }}</span>
-                    <!-- 근거 유형 · 관련도 등급 — 모달리티 색과 겹치지 않게 중립 배지에 등급 점만 색을 쓴다 -->
+                    <!-- 근거 유형 — 어떻게 찾았는지라 자료명 옆에 둔다. 색 없이 흰 바탕 테두리 + 유형 아이콘으로 구분한다 -->
                     <span
                       v-if="a.matched"
-                      class="shrink-0 inline-flex items-center gap-1.5 h-5 px-1.5 rounded-sm bg-slate-100 text-2xs font-medium text-text-secondary"
-                      :title="`관련도 ${a.score.toFixed(2)}`"
-                      ><span class="w-1.5 h-1.5 rounded-full" :style="{ background: gradeColor[a.grade] }" aria-hidden="true"></span
-                      >{{ a.basis }} · 관련도 {{ a.grade }}</span
+                      class="shrink-0 inline-flex items-center gap-1 h-5 px-1.5 rounded-sm border border-border-default bg-bg-surface text-2xs font-medium text-text-secondary"
+                      ><component :is="basisIcon[a.basis]" :size="11" :stroke-width="2" class="text-icon-default" aria-hidden="true" />{{
+                        a.basis
+                      }}</span
                     >
                   </div>
                   <p class="m-0 text-sm text-text-secondary truncate">{{ a.text }}</p>
                 </div>
-                <span class="shrink-0 text-xs text-text-tertiary [font-feature-settings:'tnum']">{{ a.date }}</span>
+                <!-- 위치 · 관련도 · 등록일 — 한 묶음으로 오른쪽에 두고 셋 사이 간격을 gap-10으로 통일한다.
+                     위치는 고정 폭 안에서 오른쪽 정렬해 관련도와의 간격이 등록일 쪽과 같아지게 한다 -->
+                <div class="shrink-0 flex items-center gap-4 sm:gap-10">
+                  <span
+                    class="sm:w-24 inline-flex items-center justify-end gap-1.5 text-xs font-medium text-text-secondary whitespace-nowrap [font-feature-settings:'tnum']"
+                    :aria-label="`${LOCATOR[a.modality].label} ${a.locator}`"
+                  >
+                    <component
+                      :is="LOCATOR[a.modality].icon"
+                      :size="13"
+                      :stroke-width="1.8"
+                      class="shrink-0 text-icon-muted"
+                      aria-hidden="true"
+                    />
+                    <span class="truncate">{{ a.locator }}</span>
+                  </span>
+                  <!-- 관련도 — 등급이 높을수록 진한 배지. 근거가 아닌 행은 같은 폭의 보이지 않는 배지로 자리를 지켜 열을 맞춘다 -->
+                  <span
+                    v-if="film.matchedCount"
+                    class="inline-flex items-center gap-1.5 h-5 px-1.5 rounded-sm text-2xs font-semibold"
+                    :class="a.matched ? GRADE_BADGE[a.grade] : 'invisible'"
+                    :title="a.matched ? `관련도 ${a.score.toFixed(2)}` : undefined"
+                    :aria-hidden="a.matched ? undefined : 'true'"
+                    ><span
+                      class="w-1.5 h-1.5 rounded-full shrink-0"
+                      :style="a.matched ? { background: gradeColor[a.grade] } : null"
+                      aria-hidden="true"
+                    ></span
+                    >관련도 {{ a.matched ? a.grade : '높음' }}</span
+                  >
+                  <span class="text-xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">{{ a.date }}</span>
+                </div>
               </li>
             </ul>
           </section>
@@ -238,7 +268,7 @@
  * 파일 전용 항목(용량·추출 텍스트) 대신 대표 설명과 연결 자료 묶음 다운로드를 둔다.
  */
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
-import { X, ChevronRight, ChevronDown, Download, Globe, Clock, ArrowUpRight, Inbox } from '@lucide/vue'
+import { X, ChevronRight, ChevronDown, Download, Globe, Clock, ArrowUpRight, Inbox, Disc3, BookOpen, Frame } from '@lucide/vue'
 import ALineTabs from '../../components/ALineTabs.vue'
 
 const props = defineProps({
@@ -248,7 +278,9 @@ const props = defineProps({
   /* 모달리티별 { icon, bg, text } — 목록 카드와 같은 색을 쓰도록 화면에서 넘겨받는다 */
   modalityStyle: { type: Object, required: true },
   /* 관련도 등급(높음·중간·낮음)별 점 색 — 목록 카드와 맞추도록 화면에서 넘겨받는다 */
-  gradeColor: { type: Object, required: true }
+  gradeColor: { type: Object, required: true },
+  /* 근거 유형별 아이콘 — 목록 카드와 맞추도록 화면에서 넘겨받는다 */
+  basisIcon: { type: Object, required: true }
 })
 const emit = defineEmits(['update:open', 'classification-click', 'film-click', 'download'])
 
@@ -353,6 +385,21 @@ function selectDownload(opt) {
 /* ------------------------------------------------------ 검색어별 근거 요약 */
 
 const assetsSectionRef = ref(null)
+/* 근거 위치 표기 — 모달리티마다 위치 단위가 달라(타임코드·트랙·페이지·컷) 아이콘으로 단위를 알려준다 */
+const LOCATOR = {
+  영상: { icon: Clock, label: '재생 위치' },
+  음성: { icon: Disc3, label: '트랙' },
+  문서: { icon: BookOpen, label: '페이지' },
+  이미지: { icon: Frame, label: '컷' }
+}
+
+/* 관련도 배지 — 높음만 브랜드 톤으로 띄우고 나머지는 중립 톤으로 가라앉힌다 */
+const GRADE_BADGE = {
+  높음: 'bg-primary-50 text-primary-700',
+  중간: 'bg-slate-100 text-text-secondary',
+  낮음: 'bg-slate-50 text-text-tertiary'
+}
+
 const maxModalityCount = computed(() => Math.max(1, ...Object.values(props.film?.modalityCounts ?? {})))
 
 /* ALineTabs는 처음 받은 값만 기억하므로, 밖에서 탭을 바꿀 때는 key를 올려 다시 그린다 */

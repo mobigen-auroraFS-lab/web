@@ -325,10 +325,10 @@
                     />
                     <span class="shrink-0 font-medium text-text-primary">{{ a.label }}</span>
                     <span class="shrink-0 text-text-tertiary [font-feature-settings:'tnum']">{{ a.locator }}</span>
-                    <!-- 근거 유형 + 관련도 점(진할수록 높음). 모달리티 색과 겹치지 않게 배지는 중립색 -->
+                    <!-- 근거 유형 + 관련도 점(진할수록 높음). 색 없이 흰 바탕 테두리 배지 -->
                     <span
                       v-if="film.isMatchedEvidence"
-                      class="shrink-0 inline-flex items-center gap-1 h-[18px] px-1.5 rounded-sm bg-slate-100 text-2xs font-medium text-text-secondary"
+                      class="shrink-0 inline-flex items-center gap-1 h-[18px] px-1.5 rounded-sm border border-border-default bg-bg-surface text-2xs font-medium text-text-secondary"
                       :title="`관련도 ${a.score.toFixed(2)}`"
                       ><span class="w-1.5 h-1.5 rounded-full" :style="{ background: GRADE_COLOR[a.grade] }" aria-hidden="true"></span
                       >{{ a.basis }}<span class="sr-only"> · 관련도 {{ a.grade }}</span></span
@@ -369,6 +369,7 @@
     :film="filmDetail"
     :modality-style="MODALITY_STYLE"
     :grade-color="GRADE_COLOR"
+    :basis-icon="BASIS_ICON"
     @classification-click="applyFilmClassification"
     @film-click="openFilmDetail"
     @download="downloadFilmBundle"
@@ -391,7 +392,22 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { Calendar as CalendarIcon, X, ListFilter, Lock, SearchX, Film, Image as ImageIcon, FileText, AudioLines } from '@lucide/vue'
+import {
+  Calendar as CalendarIcon,
+  X,
+  ListFilter,
+  Lock,
+  SearchX,
+  Film,
+  Image as ImageIcon,
+  FileText,
+  AudioLines,
+  Captions,
+  ScanText,
+  Mic,
+  ScanEye,
+  Sparkles
+} from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
@@ -469,6 +485,16 @@ function onGlobalKeydown(e) {
     return
   }
   if (e.key === 'Escape' && paletteOpen.value) closePalette()
+}
+
+/* 근거 유형별 아이콘 — 색 대신 모양으로 유형을 구분한다 */
+const BASIS_ICON = {
+  본문: FileText,
+  자막: Captions,
+  OCR: ScanText,
+  음성인식: Mic,
+  '이미지 캡션': ScanEye,
+  '장면 유사': Sparkles
 }
 
 /* 관련도 등급별 점 색 — 높음일수록 진한 브랜드색 */
