@@ -2,7 +2,7 @@
  * API 연동 전 임시 데이터 — 영화 작품과, 작품마다 연결된 모달리티별 자료.
  * 작품명은 모두 가상의 제목이다. 실제 API가 준비되면 이 파일만 교체하면 된다.
  */
-export { DATE_PRESETS } from '../FileSearch/fileSearch.mock'
+export { DATE_PRESETS } from '../FileSearch/fileSearch.api'
 
 export const MODALITY_OPTIONS = ['문서', '이미지', '영상', '음성']
 
