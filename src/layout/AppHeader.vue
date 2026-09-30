@@ -30,17 +30,18 @@
         <img
           v-if="!profileImageError"
           src="https://api.dicebear.com/9.x/notionists/svg?seed=hong-gildong&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&backgroundType=gradientLinear"
-          alt="홍길동 프로필 사진"
+          :alt="`${displayName} 프로필 사진`"
           class="w-[30px] h-[30px] rounded-full object-cover shrink-0"
           @error="profileImageError = true"
         />
         <span
           v-else
           class="w-[30px] h-[30px] rounded-full bg-primary-100 text-primary-700 text-xs font-semibold flex items-center justify-center shrink-0"
-          >홍</span
+          >{{ displayName.charAt(0) }}</span
         >
+        <!-- 이메일·사진은 /me 에 없는 값이라(IDD IF-AUTH-04) 계정 화면이 정해질 때까지 자리 표시로 둔다 -->
         <span class="flex flex-col items-start gap-px">
-          <span class="text-sm text-text-primary font-semibold leading-tight">홍길동</span>
+          <span class="text-sm text-text-primary font-semibold leading-tight">{{ displayName }}</span>
           <span class="text-xs text-text-tertiary leading-tight">hong@data-portal.kr</span>
         </span>
       </button>
@@ -59,6 +60,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { LogOut } from '@lucide/vue'
 import logoUrl from '../assets/images/logo.png'
+import { fetchMe } from '../api/client'
 
 /* 여러 제품 페이지가 생기면 이 목록에 항목만 추가하면 된다 */
 const NAV_ITEMS = [
@@ -71,6 +73,7 @@ defineProps({
 })
 
 const profileImageError = ref(false)
+const displayName = ref('사용자')
 const headerVisible = ref(true)
 let lastScrollY = 0
 
@@ -89,6 +92,10 @@ function onWindowScroll() {
 onMounted(() => {
   lastScrollY = window.scrollY
   window.addEventListener('scroll', onWindowScroll, { passive: true })
+  /* 가입 때 이름을 안 줬으면 display_name 이 null — 로그인 아이디, 그것도 없는 개발용 주체는 user_id 로 보인다 */
+  fetchMe()
+    .then((me) => (displayName.value = me.display_name ?? me.login_id ?? me.user_id ?? '사용자'))
+    .catch(() => {})
 })
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onWindowScroll)
