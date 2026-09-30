@@ -53,8 +53,47 @@
           </div>
           <h2 v-else :id="titleId" class="m-0 flex-1 text-xl font-bold text-text-primary">파일 상세 정보</h2>
 
-          <!-- 다운로드 메뉴는 서버의 파일 제공 창구가 협의 대기로 지워져(2026-09-28) 빼 두었다 -->
           <div class="flex items-center gap-2 shrink-0">
+            <div v-if="file" ref="downloadMenuRef" class="relative">
+              <button
+                type="button"
+                class="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-action-primary border-none text-sm font-medium text-text-inverse cursor-pointer hover:bg-action-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                :aria-expanded="downloadMenuOpen"
+                @click="downloadMenuOpen = !downloadMenuOpen"
+              >
+                <Download :size="14" :stroke-width="1.8" />
+                다운로드
+                <ChevronDown :size="14" :stroke-width="1.8" />
+              </button>
+              <div
+                v-if="downloadMenuOpen"
+                class="absolute top-[calc(100%+6px)] right-0 w-60 rounded-lg border border-border-default bg-bg-surface shadow-elevation-2 overflow-hidden z-10 py-1"
+              >
+                <button
+                  type="button"
+                  class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
+                  @click="selectDownload('original')"
+                >
+                  이 데이터만 <span class="text-text-tertiary">(원본 1건)</span>
+                </button>
+                <button
+                  type="button"
+                  class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
+                  @click="selectDownload('zip')"
+                >
+                  연관 데이터 묶음 <span class="text-text-tertiary">(zip)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
+                >
+                  <span>분류 묶음 <span class="text-text-disabled">(zip)</span></span>
+                  <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
+                </button>
+              </div>
+            </div>
+
             <button
               ref="closeBtnRef"
               type="button"
@@ -296,8 +335,8 @@
  * @property {{ related: FileDetailRelation[], sameTopic: FileDetailRelation[] }} relations
  */
 
-import { ref, computed, watch, nextTick, useId, onBeforeUnmount } from 'vue'
-import { X, ChevronDown, ArrowUpRight, Database, Calendar, LoaderCircle, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
+import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
+import { X, Download, ChevronDown, ArrowUpRight, Database, Calendar, LoaderCircle, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
 import ALineTabs from '../../components/ALineTabs.vue'
 
 const props = defineProps({
@@ -311,7 +350,16 @@ const props = defineProps({
   icon: { type: [Object, Function], default: null }
 })
 
-const emit = defineEmits(['update:open', 'breadcrumb-click', 'topic-click', 'meta-click', 'relation-click', 'retry'])
+const emit = defineEmits([
+  'update:open',
+  'download-original',
+  'download-zip',
+  'breadcrumb-click',
+  'topic-click',
+  'meta-click',
+  'relation-click',
+  'retry'
+])
 
 const titleId = useId()
 const dialogRef = ref(null)
@@ -369,6 +417,30 @@ function onTabKey(e) {
     first.focus()
   }
 }
+
+/* ------------------------------------------------------------- 헤더 액션 */
+
+const downloadMenuOpen = ref(false)
+const downloadMenuRef = ref(null)
+
+function onClickOutsideDownloadMenu(e) {
+  if (downloadMenuRef.value && !downloadMenuRef.value.contains(e.target)) downloadMenuOpen.value = false
+}
+onMounted(() => document.addEventListener('click', onClickOutsideDownloadMenu))
+onBeforeUnmount(() => document.removeEventListener('click', onClickOutsideDownloadMenu))
+
+function selectDownload(kind) {
+  downloadMenuOpen.value = false
+  if (kind === 'original') emit('download-original', props.file)
+  else if (kind === 'zip') emit('download-zip', props.file)
+}
+
+watch(
+  () => props.file,
+  () => {
+    downloadMenuOpen.value = false
+  }
+)
 
 const breadcrumbPathLabel = computed(() => (props.file?.breadcrumb ?? []).map((c) => c.label).join(' / '))
 
