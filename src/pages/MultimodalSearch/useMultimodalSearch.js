@@ -7,6 +7,7 @@ import {
   COUNTRY_OPTIONS,
   DECADE_OPTIONS,
   DATE_PRESETS,
+  EVIDENCE_BASIS,
   generateFilms
 } from './multimodalSearch.mock'
 
@@ -29,6 +30,30 @@ function includesTerm(haystack, term) {
 }
 const filmMetaText = (f) => `${f.title} ${f.type} ${f.genre} ${f.country} ${f.decade}`
 const assetText = (a) => `${a.label} ${a.text}`
+
+/* 관련도 — 실제로는 검색 엔진이 돌려주는 점수. 목업에서는 근거 유형의 기본값에 자료·검색어별로
+   고정된 작은 편차를 더한다(같은 검색이면 늘 같은 점수가 나오게) */
+function jitter(key) {
+  let h = 0
+  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) % 997
+  return (h % 9) / 100
+}
+function relevance(asset, terms) {
+  const hit = terms.filter((t) => includesTerm(assetText(asset), t))
+  if (!hit.length) return 0
+  const base = EVIDENCE_BASIS[asset.basis]?.base ?? 0.7
+  return Math.min(0.99, Math.max(...hit.map((t) => base + jitter(asset.id + t))))
+}
+/* 점수 구간 — 화면에는 숫자 대신 등급으로 보여준다 */
+function relevanceGrade(score) {
+  if (score >= 0.85) return '높음'
+  if (score >= 0.75) return '중간'
+  return '낮음'
+}
+const withRelevance = (a, terms) => {
+  const score = relevance(a, terms)
+  return { ...a, score, grade: relevanceGrade(score) }
+}
 
 /**
  * 멀티모달 검색 화면의 검색·필터 상태 로직.
@@ -147,7 +172,13 @@ export function useMultimodalSearch() {
       const scoped = relevantAssets(film, currentRange.value)
         .filter((a) => !modalities.value.length || modalities.value.includes(a.modality))
         .sort((a, b) => b.date.localeCompare(a.date))
-      const matched = terms.length ? scoped.filter((a) => assetMatches(a, terms)) : []
+      /* 근거는 관련도 높은 순 — 카드에는 앞의 몇 건만 보이므로 가장 확실한 근거가 먼저 나와야 한다 */
+      const matched = terms.length
+        ? scoped
+            .filter((a) => assetMatches(a, terms))
+            .map((a) => withRelevance(a, terms))
+            .sort((a, b) => b.score - a.score)
+        : []
       return {
         ...film,
         modalityCounts: countModalities(film.assets),
@@ -155,6 +186,7 @@ export function useMultimodalSearch() {
         isMatchedEvidence: matched.length > 0,
         evidenceModalityCount: new Set(matched.map((a) => a.modality)).size,
         metaMatches: terms.length ? META_FIELDS.filter(([k]) => terms.some((t) => includesTerm(film[k], t))).map(([, label]) => label) : [],
+        scopedCount: scoped.length,
         latestDate: scoped[0]?.date ?? ''
       }
     })
@@ -274,6 +306,105 @@ export function useMultimodalSearch() {
     dateTo.value = null
   }
 
+  /* ---------------------------------------------------------- 작품 상세 모달 */
+
+  const filmDetailOpen = ref(false)
+  const filmDetailId = ref(null)
+  function openFilmDetail(id) {
+    filmDetailId.value = id
+    filmDetailOpen.value = true
+  }
+  function closeFilmDetail() {
+    filmDetailOpen.value = false
+  }
+
+  /* 모달은 기간·모달리티 조건과 상관없이 작품에 연결된 자료 전체를 보여주고, 지금 결과에서 근거가 된 자료만
+     '일치'로 표시한다. 같은 장르 작품으로 옮겨 간 작품이 결과 밖이면 일치 표시는 없다 */
+  const filmDetail = computed(() => {
+    const film = films.value.find((f) => f.id === filmDetailId.value)
+    if (!film) return null
+    const row = results.value.find((r) => r.id === film.id)
+    const matchedIds = new Set(row?.isMatchedEvidence ? row.evidence.map((a) => a.id) : [])
+    const assets = film.assets
+      .map((a) => (matchedIds.has(a.id) ? { ...withRelevance(a, allTerms.value), matched: true } : { ...a, matched: false }))
+      .sort((a, b) => b.matched - a.matched || (b.score ?? 0) - (a.score ?? 0) || b.date.localeCompare(a.date))
+    return {
+      ...film,
+      assets,
+      matchedCount: matchedIds.size,
+      modalityCounts: countModalities(film.assets),
+      cross: crossEvidence(film),
+      latestDate: film.assets.reduce((max, a) => (a.date > max ? a.date : max), ''),
+      sameGenre: films.value
+        .filter((f) => f.id !== film.id && f.genre === film.genre)
+        .map((f) => ({ id: f.id, title: f.title, type: f.type, country: f.country, decade: f.decade, assetCount: f.assets.length }))
+    }
+  })
+
+  /* 검색어별 근거 요약 — 검색어마다 어느 모달리티의 자료에 나오는지. 목록 카드의 근거와 같이 등록일 범위 안의
+     자료만 센다. 모달리티 필터는 적용하지 않는다 — 걸러진 모달리티에도 근거가 있다는 걸 알려주기 위해서다 */
+  function crossEvidence(film) {
+    const pool = film.assets.filter((a) => inRange(a.date, currentRange.value))
+    return allTerms.value.map((term) => {
+      const hits = pool.filter((a) => includesTerm(assetText(a), term))
+      return {
+        term,
+        modalities: MODALITY_OPTIONS.map((m) => ({ name: m, count: hits.filter((a) => a.modality === m).length })).filter((x) => x.count),
+        metaHit: META_FIELDS.filter(([k]) => includesTerm(film[k], term)).map(([, label]) => label)
+      }
+    })
+  }
+
+  /* 장르는 유형을 골라야 열리는 구조라, 장르를 걸 때는 그 작품의 유형도 함께 건다 */
+  function applyFilmClassification(level) {
+    const film = filmDetail.value
+    if (!film) return
+    if (!types.value.includes(film.type)) types.value = [...types.value, film.type]
+    if (level === 'genre' && !genres.value.includes(film.genre)) genres.value = [...genres.value, film.genre]
+    closeFilmDetail()
+  }
+
+  /* --------------------------------------------------------------- toast */
+
+  const toastMessage = ref('')
+  let toastTimer = null
+  function showToast(message) {
+    toastMessage.value = message
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => (toastMessage.value = ''), 2500)
+  }
+  /* 실제 API 연동 전까지는 안내만 띄운다 — 모달이 고른 자료 목록(assets)을 그대로 넘기면 된다 */
+  function downloadFilmBundle({ film, label, assets }) {
+    showToast(`${film.title} · ${label} ${assets.length}건을 ZIP으로 묶어 다운로드합니다.`)
+  }
+
+  /* --------------------------------------------------------- command palette */
+
+  const paletteOpen = ref(false)
+
+  /* 장르는 사이드바와 같이 선택한 유형에 딸린 것만 보여준다. 작품은 지금 결과 순서대로 */
+  const paletteItems = computed(() => [
+    ...(appliedConditions.value.length ? [{ label: '조건 모두 해제', hint: '동작', kind: 'clear' }] : []),
+    ...MODALITY_OPTIONS.map((v) => ({ label: v, hint: '모달리티', kind: 'modality', value: v })),
+    ...TYPE_OPTIONS.map((v) => ({ label: v, hint: '유형', kind: 'type', value: v })),
+    ...availableGenres.value.map((v) => ({ label: v, hint: '장르', kind: 'genre', value: v })),
+    ...COUNTRY_OPTIONS.map((v) => ({ label: v, hint: '제작 국가', kind: 'country', value: v })),
+    ...DECADE_OPTIONS.map((v) => ({ label: v, hint: '개봉 연대', kind: 'decade', value: v })),
+    ...results.value.map((f) => ({ label: f.title, hint: '작품', kind: 'film', value: f.id }))
+  ])
+
+  function closePalette() {
+    paletteOpen.value = false
+  }
+  function runPaletteItem(item) {
+    if (item.kind === 'clear') clearAllConditions()
+    else if (item.kind === 'modality') modalities.value = toggleIn(modalities.value, item.value)
+    else if (item.kind === 'type') types.value = toggleIn(types.value, item.value)
+    else if (item.kind === 'film') openFilmDetail(item.value)
+    else toggleField(item.kind, item.value)
+    closePalette()
+  }
+
   /* --------------------------------------------------------------- dates */
 
   function applyDatePreset(days) {
@@ -325,6 +456,19 @@ export function useMultimodalSearch() {
 
     applyDatePreset,
     isDatePresetActive,
+
+    filmDetailOpen,
+    filmDetail,
+    openFilmDetail,
+    applyFilmClassification,
+
+    toastMessage,
+    downloadFilmBundle,
+
+    paletteOpen,
+    paletteItems,
+    closePalette,
+    runPaletteItem,
 
     toggleIn
   }

@@ -167,6 +167,22 @@
             >
               <X :size="13" :stroke-width="1.5" />
             </button>
+            <button
+              v-else
+              type="button"
+              aria-label="명령 팔레트 열기 (Cmd/Ctrl+K)"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
+              @click="paletteOpen = true"
+            >
+              <kbd
+                class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
+                >⌘</kbd
+              >
+              <kbd
+                class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
+                >K</kbd
+              >
+            </button>
           </div>
         </div>
       </div>
@@ -227,22 +243,40 @@
           </div>
         </div>
 
-        <!-- 목록: 카드 그리드. xl 이상에서는 이 영역만 남은 세로 공간을 채우며 자체 스크롤한다 -->
-        <div class="xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:px-5 xl:pb-8">
+        <!-- 목록: 카드 그리드. xl 이상에서는 이 영역만 남은 세로 공간을 채우며 자체 스크롤한다.
+             hover 시 떠오른 카드가 스크롤 경계에 잘리지 않게 안쪽에 4px 여유를 두고, 같은 만큼 위로 당겨 간격은 그대로 둔다 -->
+        <div class="xl:flex-1 xl:min-h-0 xl:-mt-1 xl:overflow-y-auto xl:px-5 xl:pb-8">
           <ul
             v-if="results.length"
             aria-label="멀티모달 검색 결과"
-            class="m-0 p-0 list-none grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4"
+            class="m-0 p-0 xl:pt-1 list-none grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4"
           >
             <li
               v-for="film in results"
               :key="film.id"
-              class="flex flex-col gap-3 min-w-0 rounded-lg border border-border-default bg-bg-surface p-4"
+              class="group relative flex flex-col gap-3 min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 cursor-pointer transition-[border-color,box-shadow,transform] duration-[var(--duration-fast)] ease-standard hover:border-border-strong hover:shadow-elevation-2 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-focus-ring"
             >
-              <div class="flex flex-col gap-1 min-w-0">
-                <h3 class="m-0 text-md font-semibold text-text-primary truncate">{{ film.title }}</h3>
-                <p class="m-0 text-xs text-text-tertiary truncate">
-                  {{ film.type }} · {{ film.genre }} · {{ film.country }} · {{ film.decade }}
+              <!-- 제목 줄 오른쪽에 최근 자료 등록일을 둔다 — 작품끼리 최신성을 한눈에 비교하도록 -->
+              <div class="flex items-start justify-between gap-3 min-w-0">
+                <div class="flex flex-col gap-1 min-w-0">
+                  <!-- 제목 버튼의 클릭 영역을 카드 전체로 늘린다 — 카드 어디를 눌러도 상세가 열리고, 키보드로는 제목에 한 번만 멈춘다 -->
+                  <h3
+                    class="m-0 text-md font-semibold text-text-primary truncate transition-colors duration-[var(--duration-fast)] group-hover:text-action-primary"
+                  >
+                    <button
+                      type="button"
+                      class="bg-transparent border-none p-0 font-[inherit] text-[length:inherit] text-inherit cursor-pointer focus-visible:outline-none after:absolute after:inset-0 after:content-['']"
+                      @click="openFilmDetail(film.id)"
+                    >
+                      {{ film.title }}
+                    </button>
+                  </h3>
+                  <p class="m-0 text-xs text-text-tertiary truncate">
+                    {{ film.type }} · {{ film.genre }} · {{ film.country }} · {{ film.decade }}
+                  </p>
+                </div>
+                <p class="m-0 shrink-0 pt-0.5 text-2xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">
+                  등록일 {{ film.latestDate }}
                 </p>
               </div>
 
@@ -261,16 +295,23 @@
               </div>
 
               <div class="flex flex-col gap-1.5 border-t border-slate-100 pt-3 min-w-0">
-                <p class="m-0 text-2xs font-semibold text-text-tertiary">
+                <!-- 제목 옆 건수: 검색 근거면 맞은 자료 수, 아니면 조건(기간·모달리티) 안의 연결 자료 수 -->
+                <p class="m-0 text-2xs font-semibold text-text-tertiary [font-feature-settings:'tnum']">
                   <template v-if="film.isMatchedEvidence">
-                    일치 근거
+                    검색 근거 <span class="text-text-primary">{{ film.evidence.length }}건</span>
                     <span v-if="film.evidenceModalityCount > 1" class="text-action-primary"
-                      >· {{ film.evidenceModalityCount }}개 모달리티 교차</span
+                      >&nbsp;· {{ film.evidenceModalityCount }}개 모달리티 교차</span
                     >
                     <span v-if="film.metaMatches.length"> · 작품 정보({{ film.metaMatches.join(', ') }})</span>
                   </template>
-                  <template v-else-if="film.metaMatches.length">작품 정보({{ film.metaMatches.join(', ') }})에서 일치 · 연결 자료</template>
-                  <template v-else>{{ hasDateRange ? '등록일 범위 안의 연결 자료' : '연결 자료' }}</template>
+                  <template v-else-if="film.metaMatches.length"
+                    >작품 정보({{ film.metaMatches.join(', ') }})에서 일치 · 연결 자료
+                    <span class="text-text-primary">{{ film.scopedCount }}건</span></template
+                  >
+                  <template v-else
+                    >{{ hasDateRange ? '등록일 범위 안의 연결 자료' : '연결 자료' }}
+                    <span class="text-text-primary">{{ film.scopedCount }}건</span></template
+                  >
                 </p>
                 <ul class="m-0 p-0 list-none flex flex-col gap-1">
                   <li v-for="a in film.evidence.slice(0, 4)" :key="a.id" class="flex items-center gap-2 min-w-0 text-xs">
@@ -284,13 +325,19 @@
                     />
                     <span class="shrink-0 font-medium text-text-primary">{{ a.label }}</span>
                     <span class="shrink-0 text-text-tertiary [font-feature-settings:'tnum']">{{ a.locator }}</span>
+                    <!-- 근거 유형 + 관련도 점(진할수록 높음). 모달리티 색과 겹치지 않게 배지는 중립색 -->
+                    <span
+                      v-if="film.isMatchedEvidence"
+                      class="shrink-0 inline-flex items-center gap-1 h-[18px] px-1.5 rounded-sm bg-slate-100 text-2xs font-medium text-text-secondary"
+                      :title="`관련도 ${a.score.toFixed(2)}`"
+                      ><span class="w-1.5 h-1.5 rounded-full" :style="{ background: GRADE_COLOR[a.grade] }" aria-hidden="true"></span
+                      >{{ a.basis }}<span class="sr-only"> · 관련도 {{ a.grade }}</span></span
+                    >
                     <span class="min-w-0 truncate text-text-secondary">{{ a.text }}</span>
                   </li>
                 </ul>
                 <p v-if="film.evidence.length > 4" class="m-0 text-2xs text-text-tertiary">외 {{ film.evidence.length - 4 }}건</p>
               </div>
-
-              <p class="m-0 mt-auto text-2xs text-text-tertiary [font-feature-settings:'tnum']">최근 자료 등록 {{ film.latestDate }}</p>
             </li>
           </ul>
 
@@ -316,10 +363,34 @@
       </div>
     </div>
   </div>
+
+  <FilmDetailModal
+    v-model:open="filmDetailOpen"
+    :film="filmDetail"
+    :modality-style="MODALITY_STYLE"
+    :grade-color="GRADE_COLOR"
+    @classification-click="applyFilmClassification"
+    @film-click="openFilmDetail"
+    @download="downloadFilmBundle"
+  />
+
+  <!-- 상세 모달(z-70) 위에 떠야 다운로드 안내가 보인다 -->
+  <div v-if="toastMessage" class="fixed bottom-6 right-6 z-[80]">
+    <AToast :title="toastMessage" />
+  </div>
+
+  <!-- ⌘K 커맨드 팔레트 -->
+  <CommandPalette
+    v-model:open="paletteOpen"
+    :items="paletteItems"
+    group-label="필터를 고르거나 작품명을 입력하세요"
+    placeholder="명령 또는 작품 검색…"
+    @select="runPaletteItem"
+  />
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { Calendar as CalendarIcon, X, ListFilter, Lock, SearchX, Film, Image as ImageIcon, FileText, AudioLines } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
@@ -328,9 +399,12 @@ import ACalendar from '../../components/ACalendar.vue'
 import AFilterChip from '../../components/AFilterChip.vue'
 import AEmptyState from '../../components/AEmptyState.vue'
 import APopover from '../../components/APopover.vue'
+import AToast from '../../components/AToast.vue'
 
 import { DATE_PRESETS } from './multimodalSearch.mock'
 import { useMultimodalSearch } from './useMultimodalSearch'
+import FilmDetailModal from './FilmDetailModal.vue'
+import CommandPalette from '../../layout/CommandPalette.vue'
 
 const {
   films,
@@ -362,6 +436,16 @@ const {
   clearDateRange,
   applyDatePreset,
   isDatePresetActive,
+  filmDetailOpen,
+  filmDetail,
+  openFilmDetail,
+  applyFilmClassification,
+  toastMessage,
+  downloadFilmBundle,
+  paletteOpen,
+  paletteItems,
+  closePalette,
+  runPaletteItem,
   toggleIn
 } = useMultimodalSearch()
 
@@ -373,12 +457,35 @@ const MODALITY_STYLE = {
   음성: { icon: AudioLines, bg: 'color-mix(in oklch, var(--color-viz-6) 12%, white)', text: 'var(--color-viz-6)' }
 }
 
+/* ------------------------------------------------------------- 키보드 단축키 */
+
+/* 작품 상세 모달이 떠 있으면 ⌘K를 무시한다 — 팔레트가 모달 아래 층이라 열려도 보이지 않는다.
+   모달의 Escape는 모달이 스스로 처리한다 */
+function onGlobalKeydown(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    if (filmDetailOpen.value) return
+    e.preventDefault()
+    paletteOpen.value = !paletteOpen.value
+    return
+  }
+  if (e.key === 'Escape' && paletteOpen.value) closePalette()
+}
+
+/* 관련도 등급별 점 색 — 높음일수록 진한 브랜드색 */
+const GRADE_COLOR = {
+  높음: 'var(--color-action-primary)',
+  중간: 'var(--color-primary-300)',
+  낮음: 'var(--color-slate-300)'
+}
+
 const revealed = ref(false)
 onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
   requestAnimationFrame(() => {
     revealed.value = true
   })
 })
+onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
 
 /* 위치 계산·바깥 클릭·Escape는 APopover가 처리한다 — 범위가 완성될 때만 여기서 닫는다 */
 const datePickerOpen = ref(false)
