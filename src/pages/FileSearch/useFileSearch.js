@@ -258,7 +258,11 @@ export function useFileSearch() {
   /* 상위 조건을 풀면 그 아래 선택도 의미가 없어진다 — 잠금 구조를 그대로 따른다.
      바뀔 게 없을 때 새 배열을 넣으면 그것만으로 다시 조회되므로 실제로 달라질 때만 넣는다 */
   watch(topics, () => {
-    const kept = !topics.value.length ? [] : topicRows.value.length ? subtopics.value.filter((s) => subtopicOptions.value.has(s)) : subtopics.value
+    const kept = !topics.value.length
+      ? []
+      : topicRows.value.length
+        ? subtopics.value.filter((s) => subtopicOptions.value.has(s))
+        : subtopics.value
     if (kept.length !== subtopics.value.length) subtopics.value = kept
   })
   watch(subtopics, () => {
@@ -401,18 +405,16 @@ export function useFileSearch() {
 
   /* ------------------------------------------------------------- selection */
 
-  /* 서버는 쪽 단위로 주므로 선택은 지금까지 받은 행 안에서만 한다 */
+  /* 전체 선택은 두지 않는다(기획 결정) — 서버가 쪽 단위로 주므로 행을 하나씩 고른다 */
   const visibleRows = items
-  const visibleIds = computed(() => items.value.map((r) => r.id))
-  const allVisibleSelected = computed(() => visibleIds.value.length > 0 && visibleIds.value.every((id) => selectedIds.value.includes(id)))
 
-  function toggleSelectAllVisible() {
-    selectedIds.value = allVisibleSelected.value
-      ? selectedIds.value.filter((id) => !visibleIds.value.includes(id))
-      : [...new Set([...selectedIds.value, ...visibleIds.value])]
-  }
   function toggleRowSelect(id) {
     selectedIds.value = toggleIn(selectedIds.value, id)
+  }
+
+  /* 서버의 파일 제공 창구가 협의 대기로 지워졌다(2026-09-28) — 버튼은 두되 누르면 안내만 한다 */
+  function notifyDownloadUnavailable() {
+    showToast('파일 다운로드는 준비 중입니다. 파일 제공 방식이 정해지면 열립니다.', 3000)
   }
 
   /* --------------------------------------------------------- 파일 상세 모달 */
@@ -677,7 +679,6 @@ export function useFileSearch() {
     setResultSearch,
 
     visibleRows,
-    allVisibleSelected,
     resultKeywordPrefix,
     totalLabel,
     listLoading,
@@ -702,9 +703,9 @@ export function useFileSearch() {
     ariaSortFor,
     applyDatePreset,
 
-    toggleSelectAllVisible,
     toggleRowSelect,
     loadMoreRows,
+    notifyDownloadUnavailable,
 
     openFileDetail,
     closeFileDetail,
