@@ -445,7 +445,7 @@
       <div class="row" style="align-items: flex-start">
         <div style="width: 220px">
           <span class="caption" style="display: block; margin-bottom: 8px">sm — 인라인 잠금 안내</span>
-          <AEmptyState size="sm" :icon="Lock" :description="'상위 조건을 먼저 선택하면\n이 필터가 열립니다'" />
+          <AEmptyState size="sm" :icon="Lock" description="상위 조건을 선택하면 열립니다" />
         </div>
         <div style="width: 360px">
           <span class="caption" style="display: block; margin-bottom: 8px">md — 결과 없음 + 복구 액션</span>

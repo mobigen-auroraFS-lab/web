@@ -54,7 +54,7 @@
             해제
           </button>
         </div>
-        <AEmptyState v-if="topics.length === 0" size="sm" :icon="Lock" description="주제를 먼저 선택하면&#10;하위주제가 열립니다" />
+        <AEmptyState v-if="topics.length === 0" size="sm" :icon="Lock" description="주제를 선택하면 하위주제가 열립니다" />
         <div v-else class="flex gap-2 flex-wrap items-center">
           <AFilterChip
             v-for="chip in subtopicChips"
@@ -87,7 +87,7 @@
             해제
           </button>
         </div>
-        <AEmptyState v-if="subtopics.length === 0" size="sm" :icon="Lock" description="하위주제를 먼저 선택하면&#10;관련 태그가 열립니다" />
+        <AEmptyState v-if="subtopics.length === 0" size="sm" :icon="Lock" description="하위주제를 선택하면 태그가 열립니다" />
         <div v-else class="flex gap-2 flex-wrap items-center">
           <AFilterChip
             v-for="chip in visibleTagChips"
