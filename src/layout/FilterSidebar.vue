@@ -39,7 +39,6 @@ const emit = defineEmits([
   'toggle-subtopic',
   'toggle-tag',
   'toggle-file-type',
-  'select-size',
   'apply-date-preset',
   'open-facet',
   'update:dateFrom',
@@ -177,6 +176,7 @@ function onDateRangeEnd(date) {
           v-for="chip in fileTypeChips"
           :key="chip.label"
           :label="chip.label"
+          :count="chip.count"
           :active="chip.active"
           :disabled="chip.disabled"
           @click="emit('toggle-file-type', chip.label)"
@@ -186,16 +186,9 @@ function onDateRangeEnd(date) {
 
     <div class="flex flex-col gap-3 border-t border-slate-100 pt-4">
       <span class="text-sm font-bold text-text-primary">크기</span>
-      <div class="flex gap-2 flex-wrap items-center" role="radiogroup" aria-label="크기">
-        <AFilterChip
-          v-for="chip in sizeRangeChips"
-          :key="chip.label"
-          radio
-          :label="chip.label"
-          :active="chip.active"
-          :disabled="chip.disabled"
-          @click="emit('select-size', chip.value)"
-        />
+      <!-- 크기로 거르기는 서버가 아직 지원하지 않아(size_bucket 501) 건수만 보여준다 -->
+      <div class="flex gap-2 flex-wrap items-center" role="group" aria-label="크기별 건수">
+        <AFilterChip v-for="chip in sizeRangeChips" :key="chip.value" :label="chip.label" :count="chip.count" disabled />
       </div>
     </div>
 

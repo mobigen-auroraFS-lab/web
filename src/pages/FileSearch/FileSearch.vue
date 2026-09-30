@@ -4,7 +4,10 @@
   <div class="grid grid-cols-1 xl:flex gap-6 xl:gap-0 items-start xl:items-stretch xl:h-full">
     <!-- 필터 사이드바 -->
     <FilterSidebar
-      :class="['transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard', revealed.filter ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2']"
+      :class="[
+        'transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard',
+        revealed.filter ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+      ]"
       style="transition-delay: 60ms"
       :topics="topics"
       :subtopics="subtopics"
@@ -31,7 +34,6 @@
       @toggle-subtopic="(label) => (subtopics = toggleIn(subtopics, label))"
       @toggle-tag="(label) => (tags = toggleIn(tags, label))"
       @toggle-file-type="(label) => (fileTypes = toggleIn(fileTypes, label))"
-      @select-size="(value) => (sizeRange = value)"
       @apply-date-preset="applyDatePreset"
       @open-facet="openFacetModal"
       @update:date-from="(d) => (dateFrom = d)"
@@ -122,11 +124,7 @@
 
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div class="text-md text-text-primary" aria-live="polite">
-              {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ filteredRows.length.toLocaleString() }}</span
-              ><span class="font-bold">건</span>
-              <span v-if="appliedConditions.length > 0" class="text-sm text-text-tertiary font-normal ml-2"
-                >(전체 {{ files.length.toLocaleString() }}건 중)</span
-              >
+              {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ totalLabel }}</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <div class="relative w-[190px]">
@@ -164,9 +162,6 @@
               <X :size="14" :stroke-width="1.5" />
               선택 해제
             </button>
-            <AButton variant="primary" class="!h-[38px] !rounded-md" @click="bulkDownload">
-              <span class="flex items-center gap-2"><Download :size="15" :stroke-width="1.8" /> 다운로드</span>
-            </AButton>
           </ASelectionBar>
 
           <div
@@ -177,7 +172,7 @@
             <div role="rowgroup" class="sticky top-0 z-[1]">
               <div
                 role="row"
-                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px] bg-table-header-bg border-b border-table-header-border"
+                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px] min-w-[820px] bg-table-header-bg border-b border-table-header-border"
               >
                 <div role="columnheader" class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
                   <ACheckbox :model-value="allVisibleSelected" @update:model-value="toggleSelectAllVisible">
@@ -232,40 +227,16 @@
                     <ArrowUp v-if="sortKey === 'size'" :size="12" :stroke-width="2" :class="sortDir === 'desc' ? 'rotate-180' : ''" />
                   </button>
                 </div>
-                <div role="columnheader" class="py-[var(--table-cell-padding-y)] px-2"><span class="sr-only">작업</span></div>
               </div>
             </div>
 
-            <div
-              v-if="canSelectAllResults || allResultsSelected"
-              class="flex items-center justify-center gap-2 flex-wrap min-w-[864px] py-2 px-4 bg-bg-surface-selected border-b border-border-default text-sm"
-            >
-              <template v-if="allResultsSelected">
-                <span class="text-text-secondary">검색결과 {{ sortedRows.length.toLocaleString() }}건을 모두 선택했습니다.</span>
-                <button
-                  class="bg-transparent border-none text-sm text-action-primary font-semibold cursor-pointer hover:underline"
-                  @click="selectedIds = []"
-                >
-                  선택 해제
-                </button>
-              </template>
-              <template v-else>
-                <span class="text-text-secondary">현재 표시된 {{ visibleRows.length }}건을 선택했습니다.</span>
-                <button
-                  class="bg-transparent border-none text-sm text-action-primary font-semibold cursor-pointer hover:underline"
-                  @click="selectAllResults"
-                >
-                  검색결과 {{ sortedRows.length.toLocaleString() }}건 모두 선택
-                </button>
-              </template>
-            </div>
             <div role="rowgroup">
               <div
                 v-for="(item, i) in visibleRows"
                 :key="item.id"
                 role="row"
                 :aria-selected="selectedIds.includes(item.id)"
-                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px]"
+                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px] min-w-[820px]"
                 :class="[
                   i === visibleRows.length - 1 ? '' : 'border-b border-slate-100',
                   selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-[var(--table-row-hover-bg)]'
@@ -277,7 +248,7 @@
                   </ACheckbox>
                 </div>
                 <div role="cell" class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center gap-2 min-w-0">
-                  <component :is="ICON_BY_EXT[item.ext]" class="text-icon-default shrink-0" :size="16" :stroke-width="1.5" />
+                  <component :is="item.icon" class="text-icon-default shrink-0" :size="16" :stroke-width="1.5" />
                   <button
                     class="min-w-0 truncate text-left bg-transparent border-none p-0 text-[length:var(--density-text-size)] text-text-primary font-medium cursor-pointer hover:underline"
                     @click="openFileDetail(item)"
@@ -294,7 +265,7 @@
                 <div role="cell" class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)]">
                   <span
                     class="inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-bold rounded-sm tracking-wide"
-                    :style="{ background: EXT_STYLE_MAP[item.ext].bg, color: EXT_STYLE_MAP[item.ext].text }"
+                    :style="{ background: item.extStyle.bg, color: item.extStyle.text }"
                     >{{ item.ext }}</span
                   >
                 </div>
@@ -302,7 +273,7 @@
                   role="cell"
                   class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex gap-2 flex-wrap items-center min-w-0"
                 >
-                  <span v-for="t in item.tags" :key="t" class="text-2xs font-medium text-text-tertiary">{{ t }}</span>
+                  <span v-for="t in item.tags" :key="t" class="text-2xs font-medium text-text-tertiary">#{{ t }}</span>
                 </div>
                 <div
                   role="cell"
@@ -316,18 +287,9 @@
                 >
                   {{ item.sizeLabel }}
                 </div>
-                <div role="cell" class="py-[var(--table-cell-padding-y)] px-1.5 flex items-center justify-center gap-0.5">
-                  <button
-                    :aria-label="`${item.name} 다운로드`"
-                    class="w-8 h-8 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard hover:bg-bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
-                    @click="downloadOne(item)"
-                  >
-                    <Download :size="15" :stroke-width="1.8" />
-                  </button>
-                </div>
               </div>
             </div>
-            <div v-if="visibleRows.length === 0" class="p-6">
+            <div v-if="!listLoading && visibleRows.length === 0" class="p-6">
               <AEmptyState
                 :icon="SearchX"
                 title="조건에 해당하는 파일이 없습니다"
@@ -347,8 +309,9 @@
             </div>
 
             <div ref="loadMoreRef" class="flex items-center justify-center min-h-12 py-3 text-xs text-text-tertiary" aria-live="polite">
-              <span v-if="visibleRows.length < sortedRows.length">더 불러오는 중...</span>
-              <span v-else-if="sortedRows.length > 0">전체 결과를 불러왔습니다.</span>
+              <span v-if="listLoading">검색 중...</span>
+              <span v-else-if="hasMore">더 불러오는 중...</span>
+              <span v-else-if="visibleRows.length > 0">전체 결과를 불러왔습니다.</span>
             </div>
           </div>
         </div>
@@ -361,8 +324,9 @@
     v-model:open="fileDetailOpen"
     :file="fileDetail"
     :icon="fileDetailIcon"
-    @download-original="onDownloadOriginal"
-    @download-zip="onDownloadZip"
+    :status="fileDetailStatus"
+    :error-message="fileDetailError"
+    @retry="retryFileDetail"
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
@@ -373,7 +337,7 @@
   <ADialog
     :model-value="facetModal !== null"
     :title="`${facetModalTitle} 선택`"
-    :description="`전체 ${facetModalTotal}개 · 선택 완료를 누르면 목록에 반영됩니다`"
+    :description="`전체 ${facetModalTotal}개 · 건수는 전체 자료 기준 · 선택 완료를 누르면 목록에 반영됩니다`"
     width="460px"
     @update:model-value="closeFacetModal"
   >
@@ -416,8 +380,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { X, Download, SearchX, ArrowUp, ListFilter } from '@lucide/vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { X, SearchX, ArrowUp, ListFilter } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
@@ -431,11 +395,10 @@ import FilterSidebar from '../../layout/FilterSidebar.vue'
 import FileDetailModal from './FileDetailModal.vue'
 import CommandPalette from './CommandPalette.vue'
 
-import { ICON_BY_EXT, EXT_STYLE_MAP, DENSITY_OPTIONS } from './fileSearch.mock'
+import { DENSITY_OPTIONS } from './fileSearch.api'
 import { useFileSearch } from './useFileSearch'
 
 const {
-  files,
   searchDraft,
   resultSearchDraft,
   topics,
@@ -444,13 +407,11 @@ const {
   dateFrom,
   dateTo,
   fileTypes,
-  sizeRange,
   selectedIds,
   sortKey,
   sortDir,
   toastMessage,
   fileDetailOpen,
-  fileDetailTarget,
   density,
   facetModal,
   facetQuery,
@@ -460,13 +421,12 @@ const {
   setSearch,
   commitResultSearch,
   setResultSearch,
-  filteredRows,
-  sortedRows,
   visibleRows,
   allVisibleSelected,
-  allResultsSelected,
-  canSelectAllResults,
   resultKeywordPrefix,
+  totalLabel,
+  listLoading,
+  hasMore,
   visibleTopicChips,
   showMoreTopics,
   subtopicChips,
@@ -483,17 +443,15 @@ const {
   toggleSort,
   ariaSortFor,
   applyDatePreset,
-  selectAllResults,
   toggleSelectAllVisible,
   toggleRowSelect,
   loadMoreRows,
-  bulkDownload,
-  downloadOne,
   openFileDetail,
   closeFileDetail,
   fileDetail,
-  onDownloadOriginal,
-  onDownloadZip,
+  fileDetailStatus,
+  fileDetailError,
+  retryFileDetail,
   onBreadcrumbClickDetail,
   onTopicClickDetail,
   onMetaClickDetail,
@@ -513,7 +471,7 @@ const {
   toggleIn
 } = useFileSearch()
 
-const fileDetailIcon = computed(() => (fileDetailTarget.value ? ICON_BY_EXT[fileDetailTarget.value.ext] : null))
+const fileDetailIcon = computed(() => fileDetail.value?.icon ?? null)
 
 /* ---------------------------------------------------------------- reveal-in */
 
@@ -528,6 +486,18 @@ function observeLoadMore() {
   if (!loadObserver || !loadMoreRef.value) return
   loadObserver.observe(loadMoreRef.value)
 }
+
+/* 받은 쪽이 짧아 감시 지점이 계속 화면 안에 있으면 교차 상태가 바뀌지 않아 콜백이 다시 오지 않는다 —
+   목록이 바뀔 때마다 다시 등록해 지금 상태로 한 번 더 판정받는다 */
+watch(
+  () => visibleRows.value.length,
+  () => {
+    if (!loadObserver || !loadMoreRef.value) return
+    loadObserver.unobserve(loadMoreRef.value)
+    loadObserver.observe(loadMoreRef.value)
+  },
+  { flush: 'post' }
+)
 
 /* ------------------------------------------------------------- 키보드 단축키 */
 
@@ -544,7 +514,6 @@ function onGlobalKeydown(e) {
 }
 
 onMounted(() => {
-  applyUrlState()
   window.addEventListener('hashchange', applyUrlState)
   window.addEventListener('keydown', onGlobalKeydown)
   if ('IntersectionObserver' in window) {
