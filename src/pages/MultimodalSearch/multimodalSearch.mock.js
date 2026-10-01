@@ -32,6 +32,15 @@ export const EVIDENCE_BASIS = {
   '장면 유사': { base: 0.68 }
 }
 
+/* 연결 근거 — 자료가 이 작품에 묶인 방식. 검색과 무관하게 늘 있다. 실제로는 등록 시 작품 ID 매핑이거나
+   AI 자동 연결(제목·장면 유사)이 정한다. base는 이 방식으로 연결됐을 때의 기본 관련도 */
+export const LINK_BASIS = {
+  '메타데이터 연결': { base: 0.95 },
+  '제목 자동 연결': { base: 0.8 },
+  '장면 자동 연결': { base: 0.7 }
+}
+const LINK_METHODS = Object.keys(LINK_BASIS)
+
 /* 작품 하나에 딸린 자료 — 자료 종류가 모달리티와 근거 위치(타임코드·컷·페이지·트랙) 표기, 근거 유형을 정한다 */
 const pad2 = (n) => String(n).padStart(2, '0')
 const ASSET_KINDS = [
@@ -118,6 +127,8 @@ export function generateFilms(filmCount = 30) {
         locator: kind.locator(n),
         text: kind.text(motifs[k % 2]),
         basis: kind.basis(n),
+        /* 다섯 건 중 세 건은 메타데이터로, 나머지는 자동 연결로 묶였다고 둔다 */
+        linkBasis: LINK_METHODS[Math.max(0, ((i + k) % 5) - 2)],
         date: daysAgoISO((i * 7 + k * 13) % 180)
       })
     }

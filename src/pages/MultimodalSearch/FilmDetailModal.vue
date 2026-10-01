@@ -84,51 +84,54 @@
         <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-8 flex flex-col gap-10">
           <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12">
             <!-- 좌측: 대표 설명 -->
-            <section class="flex flex-col gap-3 min-w-0">
+            <section class="flex flex-col gap-2 min-w-0">
               <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">대표 설명</h3>
               <p class="m-0 text-base text-text-primary leading-relaxed">{{ film.summary }}</p>
             </section>
 
             <!-- 우측: 헤더와 겹치는 작품 정보 표 대신, 모달리티 구성을 둔다 -->
-            <div class="flex flex-col gap-3 min-w-0">
+            <div class="flex flex-col gap-2 min-w-0">
               <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">모달리티 구성</h3>
-              <!-- 2×2 배열 — 없는 모달리티도 자리를 지켜 빈 곳이 드러나게 한다. 마지막 줄 두 칸은 아래 선을 뺀다 -->
-              <ul class="m-0 p-0 list-none min-w-0 grid grid-cols-2 gap-x-6">
-                <li
-                  v-for="(n, m) in film.modalityCounts"
-                  :key="m"
-                  class="flex items-center gap-2.5 min-w-0 py-2.5 border-b border-slate-100 [&:nth-last-child(-n+2)]:border-b-0"
-                >
-                  <span
-                    class="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
-                    :class="n ? '' : 'bg-slate-50 text-text-disabled'"
-                    :style="n ? { background: modalityStyle[m].bg, color: modalityStyle[m].text } : null"
+              <!-- 라운드 테두리 박스로 묶는다. 안은 2×2 배열 — 없는 모달리티도 자리를 지켜 빈 곳이 드러나게 하고,
+                   마지막 줄 두 칸은 아래 선을 뺀다. 합계 줄은 박스 하단에 붙인다 -->
+              <div class="rounded-lg border border-border-default overflow-hidden">
+                <ul class="m-0 px-4 py-1 list-none min-w-0 grid grid-cols-2 gap-x-6">
+                  <li
+                    v-for="(n, m) in film.modalityCounts"
+                    :key="m"
+                    class="flex items-center gap-2.5 min-w-0 py-2.5 border-b border-slate-100 [&:nth-last-child(-n+2)]:border-b-0"
                   >
-                    <component :is="modalityStyle[m].icon" :size="14" :stroke-width="1.8" aria-hidden="true" />
-                  </span>
-                  <span class="w-10 shrink-0 text-sm font-medium" :class="n ? 'text-text-primary' : 'text-text-disabled'">{{ m }}</span>
-                  <span class="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
                     <span
-                      class="block h-full rounded-full"
-                      :style="{ width: `${(n / maxModalityCount) * 100}%`, background: modalityStyle[m].text }"
-                    ></span>
-                  </span>
-                  <span
-                    class="w-8 shrink-0 text-right text-xs [font-feature-settings:'tnum']"
-                    :class="n ? 'font-semibold text-text-primary' : 'text-text-disabled'"
-                    >{{ n ? `${n}건` : '없음' }}</span
-                  >
-                </li>
-              </ul>
-              <p class="m-0 pt-1 text-xs text-text-tertiary [font-feature-settings:'tnum']">
-                연결 자료 <span class="font-semibold text-text-primary">{{ film.assets.length }}건</span> · 최근 자료 등록
-                {{ film.latestDate }}
-              </p>
+                      class="shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
+                      :class="n ? '' : 'bg-slate-50 text-text-disabled'"
+                      :style="n ? { background: modalityStyle[m].bg, color: modalityStyle[m].text } : null"
+                    >
+                      <component :is="modalityStyle[m].icon" :size="14" :stroke-width="1.8" aria-hidden="true" />
+                    </span>
+                    <span class="w-10 shrink-0 text-sm font-medium" :class="n ? 'text-text-primary' : 'text-text-disabled'">{{ m }}</span>
+                    <span class="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
+                      <span
+                        class="block h-full rounded-full"
+                        :style="{ width: `${(n / maxModalityCount) * 100}%`, background: modalityStyle[m].text }"
+                      ></span>
+                    </span>
+                    <span
+                      class="w-8 shrink-0 text-right text-xs [font-feature-settings:'tnum']"
+                      :class="n ? 'font-semibold text-text-primary' : 'text-text-disabled'"
+                      >{{ n ? `${n}건` : '없음' }}</span
+                    >
+                  </li>
+                </ul>
+                <p class="m-0 px-4 py-2.5 border-t border-slate-100 bg-bg-canvas text-xs text-text-tertiary [font-feature-settings:'tnum']">
+                  연결 자료 <span class="font-semibold text-text-primary">{{ film.assets.length }}건</span> · 최근 자료 등록
+                  {{ film.latestDate }}
+                </p>
+              </div>
             </div>
           </div>
 
           <!-- 연결 자료 전체 — 폭 전체를 쓴다. 모달리티 탭으로 나눠 보고, 현재 검색에서 근거가 된 자료를 위에 표시한다 -->
-          <section ref="assetsSectionRef" class="flex flex-col gap-3 min-w-0 scroll-mt-4">
+          <section ref="assetsSectionRef" class="flex flex-col gap-2 min-w-0 scroll-mt-4">
             <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">
               연결 자료
               <span v-if="film.matchedCount" class="text-action-primary">· 검색 근거 {{ film.matchedCount }}건</span>
@@ -162,71 +165,57 @@
                 <span v-if="row.metaHit.length" class="text-xs text-text-tertiary">+ 작품 정보({{ row.metaHit.join(', ') }})</span>
               </div>
             </div>
-            <ALineTabs :key="`${film.id}-${tabsKey}`" v-model="activeTab" :tabs="tabs" />
-            <ul class="m-0 p-0 list-none">
-              <li
-                v-for="a in visibleAssets"
-                :key="a.id"
-                class="flex items-center gap-3 min-w-0 py-3 border-b border-slate-100 last:border-b-0"
-              >
-                <span
-                  class="shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
-                  :style="{ background: modalityStyle[a.modality].bg, color: modalityStyle[a.modality].text }"
+            <!-- 탭과 목록은 간격 없이 붙인다 — 목록이 탭에 딸린 내용으로 읽히도록. 마지막 행도 밑줄을 둬 목록 끝을 닫는다 -->
+            <div class="min-w-0">
+              <ALineTabs :key="`${film.id}-${tabsKey}`" v-model="activeTab" :tabs="tabs" />
+              <ul class="m-0 p-0 list-none">
+                <li
+                  v-for="a in visibleAssets"
+                  :key="a.id"
+                  class="flex items-center gap-3 min-w-0 -mx-3 px-3 py-3 border-b border-slate-100 transition-colors duration-[var(--duration-fast)] ease-standard hover:bg-[var(--table-row-hover-bg)]"
                 >
-                  <component :is="modalityStyle[a.modality].icon" :size="15" :stroke-width="1.8" :aria-label="a.modality" />
-                </span>
-                <div class="flex-1 min-w-0 flex flex-col gap-0.5">
-                  <div class="flex items-center gap-2 min-w-0 text-sm">
-                    <span class="shrink-0 font-semibold text-text-primary">{{ a.label }}</span>
-                    <!-- 근거 유형 — 어떻게 찾았는지라 자료명 옆에 둔다. 색 없이 흰 바탕 테두리 + 유형 아이콘으로 구분한다 -->
-                    <span
-                      v-if="a.matched"
-                      class="shrink-0 inline-flex items-center gap-1 h-5 px-1.5 rounded-sm border border-border-default bg-bg-surface text-2xs font-medium text-text-secondary"
-                      ><component :is="basisIcon[a.basis]" :size="11" :stroke-width="2" class="text-icon-default" aria-hidden="true" />{{
-                        a.basis
-                      }}</span
-                    >
-                  </div>
-                  <p class="m-0 text-sm text-text-secondary truncate">{{ a.text }}</p>
-                </div>
-                <!-- 위치 · 관련도 · 등록일 — 한 묶음으로 오른쪽에 두고 셋 사이 간격을 gap-10으로 통일한다.
-                     위치는 고정 폭 안에서 오른쪽 정렬해 관련도와의 간격이 등록일 쪽과 같아지게 한다 -->
-                <div class="shrink-0 flex items-center gap-4 sm:gap-10">
                   <span
-                    class="sm:w-24 inline-flex items-center justify-end gap-1.5 text-xs font-medium text-text-secondary whitespace-nowrap [font-feature-settings:'tnum']"
-                    :aria-label="`${LOCATOR[a.modality].label} ${a.locator}`"
+                    class="shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
+                    :style="{ background: modalityStyle[a.modality].bg, color: modalityStyle[a.modality].text }"
                   >
-                    <component
-                      :is="LOCATOR[a.modality].icon"
-                      :size="13"
-                      :stroke-width="1.8"
-                      class="shrink-0 text-icon-muted"
-                      aria-hidden="true"
-                    />
-                    <span class="truncate">{{ a.locator }}</span>
+                    <component :is="modalityStyle[a.modality].icon" :size="15" :stroke-width="1.8" :aria-label="a.modality" />
                   </span>
-                  <!-- 관련도 — 등급이 높을수록 진한 배지. 근거가 아닌 행은 같은 폭의 보이지 않는 배지로 자리를 지켜 열을 맞춘다 -->
-                  <span
-                    v-if="film.matchedCount"
-                    class="inline-flex items-center gap-1.5 h-5 px-1.5 rounded-sm text-2xs font-semibold"
-                    :class="a.matched ? GRADE_BADGE[a.grade] : 'invisible'"
-                    :title="a.matched ? `관련도 ${a.score.toFixed(2)}` : undefined"
-                    :aria-hidden="a.matched ? undefined : 'true'"
-                    ><span
-                      class="w-1.5 h-1.5 rounded-full shrink-0"
-                      :style="a.matched ? { background: gradeColor[a.grade] } : null"
-                      aria-hidden="true"
-                    ></span
-                    >관련도 {{ a.matched ? a.grade : '높음' }}</span
-                  >
-                  <span class="text-xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">{{ a.date }}</span>
-                </div>
-              </li>
-            </ul>
+                  <div class="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <div class="flex items-center gap-2 min-w-0 text-sm">
+                      <span class="shrink-0 font-semibold text-text-primary">{{ a.label }}</span>
+                      <!-- 근거 유형 — 검색 근거면 어떻게 찾았는지(OCR·자막…), 아니면 작품에 어떻게 묶였는지(메타데이터·자동 연결).
+                           색 없이 흰 바탕 테두리 + 유형 아이콘으로 구분한다 -->
+                      <span
+                        class="shrink-0 inline-flex items-center gap-1 h-5 px-1.5 rounded-sm border border-border-default bg-bg-surface text-2xs font-medium text-text-secondary"
+                        ><component :is="basisIcon[a.basis]" :size="11" :stroke-width="2" class="text-icon-default" aria-hidden="true" />{{
+                          a.basis
+                        }}</span
+                      >
+                    </div>
+                    <p class="m-0 text-sm text-text-secondary truncate">{{ a.text }}</p>
+                  </div>
+                  <!-- 관련도 · 등록일 — 오른쪽 묶음. 관련도는 검색 근거면 검색어 기준, 아니면 작품과의 연결 기준이다 -->
+                  <div class="shrink-0 flex items-center gap-4 sm:gap-10">
+                    <span
+                      class="inline-flex items-center gap-1.5 h-5 px-1.5 rounded-sm text-2xs font-semibold"
+                      :class="GRADE_BADGE[a.grade]"
+                      :title="`${a.scoreKind === 'search' ? '검색어 관련도' : '작품 연결 관련도'} ${a.score.toFixed(2)}`"
+                      ><span
+                        class="w-1.5 h-1.5 rounded-full shrink-0"
+                        :style="{ background: gradeColor[a.grade] }"
+                        aria-hidden="true"
+                      ></span
+                      >관련도 {{ a.grade }}</span
+                    >
+                    <span class="text-xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">{{ a.date }}</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
           </section>
 
           <!-- 같은 장르 작품 — 누르면 이 모달 안에서 그 작품으로 바뀐다 -->
-          <section class="flex flex-col gap-3">
+          <section class="flex flex-col gap-2">
             <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">같은 장르 작품 ({{ film.sameGenre.length }})</h3>
             <div
               v-if="film.sameGenre.length === 0"
@@ -268,7 +257,7 @@
  * 파일 전용 항목(용량·추출 텍스트) 대신 대표 설명과 연결 자료 묶음 다운로드를 둔다.
  */
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
-import { X, ChevronRight, ChevronDown, Download, Globe, Clock, ArrowUpRight, Inbox, Disc3, BookOpen, Frame } from '@lucide/vue'
+import { X, ChevronRight, ChevronDown, Download, Globe, Clock, ArrowUpRight, Inbox } from '@lucide/vue'
 import ALineTabs from '../../components/ALineTabs.vue'
 
 const props = defineProps({
@@ -385,13 +374,6 @@ function selectDownload(opt) {
 /* ------------------------------------------------------ 검색어별 근거 요약 */
 
 const assetsSectionRef = ref(null)
-/* 근거 위치 표기 — 모달리티마다 위치 단위가 달라(타임코드·트랙·페이지·컷) 아이콘으로 단위를 알려준다 */
-const LOCATOR = {
-  영상: { icon: Clock, label: '재생 위치' },
-  음성: { icon: Disc3, label: '트랙' },
-  문서: { icon: BookOpen, label: '페이지' },
-  이미지: { icon: Frame, label: '컷' }
-}
 
 /* 관련도 배지 — 높음만 브랜드 톤으로 띄우고 나머지는 중립 톤으로 가라앉힌다 */
 const GRADE_BADGE = {

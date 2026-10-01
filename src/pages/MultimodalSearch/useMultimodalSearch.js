@@ -8,6 +8,7 @@ import {
   DECADE_OPTIONS,
   DATE_PRESETS,
   EVIDENCE_BASIS,
+  LINK_BASIS,
   generateFilms
 } from './multimodalSearch.mock'
 
@@ -49,6 +50,10 @@ function relevanceGrade(score) {
   if (score >= 0.85) return '높음'
   if (score >= 0.75) return '중간'
   return '낮음'
+}
+/* 연결 관련도 — 검색과 무관하게 이 자료가 작품에 얼마나 확실히 묶였는지 */
+function linkRelevance(asset) {
+  return Math.min(0.99, (LINK_BASIS[asset.linkBasis]?.base ?? 0.7) + jitter(asset.id))
 }
 const withRelevance = (a, terms) => {
   const score = relevance(a, terms)
@@ -326,7 +331,12 @@ export function useMultimodalSearch() {
     const row = results.value.find((r) => r.id === film.id)
     const matchedIds = new Set(row?.isMatchedEvidence ? row.evidence.map((a) => a.id) : [])
     const assets = film.assets
-      .map((a) => (matchedIds.has(a.id) ? { ...withRelevance(a, allTerms.value), matched: true } : { ...a, matched: false }))
+      /* 근거 유형·관련도는 늘 붙인다 — 검색 근거면 검색어 기준, 아니면 작품과의 연결 근거 기준 */
+      .map((a) => {
+        if (matchedIds.has(a.id)) return { ...withRelevance(a, allTerms.value), matched: true, scoreKind: 'search' }
+        const score = linkRelevance(a)
+        return { ...a, basis: a.linkBasis, score, grade: relevanceGrade(score), matched: false, scoreKind: 'link' }
+      })
       .sort((a, b) => b.matched - a.matched || (b.score ?? 0) - (a.score ?? 0) || b.date.localeCompare(a.date))
     return {
       ...film,

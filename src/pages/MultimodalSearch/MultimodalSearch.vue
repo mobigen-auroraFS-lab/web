@@ -406,7 +406,10 @@ import {
   ScanText,
   Mic,
   ScanEye,
-  Sparkles
+  Sparkles,
+  Link2,
+  Type,
+  ScanSearch
 } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
@@ -487,14 +490,17 @@ function onGlobalKeydown(e) {
   if (e.key === 'Escape' && paletteOpen.value) closePalette()
 }
 
-/* 근거 유형별 아이콘 — 색 대신 모양으로 유형을 구분한다 */
+/* 근거 유형별 아이콘 — 색 대신 모양으로 유형을 구분한다. 위 여섯은 검색 근거, 아래 셋은 작품 연결 근거 */
 const BASIS_ICON = {
   본문: FileText,
   자막: Captions,
   OCR: ScanText,
   음성인식: Mic,
   '이미지 캡션': ScanEye,
-  '장면 유사': Sparkles
+  '장면 유사': Sparkles,
+  '메타데이터 연결': Link2,
+  '제목 자동 연결': Type,
+  '장면 자동 연결': ScanSearch
 }
 
 /* 관련도 등급별 점 색 — 높음일수록 진한 브랜드색 */
