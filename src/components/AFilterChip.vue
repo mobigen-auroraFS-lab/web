@@ -20,7 +20,7 @@
       v-if="count !== null"
       class="text-2xs [font-feature-settings:'tnum']"
       :class="active ? 'text-[var(--color-primary-100)]' : disabled ? 'text-text-disabled' : 'text-text-tertiary'"
-      >{{ count }}</span
+      >{{ count.toLocaleString() }}</span
     >
   </button>
 </template>
@@ -30,7 +30,7 @@
  * 필터 토글 칩 — 주제/하위주제/태그/파일형식/크기/기간프리셋 등
  * "여러 값 중 하나 이상을 고르는" 필터 그룹에서 공통으로 쓰는 알약형 버튼.
  *
- * count 를 넘기면 라벨 옆에 결과 개수를 보여준다(패싯 카운트). 넘기지 않으면
+ * count 를 넘기면 라벨 옆에 결과 개수를 보여준다(패싯 카운트, 세 자리마다 콤마). 넘기지 않으면
  * 칩은 라벨만 표시한다 — 필터 성격에 따라 개수를 보여줄지는 호출부가 정한다.
  *
  * disabled 는 "지금 이 값을 고르면 결과가 0건이 되는" 상태를 표현한다. 배경은

@@ -4,7 +4,7 @@
       v-for="(tab, i) in tabs"
       :key="tab.label"
       :ref="(el) => setTabRef(el, i)"
-      class="bg-transparent border-none py-2 px-0.5 pb-3 -mb-px text-base"
+      class="bg-transparent border-none py-2 px-0.5 pb-3 -mb-px text-base whitespace-nowrap"
       :class="
         tab.disabled
           ? 'text-text-disabled cursor-not-allowed font-medium'

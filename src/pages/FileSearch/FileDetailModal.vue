@@ -17,7 +17,7 @@
         <!-- 헤더: 아이콘·정체성·핵심 메타·주요 액션을 한데 모아 스크롤 내내 유지한다 -->
         <header class="flex items-center gap-4 px-4 sm:px-6 py-5 border-b border-border-default shrink-0">
           <div
-            v-if="file && icon"
+            v-if="file && icon && !loading"
             class="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center"
             :style="
               file.typeBadgeStyle
@@ -28,7 +28,7 @@
             <component :is="icon" :size="26" :stroke-width="1.5" />
           </div>
 
-          <div v-if="file" class="flex-1 min-w-0 flex flex-col gap-1.5">
+          <div v-if="file && !loading" class="flex-1 min-w-0 flex flex-col gap-1.5">
             <nav v-if="file.breadcrumb?.length" aria-label="분류 경로" class="flex items-center gap-1 text-sm">
               <template v-for="(crumb, i) in file.breadcrumb" :key="crumb.label">
                 <ChevronRight v-if="i > 0" :size="13" :stroke-width="2" class="text-text-tertiary shrink-0" />
@@ -51,10 +51,20 @@
               </span>
             </div>
           </div>
+          <!-- 로딩 중 헤더 스켈레톤 — 실제 헤더(아이콘·분류 경로·파일명·메타)와 같은 자리·크기로 둔다 -->
+          <div v-else-if="loading" class="flex-1 min-w-0 flex items-center gap-4">
+            <h2 :id="titleId" class="sr-only">파일 상세 정보 불러오는 중</h2>
+            <span class="shrink-0 w-14 h-14 rounded-xl animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+            <div class="flex-1 min-w-0 flex flex-col gap-2.5">
+              <span class="h-3.5 w-32 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <span class="h-6 w-2/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <span class="h-3.5 w-44 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+            </div>
+          </div>
           <h2 v-else :id="titleId" class="m-0 flex-1 text-xl font-bold text-text-primary">파일 상세 정보</h2>
 
           <div class="flex items-center gap-2 shrink-0">
-            <div v-if="file" ref="downloadMenuRef" class="relative">
+            <div v-if="file && !loading" ref="downloadMenuRef" class="relative">
               <button
                 type="button"
                 class="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-action-primary border-none text-sm font-medium text-text-inverse cursor-pointer hover:bg-action-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -108,10 +118,53 @@
 
         <!-- 본문: 여기만 스크롤된다 -->
         <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-8">
-          <!-- 로딩 -->
-          <div v-if="effectiveStatus === 'loading'" class="flex flex-col items-center justify-center gap-3 py-24 text-text-tertiary">
-            <LoaderCircle class="animate-spin" :size="28" :stroke-width="1.5" />
-            <span class="text-sm">불러오는 중입니다…</span>
+          <!-- 로딩 — 본문 레이아웃(요약·키워드·추출 텍스트 | 상세 정보, 아래 관계 카드)을 그대로 본뜬 스켈레톤 -->
+          <div v-if="loading" class="flex flex-col gap-10">
+            <span class="sr-only" role="status">파일 정보를 불러오는 중입니다</span>
+            <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12" aria-hidden="true">
+              <div class="flex flex-col gap-8 min-w-0">
+                <div class="flex flex-col gap-3">
+                  <span class="h-3 w-10 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-4 w-full rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-4 w-11/12 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-4 w-3/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="flex flex-col gap-3">
+                  <span class="h-3 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span
+                      v-for="w in [72, 96, 64, 88, 80]"
+                      :key="w"
+                      class="h-7 rounded-full animate-pulse motion-reduce:animate-none bg-slate-100"
+                      :style="{ width: `${w}px` }"
+                    ></span>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-3">
+                  <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-40 w-full rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+              </div>
+              <div class="flex flex-col gap-3 min-w-0">
+                <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                <div v-for="n in 6" :key="n" class="flex items-center gap-4 py-3.5 border-b border-slate-100">
+                  <span class="w-28 h-3.5 shrink-0 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span
+                    class="h-3.5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
+                    :style="{ width: `${[45, 30, 55, 40, 50, 35][n - 1]}%` }"
+                  ></span>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-col gap-3" aria-hidden="true">
+              <div class="flex gap-6 pb-3 border-b border-border-default">
+                <span class="h-4 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                <span class="h-4 w-28 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                <span v-for="n in 4" :key="n" class="h-[88px] rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              </div>
+            </div>
           </div>
 
           <!-- 오류 -->
@@ -138,12 +191,12 @@
             <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12">
               <!-- 좌측: 요약 → 키워드·분류 라벨. 추출 텍스트는 원문 창구가 지워져 뺐다(8/18 '상세보기 원문 제거' 결정과도 같다) -->
               <div class="flex flex-col gap-8 min-w-0">
-                <section class="flex flex-col gap-3 min-w-0">
+                <section class="flex flex-col gap-2 min-w-0">
                   <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">요약</h3>
                   <p class="m-0 text-base text-text-primary leading-relaxed">{{ file.extractedInfo.summary }}</p>
                 </section>
 
-                <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-3 min-w-0">
+                <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-2 min-w-0">
                   <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">키워드·분류 라벨</h3>
                   <div class="flex flex-wrap gap-1.5">
                     <button
@@ -182,34 +235,34 @@
 
               <!-- 우측: 훑어보는 상세 정보 — 공통 항목 뒤에 파일 형식별 확장 메타를 이어 붙인다 -->
               <div class="min-w-0">
-                <section class="flex flex-col gap-3 min-w-0">
+                <section class="flex flex-col gap-2 min-w-0">
                   <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">상세 정보</h3>
                   <dl class="m-0">
-                    <div v-if="file.fileFormat" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.fileFormat" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 형식</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.fileFormat }}</dd>
                     </div>
-                    <div v-if="file.sizeLabel" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.sizeLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 크기</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.sizeLabel }}</dd>
                     </div>
-                    <div v-if="file.typeBadge" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.typeBadge" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">데이터 유형</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.typeBadge }}</dd>
                     </div>
-                    <div v-if="breadcrumbPathLabel" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="breadcrumbPathLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">대분류 / 중분류</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ breadcrumbPathLabel }}</dd>
                     </div>
-                    <div v-if="file.uploadedAt" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.uploadedAt" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">등록일</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.uploadedAt }}</dd>
                     </div>
-                    <div v-if="file.source" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.source" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">출처</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.source }}</dd>
                     </div>
-                    <div v-for="item in extendedMeta" :key="item.key" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-for="item in extendedMeta" :key="item.key" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">{{ item.label }}</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">
                         {{ item.value ?? '정보 없음' }}
@@ -336,7 +389,7 @@
  */
 
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
-import { X, Download, ChevronDown, ArrowUpRight, Database, Calendar, LoaderCircle, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
+import { X, Download, ChevronDown, ArrowUpRight, Database, Calendar, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
 import ALineTabs from '../../components/ALineTabs.vue'
 
 const props = defineProps({
@@ -371,6 +424,8 @@ const effectiveStatus = computed(() => {
   if (!props.file) return 'empty'
   return 'ready'
 })
+/* 다른 파일로 옮겨 가는 동안에는 이전 파일 정보가 남아 있으므로, 로딩 중엔 헤더도 스켈레톤으로 바꾼다 */
+const loading = computed(() => effectiveStatus.value === 'loading')
 
 function requestClose() {
   emit('update:open', false)
