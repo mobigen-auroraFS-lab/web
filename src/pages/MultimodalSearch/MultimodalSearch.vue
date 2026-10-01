@@ -11,31 +11,7 @@
       <h2 class="m-0 text-lg font-bold text-text-primary">필터</h2>
       <div class="border-b border-slate-100 -mt-2"></div>
 
-      <div class="flex flex-col gap-3" role="group" aria-label="모달리티">
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-bold text-text-primary">모달리티</span>
-          <button
-            v-if="modalities.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="modalities = []"
-          >
-            해제
-          </button>
-        </div>
-        <div class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in modalityChips"
-            :key="chip.label"
-            :label="chip.label"
-            :count="chip.count"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="modalities = toggleIn(modalities, chip.label)"
-          />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="유형">
+      <div class="flex flex-col gap-3" role="group" aria-label="유형">
         <div class="flex items-center justify-between gap-2">
           <span class="text-sm font-bold text-text-primary">유형</span>
           <button
@@ -87,6 +63,31 @@
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 반드시 포함할 자료 — 고른 모달리티를 모두 갖춘 작품만(AND). 결과를 쪼개는 조건이 아니라 보조 조건이라 아래쪽에 둔다 -->
+      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="반드시 포함할 자료">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-sm font-bold text-text-primary">반드시 포함할 자료</span>
+          <button
+            v-if="modalities.length"
+            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
+            @click="modalities = []"
+          >
+            해제
+          </button>
+        </div>
+        <div class="flex gap-2 flex-wrap items-center">
+          <AFilterChip
+            v-for="chip in modalityChips"
+            :key="chip.label"
+            :label="chip.label"
+            :count="chip.count"
+            :active="chip.active"
+            :disabled="chip.disabled"
+            @click="modalities = toggleIn(modalities, chip.label)"
+          />
         </div>
       </div>
 
@@ -442,8 +443,8 @@ const {
   hasDateRange,
   searchTerms,
   resultKeywordPrefix,
-  modalityChips,
   typeChips,
+  modalityChips,
   fieldGroups,
   toggleField,
   hasFieldSelection,

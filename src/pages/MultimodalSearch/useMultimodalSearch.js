@@ -74,6 +74,8 @@ export function useMultimodalSearch() {
   const searchDraft = ref('')
   const resultSearchValue = ref('')
   const resultSearchDraft = ref('')
+  /* 반드시 포함할 자료 — 고른 모달리티를 모두(AND) 갖춘 작품만 남긴다. 결과를 모달리티로 쪼개는 게 아니라
+     '자료가 얼마나 갖춰졌는지'를 조건으로 거는 것이라, 근거·카드 표시는 거르지 않는다 */
   const modalities = ref([])
   const types = ref([])
   const genres = ref([])
@@ -136,7 +138,7 @@ export function useMultimodalSearch() {
   /* 패싯 카운트는 "그 차원을 제외한 나머지 조건"에서 세야 하므로 차원별 술어를 분리해 둔다.
      기간 프리셋 카운트는 range를 바꿔 끼워 같은 술어로 센다 */
   const PREDICATES = {
-    modality: (f, range) => !modalities.value.length || relevantAssets(f, range).some((a) => modalities.value.includes(a.modality)),
+    modality: (f, range) => hasAllModalities(f, modalities.value, range),
     type: (f) => !types.value.length || types.value.includes(f.type),
     genre: (f) => !genres.value.length || genres.value.includes(f.genre),
     country: (f) => !countries.value.length || countries.value.includes(f.country),
@@ -146,6 +148,13 @@ export function useMultimodalSearch() {
     resultSearch: (f, range) => matchesAllTerms(f, resultSearchTerms.value, range)
   }
   const DIMENSIONS = Object.keys(PREDICATES)
+
+  /* 등록일 범위 안에 고른 모달리티 자료가 하나씩이라도 다 있는지 */
+  function hasAllModalities(film, required, range) {
+    if (!required.length) return true
+    const owned = new Set(film.assets.filter((a) => inRange(a.date, range)).map((a) => a.modality))
+    return required.every((m) => owned.has(m))
+  }
 
   function rowsExcept(dimension, range = currentRange.value) {
     return films.value.filter((f) => DIMENSIONS.every((d) => d === dimension || PREDICATES[d](f, range)))
@@ -174,9 +183,7 @@ export function useMultimodalSearch() {
   const results = computed(() => {
     const terms = allTerms.value
     const rows = filteredFilms.value.map((film) => {
-      const scoped = relevantAssets(film, currentRange.value)
-        .filter((a) => !modalities.value.length || modalities.value.includes(a.modality))
-        .sort((a, b) => b.date.localeCompare(a.date))
+      const scoped = relevantAssets(film, currentRange.value).sort((a, b) => b.date.localeCompare(a.date))
       /* 근거는 관련도 높은 순 — 카드에는 앞의 몇 건만 보이므로 가장 확실한 근거가 먼저 나와야 한다 */
       const matched = terms.length
         ? scoped
@@ -203,9 +210,8 @@ export function useMultimodalSearch() {
     )
   })
 
-  /* 칩 카운트는 작품 수다. 모달리티는 근거가 될 수 있는 자료 기준이고, 작품 하나가 여러 모달리티에 동시에 속한다 */
+  /* 칩 카운트는 작품 수다 */
   const VALUES_OF = {
-    modality: (f) => [...new Set(relevantAssets(f, currentRange.value).map((a) => a.modality))],
     type: (f) => [f.type],
     genre: (f) => [f.genre],
     country: (f) => [f.country],
@@ -234,8 +240,16 @@ export function useMultimodalSearch() {
 
   /* ---------------------------------------------------------------- chips */
 
-  const modalityChips = computed(() => chipsFor(MODALITY_OPTIONS, modalities.value, 'modality'))
   const typeChips = computed(() => chipsFor(TYPE_OPTIONS, types.value, 'type'))
+  /* AND 조건이라 칩 숫자는 "이것까지 더 고르면 남는 작품 수"다 — 이미 고른 칩은 지금 결과 수와 같다 */
+  const modalityChips = computed(() => {
+    const base = rowsExcept('modality')
+    return MODALITY_OPTIONS.map((m) => {
+      const active = modalities.value.includes(m)
+      const required = active ? modalities.value : [...modalities.value, m]
+      return toChip(m, active, base.filter((f) => hasAllModalities(f, required, currentRange.value)).length)
+    })
+  })
 
   /* 장르만 유형에 종속된다 — 선택한 유형들의 장르 합집합만 보여준다 */
   const availableGenres = computed(() => {
@@ -284,11 +298,11 @@ export function useMultimodalSearch() {
   const appliedConditions = computed(() => [
     ...searchTerms.value.map((t) => ({ label: `검색어: ${t}`, remove: () => removeSearchTerm(t) })),
     ...(resultSearchTerms.value.length ? [{ label: `결과 내 검색: ${resultSearchValue.value}`, remove: () => setResultSearch('') }] : []),
-    ...conditionsOf('모달리티', modalities),
     ...conditionsOf('유형', types),
     ...conditionsOf('장르', genres),
     ...conditionsOf('국가', countries),
     ...conditionsOf('연대', decades),
+    ...conditionsOf('포함 자료', modalities),
     ...(dateFrom.value || dateTo.value ? [{ label: `등록일: ${dateRangeLabel.value}`, remove: clearDateRange }] : [])
   ])
 
@@ -395,11 +409,11 @@ export function useMultimodalSearch() {
   /* 장르는 사이드바와 같이 선택한 유형에 딸린 것만 보여준다. 작품은 지금 결과 순서대로 */
   const paletteItems = computed(() => [
     ...(appliedConditions.value.length ? [{ label: '조건 모두 해제', hint: '동작', kind: 'clear' }] : []),
-    ...MODALITY_OPTIONS.map((v) => ({ label: v, hint: '모달리티', kind: 'modality', value: v })),
     ...TYPE_OPTIONS.map((v) => ({ label: v, hint: '유형', kind: 'type', value: v })),
     ...availableGenres.value.map((v) => ({ label: v, hint: '장르', kind: 'genre', value: v })),
     ...COUNTRY_OPTIONS.map((v) => ({ label: v, hint: '제작 국가', kind: 'country', value: v })),
     ...DECADE_OPTIONS.map((v) => ({ label: v, hint: '개봉 연대', kind: 'decade', value: v })),
+    ...MODALITY_OPTIONS.map((v) => ({ label: `${v} 포함`, hint: '포함 자료', kind: 'modality', value: v })),
     ...results.value.map((f) => ({ label: f.title, hint: '작품', kind: 'film', value: f.id }))
   ])
 
@@ -452,8 +466,8 @@ export function useMultimodalSearch() {
     searchTerms,
     resultKeywordPrefix,
 
-    modalityChips,
     typeChips,
+    modalityChips,
     fieldGroups,
     toggleField,
     hasFieldSelection,
