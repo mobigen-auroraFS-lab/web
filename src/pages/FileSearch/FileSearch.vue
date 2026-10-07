@@ -175,7 +175,7 @@
             <div role="rowgroup" class="sticky top-0 z-[1]">
               <div
                 role="row"
-                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px] bg-table-header-bg border-b border-table-header-border"
+                class="grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px] bg-table-header-bg border-b border-table-header-border"
               >
                 <div role="columnheader" class="py-[var(--table-cell-padding-y)]"><span class="sr-only">선택</span></div>
                 <div role="columnheader" :aria-sort="ariaSortFor('name')" class="flex">
@@ -232,11 +232,11 @@
 
             <div role="rowgroup">
               <div
-                v-for="(item, i) in visibleRows"
+                v-for="(item, i) in listLoading ? [] : visibleRows"
                 :key="item.id"
                 role="row"
                 :aria-selected="selectedIds.includes(item.id)"
-                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_44px] min-w-[864px]"
+                class="group grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px]"
                 :class="[
                   i === visibleRows.length - 1 ? '' : 'border-b border-slate-100',
                   selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-[var(--table-row-hover-bg)]'
@@ -247,7 +247,11 @@
                     <span class="sr-only">{{ item.name }} 선택</span>
                   </ACheckbox>
                 </div>
-                <div role="cell" class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center gap-2 min-w-0">
+                <!-- 오른쪽 여백을 한 단계 더 둔다 — 긴 파일명이 말줄임될 때 분류 열에 바짝 붙어 보이지 않도록 -->
+                <div
+                  role="cell"
+                  class="py-[var(--table-cell-padding-y)] pl-[var(--table-cell-padding-x)] pr-8 flex items-center gap-2 min-w-0"
+                >
                   <component :is="item.icon" class="text-icon-default shrink-0" :size="16" :stroke-width="1.5" />
                   <button
                     class="min-w-0 truncate text-left bg-transparent border-none p-0 text-[length:var(--density-text-size)] text-text-primary font-medium cursor-pointer hover:underline"
@@ -269,11 +273,15 @@
                     >{{ item.ext }}</span
                   >
                 </div>
+                <!-- 태그는 한 줄로 두고 넘치면 말줄임한다 — 행 높이를 고르게 유지하기 위해. 전체 태그는 마우스를 올리면 보인다 -->
                 <div
                   role="cell"
-                  class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex gap-2 flex-wrap items-center min-w-0"
+                  class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center min-w-0"
+                  :title="item.tags.map((t) => `#${t}`).join(' ')"
                 >
-                  <span v-for="t in item.tags" :key="t" class="text-2xs font-medium text-text-tertiary">#{{ t }}</span>
+                  <p class="m-0 min-w-0 truncate text-2xs font-medium text-text-tertiary">
+                    <span v-for="t in item.tags" :key="t" class="mr-2 last:mr-0">#{{ t }}</span>
+                  </p>
                 </div>
                 <div
                   role="cell"
@@ -297,6 +305,48 @@
                   </button>
                 </div>
               </div>
+              <!-- 스켈레톤 행 — 첫 검색·조건 변경 중엔 목록 자리를, 더 불러오는 중엔 목록 끝을 채운다.
+                   실제 행과 같은 열 구성·여백이라 불러온 뒤 레이아웃이 튀지 않는다 -->
+              <div
+                v-for="n in skeletonRowCount"
+                :key="`sk-${n}`"
+                role="row"
+                aria-hidden="true"
+                class="grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px] border-t border-slate-100"
+                :class="listLoading && n === 1 ? 'border-t-0' : ''"
+              >
+                <div class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
+                  <span class="w-4 h-4 rounded-sm animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] pl-[var(--table-cell-padding-x)] pr-8 flex items-center gap-2 min-w-0">
+                  <span class="w-4 h-4 shrink-0 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span
+                    class="h-3.5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
+                    :style="{ width: SKELETON_NAME_WIDTHS[n % SKELETON_NAME_WIDTHS.length] }"
+                  ></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center">
+                  <span class="h-3.5 w-10 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center">
+                  <span class="h-5 w-9 rounded-sm animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center gap-2">
+                  <span
+                    v-for="w in [48, 60, 56, 44]"
+                    :key="w"
+                    class="h-3 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
+                    :style="{ width: `${w}px` }"
+                  ></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center">
+                  <span class="h-3.5 w-[72px] rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center justify-end">
+                  <span class="h-3.5 w-9 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div></div>
+              </div>
             </div>
             <div v-if="!listLoading && visibleRows.length === 0" class="p-6">
               <AEmptyState
@@ -318,7 +368,9 @@
             </div>
 
             <div ref="loadMoreRef" class="flex items-center justify-center min-h-12 py-3 text-xs text-text-tertiary" aria-live="polite">
-              <span v-if="listLoading">검색 중...</span>
+              <!-- 로딩 중엔 스켈레톤이 보이므로 문구는 스크린리더에만 알린다 -->
+              <span v-if="listLoading" class="sr-only">검색 중입니다</span>
+              <span v-else-if="loadingMore" class="sr-only">더 불러오는 중입니다</span>
               <span v-else-if="hasMore">더 불러오는 중...</span>
               <span v-else-if="visibleRows.length > 0">전체 결과를 불러왔습니다.</span>
             </div>
@@ -364,7 +416,7 @@
           <span class="text-sm">{{ row.label }}</span>
         </ACheckbox>
         <span class="text-xs [font-feature-settings:'tnum']" :class="row.count === 0 ? 'text-text-disabled' : 'text-text-tertiary'">{{
-          row.count
+          row.count.toLocaleString()
         }}</span>
       </div>
       <p v-if="facetModalRows.length === 0" class="m-0 py-6 text-sm text-text-tertiary text-center">
@@ -383,7 +435,13 @@
   </ADialog>
 
   <!-- ⌘K 커맨드 팔레트 -->
-  <CommandPalette v-model:open="paletteOpen" :items="paletteItems" @select="runPaletteItem" />
+  <CommandPalette
+    v-model:open="paletteOpen"
+    :items="paletteItems"
+    group-label="필터를 고르거나 파일명을 입력하세요"
+    placeholder="명령 또는 파일 검색…"
+    @select="runPaletteItem"
+  />
 
   <!-- 상세 모달(z-70) 안에서 누른 버튼의 안내도 보이도록 모달보다 위에 둔다 -->
   <div v-if="toastMessage" class="fixed bottom-6 right-6 z-[80]">
@@ -405,7 +463,7 @@ import ASelectionBar from '../../components/ASelectionBar.vue'
 import ASegmentedControl from '../../components/ASegmentedControl.vue'
 import FilterSidebar from '../../layout/FilterSidebar.vue'
 import FileDetailModal from './FileDetailModal.vue'
-import CommandPalette from './CommandPalette.vue'
+import CommandPalette from '../../layout/CommandPalette.vue'
 
 import { DENSITY_OPTIONS } from './fileSearch.api'
 import { useFileSearch } from './useFileSearch'
@@ -437,6 +495,7 @@ const {
   resultKeywordPrefix,
   totalLabel,
   listLoading,
+  loadingMore,
   hasMore,
   visibleTopicChips,
   showMoreTopics,
@@ -483,6 +542,13 @@ const {
 } = useFileSearch()
 
 const fileDetailIcon = computed(() => fileDetail.value?.icon ?? null)
+
+/* ---------------------------------------------------------------- 스켈레톤 */
+
+/* 첫 검색·조건 변경 중엔 한 화면 분량, 더 불러오는 중엔 몇 줄만 목록 끝에 붙인다 */
+const skeletonRowCount = computed(() => (listLoading.value ? 10 : loadingMore.value ? 3 : 0))
+/* 파일명 자리 길이를 행마다 달리해 실제 목록처럼 보이게 한다 */
+const SKELETON_NAME_WIDTHS = ['42%', '58%', '35%', '50%', '64%']
 
 /* ---------------------------------------------------------------- reveal-in */
 

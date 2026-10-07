@@ -4,20 +4,27 @@
       ref="commandRef"
       width="520px"
       :limit="12"
-      group-label="필터를 고르거나 파일명을 입력하세요"
-      placeholder="명령 또는 파일 검색…"
+      :group-label="groupLabel"
+      :placeholder="placeholder"
       :items="items"
       @select="(item) => emit('select', item)"
     />
   </div>
 </template>
 <script setup>
+/**
+ * ⌘K 커맨드 팔레트 — 파일 검색·멀티모달 검색이 함께 쓴다. 항목 구성과 실행은 각 화면 composable이 맡고,
+ * 이 컴포넌트는 오버레이·열 때 초기화·포커스만 책임진다.
+ */
 import { ref, nextTick, watch } from 'vue'
-import ACommand from '../../components/ACommand.vue'
+import ACommand from '../components/ACommand.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
-  items: { type: Array, required: true }
+  items: { type: Array, required: true },
+  /* 목록 위 안내 문구·입력 placeholder — 화면마다 고를 수 있는 대상이 달라 호출 쪽에서 정한다 */
+  groupLabel: { type: String, required: true },
+  placeholder: { type: String, required: true }
 })
 const emit = defineEmits(['update:open', 'select'])
 
