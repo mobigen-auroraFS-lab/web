@@ -162,7 +162,7 @@
               <X :size="14" :stroke-width="1.5" />
               선택 해제
             </button>
-            <AButton variant="primary" class="!h-[38px] !rounded-md" @click="notifyDownloadUnavailable">
+            <AButton variant="primary" class="!h-[38px] !rounded-md" :disabled="downloading" @click="downloadSelected">
               <span class="flex items-center gap-2"><Download :size="15" :stroke-width="1.8" /> 다운로드</span>
             </AButton>
           </ASelectionBar>
@@ -299,7 +299,8 @@
                   <button
                     :aria-label="`${item.name} 다운로드`"
                     class="w-8 h-8 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard hover:bg-bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
-                    @click="notifyDownloadUnavailable"
+                    :disabled="downloading"
+                    @click.stop="downloadOriginal(item)"
                   >
                     <Download :size="15" :stroke-width="1.8" />
                   </button>
@@ -388,8 +389,7 @@
     :status="fileDetailStatus"
     :error-message="fileDetailError"
     @retry="retryFileDetail"
-    @download-original="notifyDownloadUnavailable"
-    @download-zip="notifyDownloadUnavailable"
+    @download-original="downloadOriginal"
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
@@ -515,7 +515,9 @@ const {
   applyDatePreset,
   toggleRowSelect,
   loadMoreRows,
-  notifyDownloadUnavailable,
+  downloading,
+  downloadOriginal,
+  downloadSelected,
   openFileDetail,
   closeFileDetail,
   fileDetail,
