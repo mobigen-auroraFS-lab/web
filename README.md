@@ -74,7 +74,7 @@ npm install
 | `npm run format:check` | Prettier 포맷 위반 여부만 확인 (변경 없음) |
 
 `npm run dev`는 `/api` 요청을 백엔드(dataplatform-service)로 넘깁니다. 기본 주소는
-`http://172.16.0.194:8001`이고, 바꾸려면 `.env.example`을 `.env.local`로 복사해
+`http://172.16.0.140:8001`이고, 바꾸려면 `.env.example`을 `.env.local`로 복사해
 `VITE_API_PROXY_TARGET`을 고칩니다. 개발 모드에서는 앱이 켜질 때 개발용 토큰(`POST /auth/token`)을
 자동으로 받아 붙입니다 — 로그인 화면이 생기기 전까지의 임시 방식입니다.
 
