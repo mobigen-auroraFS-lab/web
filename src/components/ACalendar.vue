@@ -28,17 +28,25 @@
           v-if="date"
           type="button"
           :aria-pressed="isEdge(date)"
-          class="w-9 h-9 rounded-full text-xs border-none cursor-pointer flex items-center justify-center"
-          :class="[
+          :aria-current="isToday(date) ? 'date' : undefined"
+          class="relative w-9 h-9 rounded-full text-xs border-none cursor-pointer flex items-center justify-center"
+          :class="
             isEdge(date)
               ? 'bg-action-primary text-text-inverse font-semibold'
-              : 'bg-transparent text-text-primary hover:bg-bg-surface-hover',
-            isToday(date) && !isEdge(date) ? 'border border-border-strong' : ''
-          ]"
+              : isToday(date)
+                ? 'bg-transparent text-action-primary font-bold hover:bg-bg-surface-hover'
+                : 'bg-transparent text-text-primary hover:bg-bg-surface-hover'
+          "
           @click="selectDate(date)"
           @mouseenter="hovered = date"
         >
           {{ date.getDate() }}
+          <!-- 오늘 표시 — 선택된 날짜(채워진 원) 위에서도 보이도록 점은 글자색을 따른다 -->
+          <span
+            v-if="isToday(date)"
+            aria-hidden="true"
+            class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-current"
+          ></span>
         </button>
       </div>
     </div>

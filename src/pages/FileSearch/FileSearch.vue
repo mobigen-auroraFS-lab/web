@@ -3,188 +3,42 @@
        본문만 남은 폭을 채우며 늘어난다. 그 아래 화면은 기존처럼 페이지 전체가 스크롤된다 -->
   <div class="grid grid-cols-1 xl:flex gap-6 xl:gap-0 items-start xl:items-stretch xl:h-full">
     <!-- 필터 사이드바 -->
-    <aside
-      aria-label="검색 필터"
-      class="flex flex-col gap-5 self-start bg-bg-surface transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard xl:w-[var(--sidebar-width)] xl:shrink-0 xl:h-full xl:overflow-y-auto xl:border-r xl:border-border-default xl:pl-6 xl:pr-5 xl:pt-8 xl:pb-16"
-      :class="revealed.filter ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'"
+    <FilterSidebar
+      :class="[
+        'transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard',
+        revealed.filter ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+      ]"
       style="transition-delay: 60ms"
-    >
-      <h2 class="m-0 text-lg font-bold text-text-primary">필터</h2>
-      <div class="border-b border-slate-100 -mt-2"></div>
-
-      <div class="flex flex-col gap-3" role="group" aria-label="주제">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold text-text-primary">주제</span>
-          <button
-            v-if="topics.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="topics = []"
-          >
-            해제
-          </button>
-        </div>
-        <div class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in visibleTopicChips"
-            :key="chip.label"
-            :label="chip.label"
-            :count="chip.count"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="topics = toggleIn(topics, chip.label)"
-          />
-          <button
-            v-if="visibleTopicChips.length < TOPIC_OPTIONS.length"
-            class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
-            @click="openFacetModal('topic')"
-          >
-            전체 보기
-          </button>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="하위주제">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold" :class="topics.length ? 'text-text-primary' : 'text-text-tertiary'">하위주제</span>
-          <button
-            v-if="subtopics.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="subtopics = []"
-          >
-            해제
-          </button>
-        </div>
-        <AEmptyState v-if="topics.length === 0" size="sm" :icon="Lock" description="주제를 먼저 선택하면&#10;하위주제가 열립니다" />
-        <div v-else class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in subtopicChips"
-            :key="chip.label"
-            :label="chip.label"
-            :count="chip.count"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="subtopics = toggleIn(subtopics, chip.label)"
-          />
-          <button
-            v-if="subtopicChips.length < availableSubtopics.length"
-            class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
-            @click="openFacetModal('subtopic')"
-          >
-            전체 보기
-          </button>
-          <span v-if="subtopicChips.length === 0" class="text-xs text-text-tertiary">해당 주제의 하위주제가 없습니다.</span>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="태그">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold" :class="subtopics.length ? 'text-text-primary' : 'text-text-tertiary'">태그</span>
-          <button
-            v-if="tags.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="tags = []"
-          >
-            해제
-          </button>
-        </div>
-        <AEmptyState v-if="subtopics.length === 0" size="sm" :icon="Lock" description="하위주제를 먼저 선택하면&#10;관련 태그가 열립니다" />
-        <div v-else class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in visibleTagChips"
-            :key="chip.label"
-            :label="chip.label"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="tags = toggleIn(tags, chip.label)"
-          />
-          <button
-            v-if="visibleTagChips.length < availableTags.length"
-            class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
-            @click="openFacetModal('tag')"
-          >
-            전체 보기
-          </button>
-          <span v-if="visibleTagChips.length === 0" class="text-xs text-text-tertiary">해당 하위주제의 태그가 없습니다.</span>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="파일 형식">
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-bold text-text-primary">파일 형식</span>
-          <button
-            v-if="fileTypes.length"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="fileTypes = []"
-          >
-            해제
-          </button>
-        </div>
-        <div class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="chip in fileTypeChips"
-            :key="chip.label"
-            :label="chip.label"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="fileTypes = toggleIn(fileTypes, chip.label)"
-          />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4">
-        <span class="text-sm font-bold text-text-primary">크기</span>
-        <div class="flex gap-2 flex-wrap items-center" role="radiogroup" aria-label="크기">
-          <AFilterChip
-            v-for="chip in sizeRangeChips"
-            :key="chip.label"
-            radio
-            :label="chip.label"
-            :active="chip.active"
-            :disabled="chip.disabled"
-            @click="sizeRange = chip.value"
-          />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="기간">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-bold text-text-primary">기간</span>
-          <button
-            v-if="dateFrom || dateTo"
-            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-            @click="clearDateRange"
-          >
-            해제
-          </button>
-        </div>
-        <div class="flex gap-2 flex-wrap items-center">
-          <AFilterChip
-            v-for="preset in DATE_PRESETS"
-            :key="preset.days"
-            :label="preset.label"
-            :active="isDatePresetActive(preset.days)"
-            :disabled="datePresetCounts[preset.days] === 0 && !isDatePresetActive(preset.days)"
-            @click="applyDatePreset(preset.days)"
-          />
-        </div>
-        <APopover v-model="datePickerOpen" :panel-width="280" :panel-max-height="320">
-          <template #trigger="{ toggle }">
-            <button
-              class="flex items-center gap-2 w-[200px] max-w-full h-control-md px-2.5 bg-bg-surface border border-border-default rounded-md cursor-pointer box-border hover:border-border-strong"
-              :class="dateFrom || dateTo ? 'text-text-primary' : 'text-text-tertiary'"
-              :aria-expanded="datePickerOpen"
-              @click="toggle"
-            >
-              <CalendarIcon class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
-              <span class="truncate text-sm">{{ dateRangeLabel }}</span>
-            </button>
-          </template>
-          <template #content>
-            <ACalendar range v-model:start="dateFrom" v-model:end="dateTo" @update:end="onDateRangeEnd" />
-          </template>
-        </APopover>
-      </div>
-    </aside>
+      :topics="topics"
+      :subtopics="subtopics"
+      :tags="tags"
+      :file-types="fileTypes"
+      :date-from="dateFrom"
+      :date-to="dateTo"
+      :visible-topic-chips="visibleTopicChips"
+      :subtopic-chips="subtopicChips"
+      :visible-tag-chips="visibleTagChips"
+      :file-type-chips="fileTypeChips"
+      :size-range-chips="sizeRangeChips"
+      :date-preset-chips="datePresetChips"
+      :date-range-label="dateRangeLabel"
+      :show-more-topics="showMoreTopics"
+      :show-more-subtopics="showMoreSubtopics"
+      :show-more-tags="showMoreTags"
+      @clear-topics="topics = []"
+      @clear-subtopics="subtopics = []"
+      @clear-tags="tags = []"
+      @clear-file-types="fileTypes = []"
+      @clear-date-range="clearDateRange"
+      @toggle-topic="(label) => (topics = toggleIn(topics, label))"
+      @toggle-subtopic="(label) => (subtopics = toggleIn(subtopics, label))"
+      @toggle-tag="(label) => (tags = toggleIn(tags, label))"
+      @toggle-file-type="(label) => (fileTypes = toggleIn(fileTypes, label))"
+      @apply-date-preset="applyDatePreset"
+      @open-facet="openFacetModal"
+      @update:date-from="(d) => (dateFrom = d)"
+      @update:date-to="(d) => (dateTo = d)"
+    />
 
     <!-- 결과: xl 이상에서는 이 컬럼 자체가 여백 없는 2단 구조다 —
          위(헤더 묶음)는 고정, 아래(테이블)만 남은 세로 공간을 채우며 자체 스크롤한다 -->
@@ -229,7 +83,7 @@
               type="button"
               aria-label="명령 팔레트 열기 (Cmd/Ctrl+K)"
               class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
-              @click="openPalette"
+              @click="paletteOpen = true"
             >
               <kbd
                 class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
@@ -270,11 +124,7 @@
 
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div class="text-md text-text-primary" aria-live="polite">
-              {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ filteredRows.length.toLocaleString() }}</span
-              ><span class="font-bold">건</span>
-              <span v-if="appliedConditions.length > 0" class="text-sm text-text-tertiary font-normal ml-2"
-                >(전체 {{ files.length.toLocaleString() }}건 중)</span
-              >
+              {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ totalLabel }}</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <div class="relative w-[190px]">
@@ -285,13 +135,13 @@
                 />
                 <AInput
                   v-model="resultSearchDraft"
-                  placeholder="목록 좁히기"
+                  placeholder="결과 내 검색"
                   class="[&_input]:h-8 [&_input]:text-sm [&_input]:pl-8 [&_input]:pr-8 [&_input]:bg-slate-100 [&_input]:border-transparent hover:[&_input]:bg-slate-200"
                   @keydown.enter.prevent="commitResultSearch"
                 />
                 <button
                   v-if="resultSearchDraft"
-                  aria-label="목록 좁히기 지우기"
+                  aria-label="결과 내 검색어 지우기"
                   class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 border-none bg-transparent text-text-tertiary rounded-full cursor-pointer flex items-center justify-center p-0 hover:bg-bg-surface-hover"
                   @click="setResultSearch('')"
                 >
@@ -312,7 +162,7 @@
               <X :size="14" :stroke-width="1.5" />
               선택 해제
             </button>
-            <AButton variant="primary" class="!h-[38px] !rounded-md" @click="bulkDownload">
+            <AButton variant="primary" class="!h-[38px] !rounded-md" :disabled="downloading" @click="downloadSelected">
               <span class="flex items-center gap-2"><Download :size="15" :stroke-width="1.8" /> 다운로드</span>
             </AButton>
           </ASelectionBar>
@@ -325,13 +175,9 @@
             <div role="rowgroup" class="sticky top-0 z-[1]">
               <div
                 role="row"
-                class="grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_76px] min-w-[896px] bg-table-header-bg border-b border-table-header-border"
+                class="grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px] bg-table-header-bg border-b border-table-header-border"
               >
-                <div role="columnheader" class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
-                  <ACheckbox :model-value="allVisibleSelected" @update:model-value="toggleSelectAllVisible">
-                    <span class="sr-only">현재 표시된 파일 전체 선택</span>
-                  </ACheckbox>
-                </div>
+                <div role="columnheader" class="py-[var(--table-cell-padding-y)]"><span class="sr-only">선택</span></div>
                 <div role="columnheader" :aria-sort="ariaSortFor('name')" class="flex">
                   <button
                     class="flex items-center gap-1 w-full py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] bg-transparent border-none text-xs font-medium cursor-pointer hover:text-text-primary"
@@ -384,49 +230,29 @@
               </div>
             </div>
 
-            <div
-              v-if="canSelectAllResults || allResultsSelected"
-              class="flex items-center justify-center gap-2 flex-wrap min-w-[896px] py-2 px-4 bg-bg-surface-selected border-b border-border-default text-sm"
-            >
-              <template v-if="allResultsSelected">
-                <span class="text-text-secondary">검색결과 {{ sortedRows.length.toLocaleString() }}건을 모두 선택했습니다.</span>
-                <button
-                  class="bg-transparent border-none text-sm text-action-primary font-semibold cursor-pointer hover:underline"
-                  @click="selectedIds = []"
-                >
-                  선택 해제
-                </button>
-              </template>
-              <template v-else>
-                <span class="text-text-secondary">현재 표시된 {{ visibleRows.length }}건을 선택했습니다.</span>
-                <button
-                  class="bg-transparent border-none text-sm text-action-primary font-semibold cursor-pointer hover:underline"
-                  @click="selectAllResults"
-                >
-                  검색결과 {{ sortedRows.length.toLocaleString() }}건 모두 선택
-                </button>
-              </template>
-            </div>
             <div role="rowgroup">
               <div
-                v-for="(item, i) in visibleRows"
+                v-for="(item, i) in listLoading ? [] : visibleRows"
                 :key="item.id"
                 role="row"
                 :aria-selected="selectedIds.includes(item.id)"
-                class="group grid grid-cols-[36px_1fr_90px_70px_200px_120px_80px_76px] min-w-[896px]"
+                class="group grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px]"
                 :class="[
                   i === visibleRows.length - 1 ? '' : 'border-b border-slate-100',
-                  selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-bg-surface-hover'
+                  selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-[var(--table-row-hover-bg)]'
                 ]"
-                @click="onRowClick(item, $event)"
               >
                 <div role="cell" class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
                   <ACheckbox :model-value="selectedIds.includes(item.id)" @update:model-value="toggleRowSelect(item.id)">
                     <span class="sr-only">{{ item.name }} 선택</span>
                   </ACheckbox>
                 </div>
-                <div role="cell" class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center gap-2 min-w-0">
-                  <component :is="ICON_BY_EXT[item.ext]" class="text-icon-default shrink-0" :size="16" :stroke-width="1.5" />
+                <!-- 오른쪽 여백을 한 단계 더 둔다 — 긴 파일명이 말줄임될 때 분류 열에 바짝 붙어 보이지 않도록 -->
+                <div
+                  role="cell"
+                  class="py-[var(--table-cell-padding-y)] pl-[var(--table-cell-padding-x)] pr-8 flex items-center gap-2 min-w-0"
+                >
+                  <component :is="item.icon" class="text-icon-default shrink-0" :size="16" :stroke-width="1.5" />
                   <button
                     class="min-w-0 truncate text-left bg-transparent border-none p-0 text-[length:var(--density-text-size)] text-text-primary font-medium cursor-pointer hover:underline"
                     @click="openFileDetail(item)"
@@ -443,15 +269,19 @@
                 <div role="cell" class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)]">
                   <span
                     class="inline-flex items-center justify-center h-5 px-1.5 text-[10px] font-bold rounded-sm tracking-wide"
-                    :style="{ background: EXT_STYLE_MAP[item.ext].bg, color: EXT_STYLE_MAP[item.ext].text }"
+                    :style="{ background: item.extStyle.bg, color: item.extStyle.text }"
                     >{{ item.ext }}</span
                   >
                 </div>
+                <!-- 태그는 한 줄로 두고 넘치면 말줄임한다 — 행 높이를 고르게 유지하기 위해. 전체 태그는 마우스를 올리면 보인다 -->
                 <div
                   role="cell"
-                  class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex gap-2 flex-wrap items-center min-w-0"
+                  class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center min-w-0"
+                  :title="item.tags.map((t) => `#${t}`).join(' ')"
                 >
-                  <span v-for="t in item.tags" :key="t" class="text-2xs font-medium text-text-tertiary">{{ t }}</span>
+                  <p class="m-0 min-w-0 truncate text-2xs font-medium text-text-tertiary">
+                    <span v-for="t in item.tags" :key="t" class="mr-2 last:mr-0">#{{ t }}</span>
+                  </p>
                 </div>
                 <div
                   role="cell"
@@ -467,23 +297,59 @@
                 </div>
                 <div role="cell" class="py-[var(--table-cell-padding-y)] px-1.5 flex items-center justify-center gap-0.5">
                   <button
-                    :aria-label="`${item.name} 상세 보기`"
-                    class="w-8 h-8 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard hover:bg-bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
-                    @click="openFileDetail(item)"
-                  >
-                    <Info :size="15" :stroke-width="1.8" />
-                  </button>
-                  <button
                     :aria-label="`${item.name} 다운로드`"
                     class="w-8 h-8 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard hover:bg-bg-surface-hover hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
-                    @click="downloadOne(item)"
+                    :disabled="downloading"
+                    @click.stop="downloadOriginal(item)"
                   >
                     <Download :size="15" :stroke-width="1.8" />
                   </button>
                 </div>
               </div>
+              <!-- 스켈레톤 행 — 첫 검색·조건 변경 중엔 목록 자리를, 더 불러오는 중엔 목록 끝을 채운다.
+                   실제 행과 같은 열 구성·여백이라 불러온 뒤 레이아웃이 튀지 않는다 -->
+              <div
+                v-for="n in skeletonRowCount"
+                :key="`sk-${n}`"
+                role="row"
+                aria-hidden="true"
+                class="grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px] border-t border-slate-100"
+                :class="listLoading && n === 1 ? 'border-t-0' : ''"
+              >
+                <div class="py-[var(--table-cell-padding-y)] flex items-center justify-center">
+                  <span class="w-4 h-4 rounded-sm animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] pl-[var(--table-cell-padding-x)] pr-8 flex items-center gap-2 min-w-0">
+                  <span class="w-4 h-4 shrink-0 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span
+                    class="h-3.5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
+                    :style="{ width: SKELETON_NAME_WIDTHS[n % SKELETON_NAME_WIDTHS.length] }"
+                  ></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center">
+                  <span class="h-3.5 w-10 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center">
+                  <span class="h-5 w-9 rounded-sm animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center gap-2">
+                  <span
+                    v-for="w in [48, 60, 56, 44]"
+                    :key="w"
+                    class="h-3 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
+                    :style="{ width: `${w}px` }"
+                  ></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center">
+                  <span class="h-3.5 w-[72px] rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] flex items-center justify-end">
+                  <span class="h-3.5 w-9 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div></div>
+              </div>
             </div>
-            <div v-if="visibleRows.length === 0" class="p-6 border-t border-border-default">
+            <div v-if="!listLoading && visibleRows.length === 0" class="p-6">
               <AEmptyState
                 :icon="SearchX"
                 title="조건에 해당하는 파일이 없습니다"
@@ -503,8 +369,11 @@
             </div>
 
             <div ref="loadMoreRef" class="flex items-center justify-center min-h-12 py-3 text-xs text-text-tertiary" aria-live="polite">
-              <span v-if="visibleRows.length < sortedRows.length">더 불러오는 중...</span>
-              <span v-else-if="sortedRows.length > 0">전체 결과를 불러왔습니다.</span>
+              <!-- 로딩 중엔 스켈레톤이 보이므로 문구는 스크린리더에만 알린다 -->
+              <span v-if="listLoading" class="sr-only">검색 중입니다</span>
+              <span v-else-if="loadingMore" class="sr-only">더 불러오는 중입니다</span>
+              <span v-else-if="hasMore">더 불러오는 중...</span>
+              <span v-else-if="visibleRows.length > 0">전체 결과를 불러왔습니다.</span>
             </div>
           </div>
         </div>
@@ -513,13 +382,14 @@
   </div>
 
   <!-- 파일 상세 정보 모달 -->
-  <AFileDetailModal
+  <FileDetailModal
     v-model:open="fileDetailOpen"
     :file="fileDetail"
     :icon="fileDetailIcon"
-    @download-original="onDownloadOriginal"
-    @download-zip="onDownloadZip"
-    @copy-link="onCopyLinkDetail"
+    :status="fileDetailStatus"
+    :error-message="fileDetailError"
+    @retry="retryFileDetail"
+    @download-original="downloadOriginal"
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
@@ -530,7 +400,7 @@
   <ADialog
     :model-value="facetModal !== null"
     :title="`${facetModalTitle} 선택`"
-    :description="`전체 ${facetModalTotal}개 · 선택 완료를 누르면 목록에 반영됩니다`"
+    :description="`전체 ${facetModalTotal}개 · 건수는 전체 자료 기준 · 선택 완료를 누르면 목록에 반영됩니다`"
     width="460px"
     @update:model-value="closeFacetModal"
   >
@@ -546,7 +416,7 @@
           <span class="text-sm">{{ row.label }}</span>
         </ACheckbox>
         <span class="text-xs [font-feature-settings:'tnum']" :class="row.count === 0 ? 'text-text-disabled' : 'text-text-tertiary'">{{
-          row.count
+          row.count.toLocaleString()
         }}</span>
       </div>
       <p v-if="facetModalRows.length === 0" class="m-0 py-6 text-sm text-text-tertiary text-center">
@@ -565,50 +435,40 @@
   </ADialog>
 
   <!-- ⌘K 커맨드 팔레트 -->
-  <div
-    v-if="paletteOpen"
-    class="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] px-4 bg-bg-overlay-scrim"
-    @click.self="closePalette"
-  >
-    <ACommand
-      ref="paletteRef"
-      width="520px"
-      :limit="12"
-      group-label="필터를 고르거나 파일명을 입력하세요"
-      placeholder="명령 또는 파일 검색…"
-      :items="paletteItems"
-      @select="runPaletteItem"
-    />
-  </div>
+  <CommandPalette
+    v-model:open="paletteOpen"
+    :items="paletteItems"
+    group-label="필터를 고르거나 파일명을 입력하세요"
+    placeholder="명령 또는 파일 검색…"
+    @select="runPaletteItem"
+  />
 
-  <div v-if="toastMessage" class="fixed bottom-6 right-6 z-50">
+  <!-- 상세 모달(z-70) 안에서 누른 버튼의 안내도 보이도록 모달보다 위에 둔다 -->
+  <div v-if="toastMessage" class="fixed bottom-6 right-6 z-[80]">
     <AToast :title="toastMessage" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { Calendar as CalendarIcon, X, Download, SearchX, ArrowUp, ListFilter, Info, Lock } from '@lucide/vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { X, Download, SearchX, ArrowUp, ListFilter } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
 import ACheckbox from '../../components/ACheckbox.vue'
-import ACalendar from '../../components/ACalendar.vue'
 import AToast from '../../components/AToast.vue'
 import ADialog from '../../components/ADialog.vue'
-import AFileDetailModal from '../../components/AFileDetailModal.vue'
-import ACommand from '../../components/ACommand.vue'
-import AFilterChip from '../../components/AFilterChip.vue'
 import AEmptyState from '../../components/AEmptyState.vue'
 import ASelectionBar from '../../components/ASelectionBar.vue'
 import ASegmentedControl from '../../components/ASegmentedControl.vue'
-import APopover from '../../components/APopover.vue'
+import FilterSidebar from '../../layout/FilterSidebar.vue'
+import FileDetailModal from './FileDetailModal.vue'
+import CommandPalette from '../../layout/CommandPalette.vue'
 
-import { ICON_BY_EXT, EXT_STYLE_MAP, TOPIC_OPTIONS, DATE_PRESETS, DENSITY_OPTIONS } from './fileSearch.mock'
+import { DENSITY_OPTIONS } from './fileSearch.api'
 import { useFileSearch } from './useFileSearch'
 
 const {
-  files,
   searchDraft,
   resultSearchDraft,
   topics,
@@ -617,13 +477,11 @@ const {
   dateFrom,
   dateTo,
   fileTypes,
-  sizeRange,
   selectedIds,
   sortKey,
   sortDir,
   toastMessage,
   fileDetailOpen,
-  fileDetailTarget,
   density,
   facetModal,
   facetQuery,
@@ -633,42 +491,39 @@ const {
   setSearch,
   commitResultSearch,
   setResultSearch,
-  filteredRows,
-  sortedRows,
   visibleRows,
-  allVisibleSelected,
-  allResultsSelected,
-  canSelectAllResults,
   resultKeywordPrefix,
+  totalLabel,
+  listLoading,
+  loadingMore,
+  hasMore,
   visibleTopicChips,
-  availableSubtopics,
+  showMoreTopics,
   subtopicChips,
-  availableTags,
+  showMoreSubtopics,
   visibleTagChips,
+  showMoreTags,
   fileTypeChips,
   sizeRangeChips,
+  datePresetChips,
   dateRangeLabel,
-  datePresetCounts,
   appliedConditions,
   clearAllConditions,
   clearDateRange,
   toggleSort,
   ariaSortFor,
   applyDatePreset,
-  isDatePresetActive,
-  selectAllResults,
-  toggleSelectAllVisible,
   toggleRowSelect,
   loadMoreRows,
-  bulkDownload,
-  downloadOne,
+  downloading,
+  downloadOriginal,
+  downloadSelected,
   openFileDetail,
   closeFileDetail,
-  onRowClick,
   fileDetail,
-  onDownloadOriginal,
-  onDownloadZip,
-  onCopyLinkDetail,
+  fileDetailStatus,
+  fileDetailError,
+  retryFileDetail,
   onBreadcrumbClickDetail,
   onTopicClickDetail,
   onMetaClickDetail,
@@ -688,7 +543,14 @@ const {
   toggleIn
 } = useFileSearch()
 
-const fileDetailIcon = computed(() => (fileDetailTarget.value ? ICON_BY_EXT[fileDetailTarget.value.ext] : null))
+const fileDetailIcon = computed(() => fileDetail.value?.icon ?? null)
+
+/* ---------------------------------------------------------------- 스켈레톤 */
+
+/* 첫 검색·조건 변경 중엔 한 화면 분량, 더 불러오는 중엔 몇 줄만 목록 끝에 붙인다 */
+const skeletonRowCount = computed(() => (listLoading.value ? 10 : loadingMore.value ? 3 : 0))
+/* 파일명 자리 길이를 행마다 달리해 실제 목록처럼 보이게 한다 */
+const SKELETON_NAME_WIDTHS = ['42%', '58%', '35%', '50%', '64%']
 
 /* ---------------------------------------------------------------- reveal-in */
 
@@ -704,34 +566,24 @@ function observeLoadMore() {
   loadObserver.observe(loadMoreRef.value)
 }
 
-/* --------------------------------------------------------- 기간 선택 팝오버 */
-
-/* 위치 계산·바깥 클릭·Escape는 APopover가 자체적으로 처리한다 —
-   범위 완성 시에만 여기서 닫아준다 */
-const datePickerOpen = ref(false)
-
-function onDateRangeEnd(date) {
-  if (date) datePickerOpen.value = false
-}
-
-/* --------------------------------------------------------- command palette */
-
-const paletteRef = ref(null)
-
-function openPalette() {
-  paletteOpen.value = true
-  nextTick(() => {
-    paletteRef.value?.reset()
-    paletteRef.value?.focus()
-  })
-}
+/* 받은 쪽이 짧아 감시 지점이 계속 화면 안에 있으면 교차 상태가 바뀌지 않아 콜백이 다시 오지 않는다 —
+   목록이 바뀔 때마다 다시 등록해 지금 상태로 한 번 더 판정받는다 */
+watch(
+  () => visibleRows.value.length,
+  () => {
+    if (!loadObserver || !loadMoreRef.value) return
+    loadObserver.unobserve(loadMoreRef.value)
+    loadObserver.observe(loadMoreRef.value)
+  },
+  { flush: 'post' }
+)
 
 /* ------------------------------------------------------------- 키보드 단축키 */
 
 function onGlobalKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault()
-    paletteOpen.value ? closePalette() : openPalette()
+    paletteOpen.value = !paletteOpen.value
     return
   }
   if (e.key !== 'Escape') return
@@ -741,7 +593,6 @@ function onGlobalKeydown(e) {
 }
 
 onMounted(() => {
-  applyUrlState()
   window.addEventListener('hashchange', applyUrlState)
   window.addEventListener('keydown', onGlobalKeydown)
   if ('IntersectionObserver' in window) {

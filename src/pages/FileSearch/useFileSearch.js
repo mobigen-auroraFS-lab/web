@@ -1,21 +1,25 @@
 import { ref, computed, watch } from 'vue'
 import {
-  TOPIC_OPTIONS,
-  SUBTOPIC_OPTIONS,
-  TAG_OPTIONS,
-  FILE_TYPE_OPTIONS,
-  SIZE_RANGE_OPTIONS,
   SORTABLE,
   DATE_PRESETS,
+  SIZE_BUCKET_LABELS,
   DENSITY_OPTIONS,
-  TOPIC_SUBTOPIC_MAP,
-  SUBTOPIC_TAG_MAP,
   FACET_VISIBLE_COUNT,
-  generateFiles,
+  PAGE_SIZE,
+  normalizeItem,
+  searchFiles,
+  fetchFacetExtra,
+  fetchTopics,
+  fetchTags,
+  fetchAssetDetail,
+  fetchAssetMmMeta,
+  fetchRelationKinds,
   buildFileDetail,
+  downloadAsset,
+  downloadSelectionBundle,
   readStoredDensity,
   DENSITY_STORAGE_KEY
-} from './fileSearch.mock'
+} from './fileSearch.api'
 
 function toggleIn(list, val) {
   return list.includes(val) ? list.filter((v) => v !== val) : [...list, val]
@@ -32,44 +36,41 @@ function parseISODate(v) {
   const d = new Date(`${v}T00:00:00`)
   return Number.isNaN(d.getTime()) ? null : d
 }
-function matchesSizeRange(mb, range) {
-  if (range === 'under1') return mb < 1
-  if (range === '1to10') return mb >= 1 && mb <= 10
-  if (range === 'over10') return mb > 10
-  return true
-}
 function splitParam(v) {
   return v ? v.split(',').filter(Boolean) : []
 }
+/* 서버는 기간 칩을 UTC 오늘 기준으로 센다 — 프리셋도 같은 날을 기준으로 잡아야 칩 숫자와 결과가 맞는다 */
+function utcToday() {
+  return parseISODate(new Date().toISOString().slice(0, 10))
+}
+function daysBefore(date, n) {
+  const d = new Date(date)
+  d.setDate(d.getDate() - n)
+  return d
+}
 
-const LOAD_BATCH_SIZE = 20
 const HASH_ROUTE = '#file-search'
+const TAG_LIST_LIMIT = 500
 
 /**
- * 파일 검색 화면의 상태·필터링·정렬·URL 동기화 로직.
- * 화면(FileSearch.vue)은 이 함수가 반환하는 값을 템플릿/DOM 이벤트에 연결만 한다.
- * API 연동 시 files를 채우는 방식만 generateFiles() -> API 호출로 바꾸면 된다.
+ * 파일 검색 화면의 상태·서버 조회·URL 동기화 로직.
+ * 거르기·정렬·집계·페이지 나누기는 서버(GET /file-search)가 하고, 여기서는 조건을 들고 있다가
+ * 바뀔 때마다 다시 묻는다. 화면(FileSearch.vue)은 반환값을 템플릿에 연결만 한다.
  */
 export function useFileSearch() {
-  const files = ref(generateFiles())
-
-  /* searchValue: 실제 필터링/URL/적용조건에 쓰이는 "커밋된" 검색어.
-     searchDraft: 입력창에 타이핑 중인 값 — Enter를 누르기 전까진 결과에 반영되지 않는다.
-     대용량 데이터를 가정하면 키 입력마다 서버 왕복·전체 스캔이 일어나선 안 되므로,
-     커밋 시점을 명시적으로 분리한다 */
-  const searchValue = ref('흉부')
-  const searchDraft = ref(searchValue.value)
+  /* searchValue: 서버 조회/URL/적용조건에 쓰이는 "커밋된" 검색어.
+     searchDraft: 입력창에 타이핑 중인 값 — Enter를 누르기 전까진 결과에 반영되지 않는다 */
+  const searchValue = ref('')
+  const searchDraft = ref('')
   const resultSearchValue = ref('')
   const resultSearchDraft = ref('')
-  const topics = ref(['의료'])
-  const subtopics = ref(['영상검사'])
-  const tags = ref(['#흉부'])
+  const topics = ref([])
+  const subtopics = ref([])
+  const tags = ref([])
   const dateFrom = ref(null)
   const dateTo = ref(null)
   const fileTypes = ref([])
-  const sizeRange = ref('')
   const selectedIds = ref([])
-  const visibleCount = ref(LOAD_BATCH_SIZE)
   const sortKey = ref('date')
   const sortDir = ref('desc')
   const toastMessage = ref('')
@@ -81,11 +82,15 @@ export function useFileSearch() {
   const facetQuery = ref('')
   const facetDraft = ref([])
 
-  /* Enter로만 커밋한다 — 타이핑 중엔 filteredRows/패싯/URL 어느 것도 움직이지 않는다 */
+  /* 어떤 감시(watch)보다 먼저 URL 조건을 읽는다 — 감시가 초기값 반영까지 '변경'으로 보고
+     다시 조회하면 새로고침·공유 링크마다 같은 목록을 두 번 받게 된다 */
+  applyUrlState()
+
+  /* Enter로만 커밋한다 — 타이핑 중엔 서버 조회/URL 어느 것도 움직이지 않는다 */
   function commitSearch() {
     searchValue.value = searchDraft.value.trim()
   }
-  /* 칩 제거·추천검색어 클릭은 타이핑이 아니라 한 번의 명확한 클릭이므로 즉시 반영하고,
+  /* 칩 제거·지우기 버튼은 타이핑이 아니라 한 번의 명확한 클릭이므로 즉시 반영하고,
      입력창 내용도 함께 맞춰 커밋된 값과 어긋나지 않게 한다 */
   function setSearch(v) {
     searchDraft.value = v
@@ -102,124 +107,168 @@ export function useFileSearch() {
     resultSearchValue.value = v
   }
 
-  /* 공백으로 구분된 각 키워드는 AND로 묶인다 — 검색창 하나로
-     "결과 내 재검색"이 하던 좁히기를 대신한다 */
   const searchTerms = computed(() => searchValue.value.trim().split(/\s+/).filter(Boolean))
   const resultSearchTerms = computed(() => resultSearchValue.value.trim().split(/\s+/).filter(Boolean))
   /* 입력값이 아직 결과에 반영되지 않은 상태 — 작아진 검색창에서 이걸 알려주지 않으면
      사용자는 자기가 친 글자가 왜 안 먹는지 알 수 없다 */
   const searchDirty = computed(() => searchDraft.value.trim() !== searchValue.value)
 
-  /* ------------------------------------------------------------ filtering */
+  /* --------------------------------------------------------------- toast */
 
-  /* 차원별 술어를 분리해 두면, 특정 차원만 빼고 적용한 집합을 만들 수 있다.
-     패싯 카운트는 "그 차원을 제외한 나머지 조건"에서 세야 옳다 */
-  const PREDICATES = {
-    topic: (f) => !topics.value.length || topics.value.includes(f.topic),
-    subtopic: (f) => !subtopics.value.length || subtopics.value.includes(f.subtopic),
-    tag: (f) => !tags.value.length || f.tags.some((t) => tags.value.includes(t)),
-    fileType: (f) => !fileTypes.value.length || fileTypes.value.includes(f.ext),
-    size: (f) => matchesSizeRange(f.sizeMB, sizeRange.value),
-    date: (f) => {
-      const from = toISODate(dateFrom.value)
-      const to = toISODate(dateTo.value)
-      return (!from || f.date >= from) && (!to || f.date <= to)
-    },
-    search: (f) => {
-      const terms = searchTerms.value.map((t) => t.toLowerCase())
-      if (!terms.length) return true
-      const haystack = `${f.name} ${f.category} ${f.topic} ${f.subtopic} ${f.tags.join(' ')}`.toLowerCase()
-      return terms.every((t) => haystack.includes(t))
-    },
-    resultSearch: (f) => {
-      const terms = resultSearchTerms.value.map((t) => t.toLowerCase())
-      if (!terms.length) return true
-      const haystack = `${f.name} ${f.category} ${f.ext} ${f.tags.join(' ')}`.toLowerCase()
-      return terms.every((t) => haystack.includes(t))
+  let toastTimer = null
+  function showToast(message, ms = 2500) {
+    toastMessage.value = message
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => (toastMessage.value = ''), ms)
+  }
+
+  /* ------------------------------------------------------------ 목록 조회 */
+
+  const items = ref([])
+  const total = ref(0)
+  const totalCapped = ref(false)
+  const nextCursor = ref(null)
+  const depth = ref(Infinity)
+  const facets = ref({})
+  const facetAxes = ref({})
+  const listLoading = ref(false)
+  const loadingMore = ref(false)
+
+  /* 같은 이름을 반복해 보내는 배열 규칙은 toQuery 가 처리한다. 크기(size_bucket)는
+     서버가 아직 501 이라 보내지 않는다 */
+  function conditionParams() {
+    return {
+      q: searchValue.value,
+      refine: resultSearchValue.value,
+      topic: topics.value,
+      subtopic: subtopics.value,
+      tag: tags.value,
+      file_ext: fileTypes.value.map((e) => e.toLowerCase()),
+      created_from: toISODate(dateFrom.value),
+      created_to: toISODate(dateTo.value)
     }
   }
-  const DIMENSIONS = Object.keys(PREDICATES)
+  const sortParam = computed(() => `${sortKey.value === 'date' ? 'updated' : sortKey.value}_${sortDir.value}`)
 
-  function rowsExcept(dimension) {
-    return files.value.filter((f) => DIMENSIONS.every((d) => d === dimension || PREDICATES[d](f)))
+  /* 조건이 빠르게 여러 번 바뀌면 늦게 도착한 옛 응답이 새 결과를 덮어쓸 수 있다 —
+     요청마다 번호를 매겨 마지막 요청의 응답만 반영한다 */
+  let listSeq = 0
+
+  async function fetchList() {
+    const seq = ++listSeq
+    listLoading.value = true
+    loadingMore.value = false
+    const params = conditionParams()
+    const [page, extra] = await Promise.allSettled([
+      searchFiles({ ...params, sort: sortParam.value, limit: PAGE_SIZE }),
+      fetchFacetExtra(params)
+    ])
+    if (seq !== listSeq) return
+    listLoading.value = false
+
+    if (page.status === 'fulfilled') {
+      const body = page.value
+      items.value = body.items.map(normalizeItem)
+      total.value = body.total
+      totalCapped.value = body.total_capped
+      nextCursor.value = body.next_cursor
+      depth.value = body.depth ?? Infinity
+      facets.value = body.facets ?? {}
+    } else {
+      showToast(page.reason.message, 4000)
+    }
+    /* 형식·크기·기간 칩 건수는 부가 정보라, 실패해도 목록은 그대로 보여준다 */
+    facetAxes.value = extra.status === 'fulfilled' ? (extra.value.axes ?? {}) : {}
   }
 
-  const filteredRows = computed(() => rowsExcept(null))
+  /* 검색어가 있으면 첫 쪽이 offset 경로라 next_cursor 가 늘 비어 있다(IDD IF-ASSET-09) —
+     그때는 받은 수로 이어 받고, 끝은 total(또는 서버의 조회 깊이)로 판단한다 */
+  const hasMore = computed(() => {
+    if (nextCursor.value) return true
+    if (!searchValue.value) return false
+    return items.value.length < total.value && items.value.length < depth.value
+  })
 
-  function countBy(rows, pick) {
-    const m = Object.create(null)
-    rows.forEach((f) => {
-      const keys = pick(f)
-      ;(Array.isArray(keys) ? keys : [keys]).forEach((k) => {
-        m[k] = (m[k] || 0) + 1
-      })
-    })
-    return m
+  async function loadMoreRows() {
+    if (!hasMore.value || loadingMore.value || listLoading.value) return
+    const seq = listSeq
+    loadingMore.value = true
+    const params = { ...conditionParams(), sort: sortParam.value, limit: PAGE_SIZE, with_facets: false }
+    if (nextCursor.value) params.cursor = nextCursor.value
+    else params.offset = items.value.length
+    try {
+      const body = await searchFiles(params)
+      if (seq !== listSeq) return
+      /* 기본 정렬(수정일)은 값이 변하는 정렬이라 쪽 경계에서 같은 행이 다시 올 수 있다 */
+      const seen = new Set(items.value.map((r) => r.id))
+      items.value = [...items.value, ...body.items.map(normalizeItem).filter((r) => !seen.has(r.id))]
+      nextCursor.value = body.next_cursor
+    } catch (e) {
+      if (seq === listSeq) showToast(e.message, 4000)
+    } finally {
+      if (seq === listSeq) loadingMore.value = false
+    }
   }
 
-  const topicCounts = computed(() => countBy(rowsExcept('topic'), (f) => f.topic))
-  const subtopicCounts = computed(() => countBy(rowsExcept('subtopic'), (f) => f.subtopic))
-  const tagCounts = computed(() => countBy(rowsExcept('tag'), (f) => f.tags))
-  const fileTypeCounts = computed(() => countBy(rowsExcept('fileType'), (f) => f.ext))
-  const datePresetCounts = computed(() => {
-    const rows = rowsExcept('date')
-    const todayISO = toISODate(new Date())
-    const m = Object.create(null)
-    DATE_PRESETS.forEach((preset) => {
-      const from = new Date()
-      from.setDate(from.getDate() - (preset.days - 1))
-      const fromISO = toISODate(from)
-      m[preset.days] = rows.filter((f) => f.date >= fromISO && f.date <= todayISO).length
+  const totalLabel = computed(() => `${total.value.toLocaleString()}${totalCapped.value ? '건 이상' : '건'}`)
+
+  /* ------------------------------------------------ 주제 · 태그 목록 (전체 자료 기준) */
+
+  const topicRows = ref([])
+  const tagRows = ref([])
+
+  fetchTopics()
+    .then((body) => (topicRows.value = body.topics ?? []))
+    .catch((e) => showToast(e.message, 4000))
+
+  const topicOptions = computed(() => {
+    const counts = new Map()
+    topicRows.value.forEach((r) => counts.set(r.topic_ko, r.topic_asset_count))
+    return counts
+  })
+  const subtopicOptions = computed(() => {
+    const counts = new Map()
+    topicRows.value.forEach((r) => {
+      if (r.subtopic_ko && topics.value.includes(r.topic_ko)) counts.set(r.subtopic_ko, (counts.get(r.subtopic_ko) ?? 0) + r.asset_count)
     })
-    return m
+    return counts
   })
-  const sizeCounts = computed(() => {
-    const rows = rowsExcept('size')
-    const m = Object.create(null)
-    SIZE_RANGE_OPTIONS.forEach((o) => {
-      m[o.value] = rows.filter((f) => matchesSizeRange(f.sizeMB, o.value)).length
-    })
-    return m
-  })
+  const tagOptions = computed(() => new Map(tagRows.value.map((r) => [r.tag, r.count])))
 
-  const sortedRows = computed(() => {
-    const rows = filteredRows.value.slice()
-    const dir = sortDir.value === 'asc' ? 1 : -1
-    rows.sort((a, b) => {
-      if (sortKey.value === 'name') return a.name.localeCompare(b.name, 'ko') * dir
-      if (sortKey.value === 'size') return (a.sizeMB - b.sizeMB) * dir
-      return a.date.localeCompare(b.date) * dir
-    })
-    return rows
-  })
+  /* 태그는 하위주제를 고른 뒤에야 열리므로, 그때 고른 주제·하위주제로 좁혀 받는다 —
+     조건 없이 부르면 2~3초 걸린다(IDD IF-CAT-02) */
+  let tagSeq = 0
+  watch(
+    [topics, subtopics],
+    () => {
+      const seq = ++tagSeq
+      if (!subtopics.value.length) {
+        tagRows.value = []
+        return
+      }
+      fetchTags({ topic: topics.value, subtopic: subtopics.value, limit: TAG_LIST_LIMIT })
+        .then((body) => {
+          if (seq === tagSeq) tagRows.value = body.rows ?? []
+        })
+        .catch(() => {
+          if (seq === tagSeq) tagRows.value = []
+        })
+    },
+    { deep: true }
+  )
 
-  const visibleRows = computed(() => sortedRows.value.slice(0, visibleCount.value))
-  const visibleIds = computed(() => visibleRows.value.map((r) => r.id))
-  const allVisibleSelected = computed(() => visibleIds.value.length > 0 && visibleIds.value.every((id) => selectedIds.value.includes(id)))
-  const allResultsSelected = computed(() => sortedRows.value.length > 0 && selectedIds.value.length === sortedRows.value.length)
-  /* 현재 표시 목록을 다 골랐는데 결과가 더 남아 있으면 전체 선택을 제안한다 */
-  const canSelectAllResults = computed(() => allVisibleSelected.value && sortedRows.value.length > visibleRows.value.length)
-
-  watch([topics, subtopics, tags, fileTypes, sizeRange, dateFrom, dateTo, searchValue, resultSearchValue, sortKey, sortDir], () => {
-    visibleCount.value = LOAD_BATCH_SIZE
-  })
-
-  /* 조건이 바뀌어 결과에서 빠진 파일은 선택 상태로 남기지 않는다 —
-     툴바가 화면에 없는 파일을 "N건 선택됨"으로 세는 것을 막기 위함 */
-  watch(filteredRows, (rows) => {
-    if (selectedIds.value.length === 0) return
-    const visible = new Set(rows.map((r) => r.id))
-    selectedIds.value = selectedIds.value.filter((id) => visible.has(id))
-    if (fileDetailTarget.value && !rows.some((r) => r.id === fileDetailTarget.value.id)) closeFileDetail()
-  })
-
+  /* 상위 조건을 풀면 그 아래 선택도 의미가 없어진다 — 잠금 구조를 그대로 따른다.
+     바뀔 게 없을 때 새 배열을 넣으면 그것만으로 다시 조회되므로 실제로 달라질 때만 넣는다 */
   watch(topics, () => {
-    const allowed = new Set(availableSubtopics.value)
-    subtopics.value = subtopics.value.filter((s) => allowed.has(s))
+    const kept = !topics.value.length
+      ? []
+      : topicRows.value.length
+        ? subtopics.value.filter((s) => subtopicOptions.value.has(s))
+        : subtopics.value
+    if (kept.length !== subtopics.value.length) subtopics.value = kept
   })
   watch(subtopics, () => {
-    const allowed = new Set(availableTags.value)
-    tags.value = tags.value.filter((t) => allowed.has(t))
+    if (!subtopics.value.length && tags.value.length) tags.value = []
   })
 
   /* --------------------------------------------------------------- labels */
@@ -230,41 +279,48 @@ export function useFileSearch() {
     return '전체 파일 '
   })
 
-  /* -------------------------------------------------------- topic/subtopic/tag hierarchy */
+  /* ------------------------------------------------------------- 칩 */
 
-  /* 칩은 label/active에 더해 count를 싣는다. count 0이면서 선택돼 있지도 않은
-     항목은 고르면 결과가 비므로 막는다 — 막다른 길을 누르기 전에 보이게 */
   function toChip(label, active, count) {
     return { label, active, count, disabled: count === 0 && !active }
   }
 
-  /* 선택한 항목은 카운트와 무관하게 늘 보이고, 나머지는 결과 많은 순으로 채운다 */
-  function topFacetChips(all, selectedList, counts) {
-    const chips = all.map((v) => toChip(v, selectedList.includes(v), counts[v] || 0))
-    const picked = chips.filter((c) => c.active)
-    const rest = chips.filter((c) => !c.active).sort((a, b) => b.count - a.count)
+  /* facets 는 건수 상위 12개만 오고 고른 값을 넣어 주지 않는다(IDD 11절 ③) —
+     고른 값은 늘 칩으로 붙들고, 목록에 없으면 건수를 비운다 */
+  function facetChips(entries = [], selectedList) {
+    const counts = new Map(entries.map((e) => [e.key, e.count]))
+    const picked = selectedList.map((v) => toChip(v, true, counts.get(v) ?? null))
+    const rest = entries.filter((e) => !selectedList.includes(e.key)).map((e) => toChip(e.key, false, e.count))
     return [...picked, ...rest].slice(0, Math.max(FACET_VISIBLE_COUNT, picked.length))
   }
 
-  const visibleTopicChips = computed(() => topFacetChips(TOPIC_OPTIONS, topics.value, topicCounts.value))
+  const visibleTopicChips = computed(() => facetChips(facets.value.topic, topics.value))
+  const showMoreTopics = computed(() => topicOptions.value.size > visibleTopicChips.value.length)
 
-  const availableSubtopics = computed(() => {
-    const set = new Set()
-    topics.value.forEach((t) => (TOPIC_SUBTOPIC_MAP[t] || []).forEach((s) => set.add(s)))
-    return SUBTOPIC_OPTIONS.filter((s) => set.has(s))
+  const availableSubtopics = computed(() => [...subtopicOptions.value.keys()])
+  const subtopicChips = computed(() => facetChips(facets.value.subtopic, subtopics.value))
+  const showMoreSubtopics = computed(() => subtopicOptions.value.size > subtopicChips.value.length)
+
+  const visibleTagChips = computed(() => facetChips(facets.value.tag, tags.value))
+  const showMoreTags = computed(() => tagOptions.value.size > visibleTagChips.value.length)
+
+  /* 형식 칩은 서버가 소문자 확장자로 준다 — 화면·URL 은 지금처럼 대문자로 쓴다 */
+  const fileTypeChips = computed(() => {
+    const entries = (facetAxes.value.file_ext ?? []).map((e) => ({ key: e.key.toUpperCase(), count: e.count }))
+    const keys = new Set(entries.map((e) => e.key))
+    const missing = fileTypes.value.filter((v) => !keys.has(v)).map((v) => toChip(v, true, null))
+    return [...missing, ...entries.map((e) => toChip(e.key, fileTypes.value.includes(e.key), e.count))]
   })
-  const subtopicChips = computed(() => topFacetChips(availableSubtopics.value, subtopics.value, subtopicCounts.value))
 
-  const availableTags = computed(() => {
-    const set = new Set()
-    subtopics.value.forEach((s) => (SUBTOPIC_TAG_MAP[s] || []).forEach((t) => set.add(t)))
-    return TAG_OPTIONS.filter((t) => set.has(t))
-  })
-  const visibleTagChips = computed(() => topFacetChips(availableTags.value, tags.value, tagCounts.value))
-
-  const fileTypeChips = computed(() => FILE_TYPE_OPTIONS.map((v) => toChip(v, fileTypes.value.includes(v), fileTypeCounts.value[v] || 0)))
+  /* 크기로 거르기는 서버가 아직 지원하지 않는다(size_bucket 501) — 건수만 보여주고 누를 수 없게 둔다 */
   const sizeRangeChips = computed(() =>
-    SIZE_RANGE_OPTIONS.map((o) => ({ ...toChip(o.label, sizeRange.value === o.value, sizeCounts.value[o.value] || 0), value: o.value }))
+    (facetAxes.value.file_size ?? []).map((e) => ({
+      label: SIZE_BUCKET_LABELS[e.key] ?? e.key,
+      value: e.key,
+      count: e.count,
+      active: false,
+      disabled: true
+    }))
   )
 
   const dateRangeLabel = computed(() => {
@@ -278,14 +334,11 @@ export function useFileSearch() {
 
   const appliedConditions = computed(() => [
     ...searchTerms.value.map((t) => ({ label: `검색어: ${t}`, remove: () => removeSearchTerm(t) })),
-    ...(resultSearchTerms.value.length ? [{ label: `목록 좁히기: ${resultSearchValue.value}`, remove: () => setResultSearch('') }] : []),
+    ...(resultSearchTerms.value.length ? [{ label: `결과 내 검색: ${resultSearchValue.value}`, remove: () => setResultSearch('') }] : []),
     ...topics.value.map((t) => ({ label: `주제: ${t}`, remove: () => (topics.value = topics.value.filter((x) => x !== t)) })),
     ...subtopics.value.map((t) => ({ label: `하위주제: ${t}`, remove: () => (subtopics.value = subtopics.value.filter((x) => x !== t)) })),
     ...tags.value.map((t) => ({ label: `태그: ${t}`, remove: () => (tags.value = tags.value.filter((x) => x !== t)) })),
     ...fileTypes.value.map((t) => ({ label: `형식: ${t}`, remove: () => (fileTypes.value = fileTypes.value.filter((x) => x !== t)) })),
-    ...(sizeRange.value
-      ? [{ label: `크기: ${SIZE_RANGE_OPTIONS.find((o) => o.value === sizeRange.value).label}`, remove: () => (sizeRange.value = '') }]
-      : []),
     ...(dateFrom.value || dateTo.value
       ? [
           {
@@ -308,7 +361,6 @@ export function useFileSearch() {
     subtopics.value = []
     tags.value = []
     fileTypes.value = []
-    sizeRange.value = ''
     dateFrom.value = null
     dateTo.value = null
   }
@@ -335,102 +387,129 @@ export function useFileSearch() {
   /* --------------------------------------------------------------- dates */
 
   function applyDatePreset(days) {
-    const to = new Date()
-    const from = new Date()
-    from.setDate(from.getDate() - (days - 1))
-    dateFrom.value = from
-    dateTo.value = to
+    const today = utcToday()
+    dateFrom.value = daysBefore(today, days - 1)
+    dateTo.value = today
   }
   function isDatePresetActive(days) {
     if (!dateFrom.value || !dateTo.value) return false
-    const expectedFrom = new Date()
-    expectedFrom.setDate(expectedFrom.getDate() - (days - 1))
-    return toISODate(dateFrom.value) === toISODate(expectedFrom) && toISODate(dateTo.value) === toISODate(new Date())
+    const today = utcToday()
+    return toISODate(dateFrom.value) === toISODate(daysBefore(today, days - 1)) && toISODate(dateTo.value) === toISODate(today)
   }
+  const datePresetChips = computed(() => {
+    const counts = new Map((facetAxes.value.date_preset ?? []).map((e) => [e.key, e.count]))
+    return DATE_PRESETS.map((preset) => {
+      const active = isDatePresetActive(preset.days)
+      const count = counts.get(String(preset.days))
+      return { label: preset.label, days: preset.days, active, disabled: count === 0 && !active }
+    })
+  })
 
   /* ------------------------------------------------------------- selection */
 
-  function selectAllResults() {
-    selectedIds.value = sortedRows.value.map((r) => r.id)
-  }
-  function toggleSelectAllVisible() {
-    selectedIds.value = allVisibleSelected.value
-      ? selectedIds.value.filter((id) => !visibleIds.value.includes(id))
-      : [...new Set([...selectedIds.value, ...visibleIds.value])]
-  }
+  /* 전체 선택은 두지 않는다(기획 결정) — 서버가 쪽 단위로 주므로 행을 하나씩 고른다 */
+  const visibleRows = items
+
   function toggleRowSelect(id) {
     selectedIds.value = toggleIn(selectedIds.value, id)
   }
 
-  function loadMoreRows() {
-    if (visibleCount.value >= sortedRows.value.length) return
-    visibleCount.value = Math.min(visibleCount.value + LOAD_BATCH_SIZE, sortedRows.value.length)
+  /* 같은 받기가 겹쳐 눌리지 않게 막는다 — 큰 zip 은 몇 초 걸린다 */
+  const downloading = ref(false)
+
+  async function runDownload(task, doneMessage) {
+    if (downloading.value) return
+    downloading.value = true
+    try {
+      const result = await task()
+      showToast(doneMessage(result), 3000)
+    } catch (e) {
+      showToast(e.message, 4000)
+    } finally {
+      downloading.value = false
+    }
   }
 
-  /* --------------------------------------------------------------- toast */
+  function downloadOriginal(file) {
+    return runDownload(() => downloadAsset(file), (r) => `${r.name} 다운로드를 시작했습니다.`)
+  }
 
-  let toastTimer = null
-  function showToast(message) {
-    toastMessage.value = message
-    clearTimeout(toastTimer)
-    toastTimer = setTimeout(() => (toastMessage.value = ''), 2500)
-  }
-  function bulkDownload() {
-    showToast(`${selectedIds.value.length}개 파일 다운로드를 시작합니다.`)
-    selectedIds.value = []
-  }
-  function downloadOne(item) {
-    showToast(`${item.name} 다운로드를 시작합니다.`)
+  /* 빠진 자산(노출 대상 아님 · 원본 없음)이 있으면 몇 건이 담겼는지 알려 준다 */
+  function downloadSelected() {
+    const ids = [...selectedIds.value]
+    return runDownload(
+      () => downloadSelectionBundle(ids),
+      (r) => (r.missing > 0 ? `${ids.length}건 중 ${r.files}건이 담겼습니다. (${r.missing}건 제외)` : `${ids.length}건 다운로드를 시작했습니다.`)
+    )
   }
 
   /* --------------------------------------------------------- 파일 상세 모달 */
 
-  /* AFileDetailModal이 포커스 저장/복귀를 스스로 처리하므로 여는 쪽은 대상만 쥐면 된다 */
+  const fileDetail = ref(null)
+  const fileDetailStatus = ref('ready')
+  const fileDetailError = ref('')
+  let detailSeq = 0
+  let relationKindsPromise = null
+
+  /* 관계 종류 이름은 거의 바뀌지 않는 작은 목록이라 처음 모달을 열 때 한 번만 받는다 */
+  function loadRelationKinds() {
+    relationKindsPromise ??= fetchRelationKinds()
+      .then((body) => Object.fromEntries((body.rows ?? []).map((k) => [k.kind_code, k.kind_name_ko])))
+      .catch(() => {
+        relationKindsPromise = null
+        return {}
+      })
+    return relationKindsPromise
+  }
+
+  async function loadFileDetail(id) {
+    const seq = ++detailSeq
+    fileDetailStatus.value = 'loading'
+    fileDetailError.value = ''
+    try {
+      const [detail, mmMeta, kindNames] = await Promise.all([
+        fetchAssetDetail(id),
+        fetchAssetMmMeta(id).catch(() => ({ items: [] })),
+        loadRelationKinds()
+      ])
+      if (seq !== detailSeq) return
+      fileDetail.value = buildFileDetail(detail, mmMeta, kindNames)
+      fileDetailStatus.value = 'ready'
+    } catch (e) {
+      if (seq !== detailSeq) return
+      fileDetail.value = null
+      fileDetailStatus.value = 'error'
+      /* 관계 카드에 등록 전 자산이 섞여 오면 404 가 난다(IDD 11절 ⑤) */
+      fileDetailError.value = e.status === 404 ? '볼 수 없는 자료입니다. 삭제되었거나 아직 등록이 끝나지 않았을 수 있습니다.' : e.message
+    }
+  }
+
+  /* FileDetailModal이 포커스 저장/복귀를 스스로 처리하므로 여는 쪽은 대상만 쥐면 된다 */
   function openFileDetail(item) {
     fileDetailTarget.value = item
     fileDetailOpen.value = true
+    loadFileDetail(item.id)
   }
   function closeFileDetail() {
     fileDetailOpen.value = false
   }
-  /* 체크박스나 액션 버튼을 누른 것은 행 열기로 치지 않는다 */
-  function onRowClick(item, e) {
-    if (e.target.closest('button, input, label')) return
-    openFileDetail(item)
+  function retryFileDetail() {
+    if (fileDetailTarget.value) loadFileDetail(fileDetailTarget.value.id)
   }
 
-  const fileDetail = computed(() => buildFileDetail(fileDetailTarget.value, files.value))
-
-  function onDownloadOriginal(detail) {
-    showToast(`${detail.name} 다운로드를 시작합니다.`)
-  }
-  function onDownloadZip(detail) {
-    showToast(`${detail.name}의 관계 파일을 ZIP으로 묶어 다운로드합니다.`)
-  }
-  async function onCopyLinkDetail(detail) {
-    try {
-      await navigator.clipboard.writeText(window.location.href)
-      showToast(`${detail.name} 링크를 복사했습니다.`)
-    } catch {
-      showToast('링크 복사에 실패했습니다.')
-    }
+  function addTopicFilter(topic, subtopic) {
+    if (topic && !topics.value.includes(topic)) topics.value = [...topics.value, topic]
+    if (subtopic && !subtopics.value.includes(subtopic)) subtopics.value = [...subtopics.value, subtopic]
   }
   /* 주제 크럼은 대분류만, 하위주제 크럼은 대분류+하위주제를 함께 건다 —
      하위주제 필터는 대분류가 선택돼 있어야 열리는 잠금 구조를 그대로 따른다 */
   function onBreadcrumbClickDetail(crumb) {
-    const item = fileDetailTarget.value
-    if (!item) return
-    if (!topics.value.includes(item.topic)) topics.value = [...topics.value, item.topic]
-    if (crumb.level === 'subtopic' && !subtopics.value.includes(item.subtopic)) {
-      subtopics.value = [...subtopics.value, item.subtopic]
-    }
+    const [topicCrumb, subtopicCrumb] = fileDetail.value?.breadcrumb ?? []
+    addTopicFilter(topicCrumb?.label, crumb.level === 'subtopic' ? subtopicCrumb?.label : null)
     closeFileDetail()
   }
-  function onTopicClickDetail() {
-    const item = fileDetailTarget.value
-    if (!item) return
-    if (!topics.value.includes(item.topic)) topics.value = [...topics.value, item.topic]
-    if (!subtopics.value.includes(item.subtopic)) subtopics.value = [...subtopics.value, item.subtopic]
+  function onTopicClickDetail(topicChip) {
+    addTopicFilter(topicChip.topic, topicChip.subtopic)
     closeFileDetail()
   }
   function onMetaClickDetail(meta) {
@@ -438,16 +517,16 @@ export function useFileSearch() {
     closeFileDetail()
   }
   function onRelationClickDetail(relation) {
-    const item = files.value.find((f) => String(f.id) === relation.id)
-    if (item) openFileDetail(item)
+    openFileDetail({ id: relation.id, name: relation.name, ext: relation.ext })
   }
 
   /* ------------------------------------------------------ 패싯 전체 보기 모달 */
 
+  /* 모달의 건수는 지금 결과가 아니라 전체 자료 기준이다(/topics · /tags) — 목업처럼 결과 기준 건수는 API 가 주지 않는다 */
   const FACET_CONFIG = {
-    topic: { title: '주제', all: () => TOPIC_OPTIONS, selected: topics, counts: () => topicCounts.value },
-    subtopic: { title: '하위주제', all: () => availableSubtopics.value, selected: subtopics, counts: () => subtopicCounts.value },
-    tag: { title: '태그', all: () => availableTags.value, selected: tags, counts: () => tagCounts.value }
+    topic: { title: '주제', options: () => topicOptions.value, selected: topics },
+    subtopic: { title: '하위주제', options: () => subtopicOptions.value, selected: subtopics },
+    tag: { title: '태그', options: () => tagOptions.value, selected: tags }
   }
 
   function openFacetModal(key) {
@@ -464,21 +543,18 @@ export function useFileSearch() {
   }
 
   const facetModalTitle = computed(() => (facetModal.value ? FACET_CONFIG[facetModal.value].title : ''))
-  const facetModalTotal = computed(() => (facetModal.value ? FACET_CONFIG[facetModal.value].all().length : 0))
+  const facetModalTotal = computed(() => (facetModal.value ? FACET_CONFIG[facetModal.value].options().size : 0))
 
-  /* 모달은 가나다순 — 체크하는 동안 카운트가 변해도 목록이 눈앞에서 재정렬되면 안 된다 */
+  /* 모달은 가나다순 — 체크하는 동안 목록이 눈앞에서 재정렬되면 안 된다 */
   const facetModalRows = computed(() => {
     if (!facetModal.value) return []
-    const cfg = FACET_CONFIG[facetModal.value]
-    const counts = cfg.counts()
+    const options = FACET_CONFIG[facetModal.value].options()
     const picked = facetDraft.value
     const q = facetQuery.value.trim().toLowerCase()
-    return cfg
-      .all()
+    return [...options.keys()]
       .filter((v) => !q || v.toLowerCase().includes(q))
-      .slice()
       .sort((a, b) => a.localeCompare(b, 'ko'))
-      .map((v) => ({ label: v, active: picked.includes(v), count: counts[v] || 0 }))
+      .map((v) => ({ label: v, active: picked.includes(v), count: options.get(v) ?? 0 }))
   })
 
   function toggleFacetValue(label) {
@@ -492,11 +568,11 @@ export function useFileSearch() {
   const paletteItems = computed(() => [
     ...DENSITY_OPTIONS.map((o) => ({ label: `밀도: ${o.label}`, hint: '보기', kind: 'density', value: o.value })),
     ...(appliedConditions.value.length ? [{ label: '조건 모두 해제', hint: '동작', kind: 'clear' }] : []),
-    ...TOPIC_OPTIONS.map((v) => ({ label: v, hint: '주제', kind: 'topic', value: v })),
+    ...[...topicOptions.value.keys()].map((v) => ({ label: v, hint: '주제', kind: 'topic', value: v })),
     ...availableSubtopics.value.map((v) => ({ label: v, hint: '하위주제', kind: 'subtopic', value: v })),
-    ...availableTags.value.map((v) => ({ label: v, hint: '태그', kind: 'tag', value: v })),
-    ...FILE_TYPE_OPTIONS.map((v) => ({ label: v, hint: '형식', kind: 'fileType', value: v })),
-    ...sortedRows.value.slice(0, 50).map((f) => ({ label: f.name, hint: '파일', kind: 'file', value: f.id }))
+    ...[...tagOptions.value.keys()].map((v) => ({ label: v, hint: '태그', kind: 'tag', value: v })),
+    ...fileTypeChips.value.map((c) => ({ label: c.label, hint: '형식', kind: 'fileType', value: c.label })),
+    ...items.value.slice(0, 50).map((f) => ({ label: f.name, hint: '파일', kind: 'file', value: f.id }))
   ])
 
   function closePalette() {
@@ -510,7 +586,7 @@ export function useFileSearch() {
     else if (item.kind === 'tag') tags.value = toggleIn(tags.value, item.value)
     else if (item.kind === 'fileType') fileTypes.value = toggleIn(fileTypes.value, item.value)
     else if (item.kind === 'file') {
-      const f = files.value.find((x) => x.id === item.value)
+      const f = items.value.find((x) => x.id === item.value)
       if (f) openFileDetail(f)
     }
     closePalette()
@@ -521,7 +597,6 @@ export function useFileSearch() {
   /* 조건을 해시 쿼리에 실어 새로고침/공유에도 같은 화면이 열리게 한다.
      선택(selectedIds)은 일시적인 작업 상태라 URL에 넣지 않는다 */
   let urlWriteTimer = null
-  let applyingFromUrl = false
 
   function parseHashParams() {
     if (!location.hash.startsWith(HASH_ROUTE)) return null
@@ -537,7 +612,6 @@ export function useFileSearch() {
     if (subtopics.value.length) p.set('sub', subtopics.value.join(','))
     if (tags.value.length) p.set('tag', tags.value.join(','))
     if (fileTypes.value.length) p.set('type', fileTypes.value.join(','))
-    if (sizeRange.value) p.set('size', sizeRange.value)
     if (dateFrom.value) p.set('from', toISODate(dateFrom.value))
     if (dateTo.value) p.set('to', toISODate(dateTo.value))
     if (sortKey.value !== 'date' || sortDir.value !== 'desc') p.set('sort', `${sortKey.value}:${sortDir.value}`)
@@ -559,7 +633,6 @@ export function useFileSearch() {
   function applyUrlState() {
     const p = parseHashParams()
     if (!p) return
-    applyingFromUrl = true
     searchValue.value = p.get('q') || ''
     searchDraft.value = searchValue.value
     resultSearchValue.value = p.get('within') || ''
@@ -568,23 +641,27 @@ export function useFileSearch() {
     subtopics.value = splitParam(p.get('sub'))
     tags.value = splitParam(p.get('tag'))
     fileTypes.value = splitParam(p.get('type'))
-    sizeRange.value = p.get('size') || ''
     dateFrom.value = parseISODate(p.get('from'))
     dateTo.value = parseISODate(p.get('to'))
     const [k, d] = (p.get('sort') || '').split(':')
     sortKey.value = SORTABLE[k] ? k : 'date'
     sortDir.value = d === 'asc' || d === 'desc' ? d : 'desc'
-    applyingFromUrl = false
   }
 
+  /* 조건이 하나라도 바뀌면 처음부터 다시 받는다 — 옛 커서는 조건이 바뀌면 400 이다.
+     같은 틱 안의 여러 변경(URL 적용 · 모두 해제)은 한 번의 조회로 묶인다 */
   watch(
-    [searchValue, resultSearchValue, topics, subtopics, tags, fileTypes, sizeRange, dateFrom, dateTo, sortKey, sortDir],
+    [searchValue, resultSearchValue, topics, subtopics, tags, fileTypes, dateFrom, dateTo, sortKey, sortDir],
     () => {
-      if (applyingFromUrl) return
+      /* 받지 않은 행은 새 결과에 있는지 알 수 없으므로 선택을 비운다 */
+      selectedIds.value = []
+      fetchList()
       scheduleUrlWrite()
     },
     { deep: true }
   )
+
+  fetchList()
 
   /* ------------------------------------------------------------- density */
 
@@ -602,8 +679,6 @@ export function useFileSearch() {
   )
 
   return {
-    files,
-
     searchDraft,
     resultSearchDraft,
     topics,
@@ -612,7 +687,6 @@ export function useFileSearch() {
     dateFrom,
     dateTo,
     fileTypes,
-    sizeRange,
     selectedIds,
     sortKey,
     sortDir,
@@ -630,24 +704,23 @@ export function useFileSearch() {
     commitResultSearch,
     setResultSearch,
 
-    filteredRows,
-    sortedRows,
     visibleRows,
-    visibleIds,
-    allVisibleSelected,
-    allResultsSelected,
-    canSelectAllResults,
     resultKeywordPrefix,
+    totalLabel,
+    listLoading,
+    loadingMore,
+    hasMore,
 
     visibleTopicChips,
-    availableSubtopics,
+    showMoreTopics,
     subtopicChips,
-    availableTags,
+    showMoreSubtopics,
     visibleTagChips,
+    showMoreTags,
     fileTypeChips,
     sizeRangeChips,
+    datePresetChips,
     dateRangeLabel,
-    datePresetCounts,
     appliedConditions,
     clearAllConditions,
     clearDateRange,
@@ -655,23 +728,19 @@ export function useFileSearch() {
     toggleSort,
     ariaSortFor,
     applyDatePreset,
-    isDatePresetActive,
 
-    selectAllResults,
-    toggleSelectAllVisible,
     toggleRowSelect,
     loadMoreRows,
-
-    bulkDownload,
-    downloadOne,
+    downloading,
+    downloadOriginal,
+    downloadSelected,
 
     openFileDetail,
     closeFileDetail,
-    onRowClick,
     fileDetail,
-    onDownloadOriginal,
-    onDownloadZip,
-    onCopyLinkDetail,
+    fileDetailStatus,
+    fileDetailError,
+    retryFileDetail,
     onBreadcrumbClickDetail,
     onTopicClickDetail,
     onMetaClickDetail,

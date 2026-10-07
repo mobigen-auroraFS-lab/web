@@ -17,7 +17,7 @@
         <!-- 헤더: 아이콘·정체성·핵심 메타·주요 액션을 한데 모아 스크롤 내내 유지한다 -->
         <header class="flex items-center gap-4 px-4 sm:px-6 py-5 border-b border-border-default shrink-0">
           <div
-            v-if="file && icon"
+            v-if="file && icon && !loading"
             class="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center"
             :style="
               file.typeBadgeStyle
@@ -28,7 +28,7 @@
             <component :is="icon" :size="26" :stroke-width="1.5" />
           </div>
 
-          <div v-if="file" class="flex-1 min-w-0 flex flex-col gap-1.5">
+          <div v-if="file && !loading" class="flex-1 min-w-0 flex flex-col gap-1.5">
             <nav v-if="file.breadcrumb?.length" aria-label="분류 경로" class="flex items-center gap-1 text-sm">
               <template v-for="(crumb, i) in file.breadcrumb" :key="crumb.label">
                 <ChevronRight v-if="i > 0" :size="13" :stroke-width="2" class="text-text-tertiary shrink-0" />
@@ -51,31 +51,20 @@
               </span>
             </div>
           </div>
+          <!-- 로딩 중 헤더 스켈레톤 — 실제 헤더(아이콘·분류 경로·파일명·메타)와 같은 자리·크기로 둔다 -->
+          <div v-else-if="loading" class="flex-1 min-w-0 flex items-center gap-4">
+            <h2 :id="titleId" class="sr-only">파일 상세 정보 불러오는 중</h2>
+            <span class="shrink-0 w-14 h-14 rounded-xl animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+            <div class="flex-1 min-w-0 flex flex-col gap-2.5">
+              <span class="h-3.5 w-32 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <span class="h-6 w-2/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <span class="h-3.5 w-44 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+            </div>
+          </div>
           <h2 v-else :id="titleId" class="m-0 flex-1 text-xl font-bold text-text-primary">파일 상세 정보</h2>
 
           <div class="flex items-center gap-2 shrink-0">
-            <button
-              v-if="file"
-              type="button"
-              :aria-pressed="isFavorite"
-              aria-label="즐겨찾기"
-              class="w-9 h-9 flex items-center justify-center rounded-md bg-bg-surface border border-border-default cursor-pointer hover:bg-bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              :class="isFavorite ? 'text-status-warning-text border-status-warning-text' : 'text-icon-default'"
-              @click="toggleFavorite"
-            >
-              <Star :size="16" :stroke-width="1.5" :fill="isFavorite ? 'currentColor' : 'none'" />
-            </button>
-            <button
-              v-if="file"
-              type="button"
-              aria-label="링크 공유"
-              class="w-9 h-9 flex items-center justify-center rounded-md bg-bg-surface border border-border-default text-icon-default cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              @click="$emit('copy-link', file)"
-            >
-              <Share2 :size="16" :stroke-width="1.5" />
-            </button>
-
-            <div v-if="file" ref="downloadMenuRef" class="relative">
+            <div v-if="file && !loading" ref="downloadMenuRef" class="relative">
               <button
                 type="button"
                 class="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-action-primary border-none text-sm font-medium text-text-inverse cursor-pointer hover:bg-action-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -93,16 +82,17 @@
                 <button
                   type="button"
                   class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
-                  @click="selectDownload('original')"
+                  @click="selectDownload()"
                 >
                   이 데이터만 <span class="text-text-tertiary">(원본 1건)</span>
                 </button>
                 <button
                   type="button"
-                  class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
-                  @click="selectDownload('zip')"
+                  disabled
+                  class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
                 >
-                  연관 데이터 묶음 <span class="text-text-tertiary">(zip)</span>
+                  <span>연관 데이터 묶음 <span class="text-text-disabled">(zip)</span></span>
+                  <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
                 </button>
                 <button
                   type="button"
@@ -129,10 +119,53 @@
 
         <!-- 본문: 여기만 스크롤된다 -->
         <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-8">
-          <!-- 로딩 -->
-          <div v-if="effectiveStatus === 'loading'" class="flex flex-col items-center justify-center gap-3 py-24 text-text-tertiary">
-            <LoaderCircle class="animate-spin" :size="28" :stroke-width="1.5" />
-            <span class="text-sm">불러오는 중입니다…</span>
+          <!-- 로딩 — 본문 레이아웃(요약·키워드·추출 텍스트 | 상세 정보, 아래 관계 카드)을 그대로 본뜬 스켈레톤 -->
+          <div v-if="loading" class="flex flex-col gap-10">
+            <span class="sr-only" role="status">파일 정보를 불러오는 중입니다</span>
+            <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12" aria-hidden="true">
+              <div class="flex flex-col gap-8 min-w-0">
+                <div class="flex flex-col gap-3">
+                  <span class="h-3 w-10 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-4 w-full rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-4 w-11/12 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-4 w-3/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="flex flex-col gap-3">
+                  <span class="h-3 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <div class="flex flex-wrap gap-1.5">
+                    <span
+                      v-for="w in [72, 96, 64, 88, 80]"
+                      :key="w"
+                      class="h-7 rounded-full animate-pulse motion-reduce:animate-none bg-slate-100"
+                      :style="{ width: `${w}px` }"
+                    ></span>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-3">
+                  <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-40 w-full rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+              </div>
+              <div class="flex flex-col gap-3 min-w-0">
+                <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                <div v-for="n in 6" :key="n" class="flex items-center gap-4 py-3.5 border-b border-slate-100">
+                  <span class="w-28 h-3.5 shrink-0 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span
+                    class="h-3.5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
+                    :style="{ width: `${[45, 30, 55, 40, 50, 35][n - 1]}%` }"
+                  ></span>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-col gap-3" aria-hidden="true">
+              <div class="flex gap-6 pb-3 border-b border-border-default">
+                <span class="h-4 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                <span class="h-4 w-28 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                <span v-for="n in 4" :key="n" class="h-[88px] rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              </div>
+            </div>
           </div>
 
           <!-- 오류 -->
@@ -157,14 +190,14 @@
           <!-- 본문: 좌측은 사람이 읽는 요약·원문, 우측은 훑어보는 메타 사이드바 -->
           <div v-else class="flex flex-col gap-10">
             <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12">
-              <!-- 좌측: 요약 → 키워드·분류 라벨 → 추출 텍스트(전문, 상시 노출) -->
+              <!-- 좌측: 요약 → 키워드·분류 라벨. 추출 텍스트는 원문 창구가 지워져 뺐다(8/18 '상세보기 원문 제거' 결정과도 같다) -->
               <div class="flex flex-col gap-8 min-w-0">
-                <section class="flex flex-col gap-3 min-w-0">
+                <section class="flex flex-col gap-2 min-w-0">
                   <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">요약</h3>
                   <p class="m-0 text-base text-text-primary leading-relaxed">{{ file.extractedInfo.summary }}</p>
                 </section>
 
-                <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-3 min-w-0">
+                <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-2 min-w-0">
                   <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">키워드·분류 라벨</h3>
                   <div class="flex flex-wrap gap-1.5">
                     <button
@@ -199,61 +232,38 @@
                     </button>
                   </div>
                 </section>
-
-                <section class="flex flex-col gap-3 min-w-0">
-                  <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">추출 텍스트</h3>
-                  <div class="rounded-lg border border-dashed border-border-default bg-bg-canvas p-4 max-h-[280px] overflow-y-auto">
-                    <p v-if="fullTextStatus === 'ready'" class="m-0 text-sm text-text-secondary leading-relaxed whitespace-pre-line">
-                      {{ file.fullText }}
-                    </p>
-                    <p v-else-if="fullTextStatus === 'error'" class="m-0 text-sm text-status-danger-text leading-relaxed">
-                      {{ file.fullTextError || '원본 텍스트를 불러오지 못했습니다. 요약·메타 정보는 계속 확인할 수 있습니다.' }}
-                    </p>
-                    <p v-else class="m-0 text-sm text-text-tertiary">추출된 전문이 없습니다.</p>
-                  </div>
-                </section>
               </div>
 
-              <!-- 우측: 훑어보는 상세 정보 — 두 그룹은 테두리 대신 넓은 간격으로만 구분한다 -->
-              <div class="flex flex-col gap-12 min-w-0">
-                <section class="flex flex-col gap-3 min-w-0">
+              <!-- 우측: 훑어보는 상세 정보 — 공통 항목 뒤에 파일 형식별 확장 메타를 이어 붙인다 -->
+              <div class="min-w-0">
+                <section class="flex flex-col gap-2 min-w-0">
                   <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">상세 정보</h3>
                   <dl class="m-0">
-                    <div v-if="file.fileFormat" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.fileFormat" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 형식</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.fileFormat }}</dd>
                     </div>
-                    <div v-if="file.sizeLabel" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.sizeLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 크기</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.sizeLabel }}</dd>
                     </div>
-                    <div v-if="file.typeBadge" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.typeBadge" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">데이터 유형</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.typeBadge }}</dd>
                     </div>
-                    <div v-if="breadcrumbPathLabel" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="breadcrumbPathLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">대분류 / 중분류</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ breadcrumbPathLabel }}</dd>
                     </div>
-                    <div v-if="file.uploadedAt" class="flex items-baseline gap-4 py-3.5 border-b border-slate-100">
+                    <div v-if="file.uploadedAt" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">등록일</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.uploadedAt }}</dd>
                     </div>
-                    <div v-if="file.source" class="flex items-baseline gap-4 py-3.5">
+                    <div v-if="file.source" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">출처</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.source }}</dd>
                     </div>
-                  </dl>
-                </section>
-
-                <section v-if="extendedMeta.length" class="flex flex-col gap-3 min-w-0">
-                  <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">확장 메타</h3>
-                  <dl class="m-0">
-                    <div
-                      v-for="item in extendedMeta"
-                      :key="item.key"
-                      class="flex items-baseline gap-4 py-3.5 border-b border-slate-100 last:border-b-0"
-                    >
+                    <div v-for="item in extendedMeta" :key="item.key" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
                       <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">{{ item.label }}</dt>
                       <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">
                         {{ item.value ?? '정보 없음' }}
@@ -282,9 +292,15 @@
                     v-for="rel in visibleRelations"
                     :key="rel.id"
                     type="button"
-                    class="flex flex-col items-start gap-1.5 min-w-0 text-left p-3 rounded-lg border border-border-default bg-bg-surface cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    class="group relative flex flex-col items-start gap-1.5 min-w-0 text-left p-3 rounded-lg border border-border-default bg-bg-surface cursor-pointer hover:bg-bg-surface-hover-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     @click="$emit('relation-click', rel)"
                   >
+                    <ArrowUpRight
+                      class="absolute top-3 right-3 text-icon-muted opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard group-hover:opacity-100 group-focus-visible:opacity-100"
+                      :size="14"
+                      :stroke-width="1.8"
+                      aria-hidden="true"
+                    />
                     <span
                       class="inline-flex items-center h-5 px-1.5 rounded-sm text-[10px] font-bold tracking-wide"
                       :style="
@@ -298,7 +314,7 @@
                       <component :is="rel.icon" v-if="rel.icon" class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
                       <span class="text-sm font-semibold text-text-primary truncate">{{ rel.name }}</span>
                     </span>
-                    <span v-if="rel.relationType" class="w-full text-xs text-text-tertiary truncate">{{ rel.relationType }}</span>
+                    <span v-if="rel.reason" class="w-full text-xs text-text-tertiary truncate">{{ rel.reason }}</span>
                   </button>
                 </div>
 
@@ -354,6 +370,7 @@
  * @property {Object|Function} [icon]  목록의 확장자 아이콘과 동일한 컴포넌트 — 없으면 아이콘 생략
  * @property {string} name           파일명
  * @property {string} [relationType] 관계 유형 (예: 동일 촬영, 참조, 연계)
+ * @property {string} [reason]       카드에 한 줄로 보여줄 연관 근거 (예: '공통 태그 #흉부 · #CT')
  *
  * @typedef {Object} FileDetail
  * @property {string} id
@@ -366,9 +383,6 @@
  * @property {string} [source]            예: 'dataset_A' — '출처' 행
  * @property {FileDetailBreadcrumb[]} [breadcrumb]  헤더 아래 분류 경로. '대분류 / 중분류' 행에도 쓰인다
  * @property {{ summary: string }} extractedInfo
- * @property {string} [fullText]          전문 보기에 펼쳐질 추출 원문
- * @property {'ready'|'empty'|'error'} [fullTextStatus]  없으면 fullText 유무로 자동 판단
- * @property {string} [fullTextError]     fullTextStatus 'error'일 때 보여줄 메시지
  * @property {FileDetailBasicInfoItem[]} basicInfo  '상세 정보'의 확장 메타로 표시된다
  * @property {FileDetailTopic[]} topics
  * @property {FileDetailMeta[]} multimodalMeta
@@ -376,8 +390,8 @@
  */
 
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
-import { X, Download, ChevronDown, Share2, Star, Database, Calendar, LoaderCircle, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
-import ALineTabs from './ALineTabs.vue'
+import { X, Download, ChevronDown, ArrowUpRight, Database, Calendar, CircleAlert, Inbox, ChevronRight } from '@lucide/vue'
+import ALineTabs from '../../components/ALineTabs.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -393,9 +407,6 @@ const props = defineProps({
 const emit = defineEmits([
   'update:open',
   'download-original',
-  'download-zip',
-  'copy-link',
-  'toggle-favorite',
   'breadcrumb-click',
   'topic-click',
   'meta-click',
@@ -413,6 +424,8 @@ const effectiveStatus = computed(() => {
   if (!props.file) return 'empty'
   return 'ready'
 })
+/* 다른 파일로 옮겨 가는 동안에는 이전 파일 정보가 남아 있으므로, 로딩 중엔 헤더도 스켈레톤으로 바꾼다 */
+const loading = computed(() => effectiveStatus.value === 'loading')
 
 function requestClose() {
   emit('update:open', false)
@@ -471,37 +484,24 @@ function onClickOutsideDownloadMenu(e) {
 onMounted(() => document.addEventListener('click', onClickOutsideDownloadMenu))
 onBeforeUnmount(() => document.removeEventListener('click', onClickOutsideDownloadMenu))
 
-function selectDownload(kind) {
+function selectDownload() {
   downloadMenuOpen.value = false
-  if (kind === 'original') emit('download-original', props.file)
-  else if (kind === 'zip') emit('download-zip', props.file)
+  emit('download-original', props.file)
 }
-
-const breadcrumbPathLabel = computed(() => (props.file?.breadcrumb ?? []).map((c) => c.label).join(' / '))
-
-/* 즐겨찾기는 이 컴포넌트가 자체 보유하는 시각 상태다 — 영속화가 필요하면
-   호출 쪽에서 'toggle-favorite' 를 받아 file.isFavorite 로 되돌려 넣으면 된다 */
-const isFavorite = ref(false)
-function toggleFavorite() {
-  isFavorite.value = !isFavorite.value
-  emit('toggle-favorite', props.file, isFavorite.value)
-}
-
-/* --------------------------------------------------------------- 상세 정보 */
-
-/* 'format' 은 배지·'파일 형식' 행, 'file_size' 는 헤더 메타 줄로 이미 나가므로 확장 메타에서는 뺀다 */
-const extendedMeta = computed(() => (props.file?.basicInfo ?? []).filter((i) => i.key !== 'format' && i.key !== 'file_size'))
-
-/* ------------------------------------------------------------- 전문 보기 */
 
 watch(
   () => props.file,
   () => {
     downloadMenuOpen.value = false
-    isFavorite.value = false
   }
 )
-const fullTextStatus = computed(() => props.file?.fullTextStatus || (props.file?.fullText ? 'ready' : 'empty'))
+
+const breadcrumbPathLabel = computed(() => (props.file?.breadcrumb ?? []).map((c) => c.label).join(' / '))
+
+/* --------------------------------------------------------------- 상세 정보 */
+
+/* 'format' 은 배지·'파일 형식' 행, 'file_size' 는 헤더 메타 줄로 이미 나가므로 확장 메타에서는 뺀다 */
+const extendedMeta = computed(() => (props.file?.basicInfo ?? []).filter((i) => i.key !== 'format' && i.key !== 'file_size'))
 
 /* --------------------------------------------------------- 관계 정보 탭 */
 

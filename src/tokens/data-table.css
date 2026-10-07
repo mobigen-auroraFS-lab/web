@@ -4,7 +4,7 @@
   --table-header-text: var(--color-text-secondary);
   --table-header-border: var(--color-border-default);
   --table-row-border: var(--color-slate-100);
-  --table-row-hover-bg: var(--color-bg-surface-hover);
+  --table-row-hover-bg: var(--color-bg-surface-hover-subtle);
   --table-row-selected-bg: var(--color-bg-surface-selected);
   --table-cell-padding-x: var(--density-cell-padding-x);
   --table-cell-padding-y: var(--density-cell-padding-y);

@@ -22,6 +22,8 @@ src/
   style.css            # CSS 진입점 (Tailwind + 디자인 토큰 + 기본 리셋을 한 파일에서 불러옴)
   theme.css            # 디자인 토큰을 Tailwind v4 @theme로 연결하는 브릿지
   tokens/              # 색상·타이포그래피·간격 등 디자인 토큰 원본(css 변수)
+  api/
+    client.js           # 공통 API 호출부 — dev 토큰 · 실패 응답 처리 · /me
   assets/
     images/             # 로고 등 정적 이미지
   components/          # 재사용 UI 컴포넌트 (AButton, AInput 등)
@@ -30,15 +32,17 @@ src/
   DesignGuide/
     DesignGuide.vue      # 디자인 시스템 컴포넌트 카탈로그 (#design-guide). 요구사항
                           # 화면이 아니라 pages/ 바깥에 둠
-  pages/               # 실제 화면. 화면별 폴더에 로직·목업을 함께 둠
+  pages/               # 실제 화면. 화면별 폴더에 로직·데이터 호출을 함께 둠
     FileSearch/
       FileSearch.vue      # 템플릿
-      useFileSearch.js    # 상태/필터링/정렬 로직 (composable)
-      fileSearch.mock.js  # API 연동 전 임시 목업 데이터
+      useFileSearch.js    # 조건 상태 · 서버 조회 · URL 동기화 (composable)
+      fileSearch.api.js   # 이 화면이 부르는 API 와 응답 → 화면 모델 매핑
+      FileDetailModal.vue # 파일 상세 모달
+      CommandPalette.vue  # ⌘K 팔레트
     Login/
       Login.vue            # 자리만 마련된 placeholder — 라우팅 미연결
     MultimodalSearch/
-      MultimodalSearch.vue # 자리만 마련된 placeholder (#multimodal-search 라우팅 연결됨)
+      MultimodalSearch.vue # 멀티모달 검색 화면 (#multimodal-search · 아직 목업 데이터)
   main.js              # 앱 마운트 시작점
 ```
 
@@ -69,6 +73,11 @@ npm install
 | `npm run format` | Prettier로 전체 코드 포맷 적용 |
 | `npm run format:check` | Prettier 포맷 위반 여부만 확인 (변경 없음) |
 
+`npm run dev`는 `/api` 요청을 백엔드(dataplatform-service)로 넘깁니다. 기본 주소는
+`http://172.16.0.140:8001`이고, 바꾸려면 `.env.example`을 `.env.local`로 복사해
+`VITE_API_PROXY_TARGET`을 고칩니다. 개발 모드에서는 앱이 켜질 때 개발용 토큰(`POST /auth/token`)을
+자동으로 받아 붙입니다 — 로그인 화면이 생기기 전까지의 임시 방식입니다.
+
 배포는 `dist/` 폴더 내용을 정적 웹 서버(Nginx, 사내 서버, 또는 정적 호스팅 서비스)에
 올리는 방식입니다. 별도의 Node.js 런타임을 서버에서 계속 띄워둘 필요는 없습니다.
 
@@ -81,7 +90,7 @@ npm install
 2. 기본 주소(`http://localhost:5173`) → 파일 검색 화면(`src/pages/FileSearch/FileSearch.vue`),
    실제 서비스 화면(제품)의 메인 진입점입니다.
 3. 헤더 내비게이션의 "멀티모달 검색"을 클릭하거나 주소 뒤에 `#multimodal-search`를
-   붙이면 해당 화면(`src/pages/MultimodalSearch/MultimodalSearch.vue`, 현재 placeholder)으로
+   붙이면 해당 화면(`src/pages/MultimodalSearch/MultimodalSearch.vue`, 현재 목업 데이터)으로
    전환됩니다.
 4. 주소 뒤에 `#design-guide` 를 붙이면(`http://localhost:5173/#design-guide`) 디자인 시스템
    컴포넌트 카탈로그(`src/DesignGuide/DesignGuide.vue`)로 전환됩니다.
@@ -118,8 +127,11 @@ npm install
 - 디자인 토큰(`src/tokens/*.css`)에 색상·타이포그래피·간격·라운드·그림자 등이 정의되어
   있고, `src/theme.css`를 통해 Tailwind CSS와 연결됩니다. 전체는 `src/style.css`
   하나에서 불러옵니다.
-- 현재 `src/pages/FileSearch/`는 실제 API 연동 전 단계로, 목업 데이터(`fileSearch.mock.js`)를
-  사용합니다. API 연동 시 해당 파일만 교체하면 됩니다.
+- `src/pages/FileSearch/`는 실제 API에 연동돼 있습니다(계약: 서비스 팀 IDD · `화면별_API_호출_기획서`).
+  파일 받기(원본 · 선택 일괄 zip)는 `fetch` → Blob 저장으로 연동돼 있습니다
+  (인증 헤더 때문에 `<a href>` 링크는 쓰지 않습니다). 연관 데이터 묶음 · 분류 묶음 zip은
+  협의 전이라 상세 모달에 "미결"로 비활성 표시만 합니다. 상세 모달의 추출 텍스트는 원문 창구가 없어 뺐고,
+  크기 필터는 서버가 아직 거르기를 지원하지 않아(501) 건수만 보여줍니다.
 - 화면 간 라우팅 라이브러리(Vue Router 등)는 아직 도입되어 있지 않습니다. 대신
   `src/router.js`의 경량 자체 라우터가 URL 해시 변화를 반응형으로 추적하고,
   `src/App.vue`가 그 값에 따라 화면을 전환합니다 — 새로고침 없이 주소창 해시만

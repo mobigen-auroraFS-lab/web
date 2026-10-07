@@ -91,6 +91,7 @@
   --color-bg-canvas: var(--color-slate-50);
   --color-bg-surface: var(--color-slate-0);
   --color-bg-surface-hover: var(--color-slate-100);
+  --color-bg-surface-hover-subtle: var(--color-slate-50);
   --color-bg-surface-selected: var(--color-primary-50);
   --color-bg-disabled: var(--color-slate-100);
   --color-bg-overlay-scrim: #16161666;
