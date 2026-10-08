@@ -2,12 +2,19 @@
   --duration-fast: 120ms; /* @kind other */
   --duration-base: 180ms; /* @kind other */
   --duration-slow: 220ms; /* @kind other */
+  --duration-emphasis: 400ms; /* @kind other */
+  --duration-enter: 600ms; /* @kind other */
+  --hide-on-scroll-stagger: 150ms; /* @kind other */
   --easing-standard: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --easing-decelerate: cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-fast: 0ms; /* @kind other */
     --duration-base: 0ms; /* @kind other */
     --duration-slow: 0ms; /* @kind other */
+    --duration-emphasis: 0ms; /* @kind other */
+    --duration-enter: 0ms; /* @kind other */
+    --hide-on-scroll-stagger: 0ms; /* @kind other */
   }
 }

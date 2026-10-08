@@ -45,6 +45,22 @@
 
   --ease-standard: var(--easing-standard);
 
+  /* 화면 진입 시 아래에서 스르륵 올라오는 연출. 순서는 호출부에서 animation-delay로 준다 */
+  --animate-rise-in: rise-in var(--duration-enter) var(--easing-decelerate) both;
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+  }
+  /* 반복해서 보는 갱신(조건 변경·더 불러오기)용 — 기다림 없이 바로 보이되 툭 튀지 않게만 한다 */
+  --animate-fade-in: fade-in var(--duration-base) var(--easing-standard) both;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
   /* sizing tokens that don't fit the numeric spacing scale get named
      spacing entries, usable in h-*, w-*, p-*, gap-*, etc. */
   --spacing-control-xs: var(--control-height-xs);

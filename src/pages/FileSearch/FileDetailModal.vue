@@ -1,338 +1,340 @@
 <template>
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-bg-overlay-scrim p-0 sm:p-6"
-      @click.self="requestClose"
-    >
+    <Transition name="modal">
       <div
-        ref="dialogRef"
-        role="dialog"
-        aria-modal="true"
-        :aria-labelledby="titleId"
-        class="relative w-screen h-[100dvh] sm:h-auto sm:w-[90vw] sm:max-w-[1200px] sm:max-h-[90vh] sm:rounded-lg bg-bg-surface border-0 sm:border sm:border-border-default shadow-elevation-3 flex flex-col overflow-hidden font-sans"
-        @keydown.esc="requestClose"
-        @keydown.tab="onTabKey"
+        v-if="open"
+        class="fixed inset-0 z-[70] flex items-center justify-center bg-bg-overlay-scrim p-0 sm:p-6"
+        @click.self="requestClose"
       >
-        <!-- 헤더: 아이콘·정체성·핵심 메타·주요 액션을 한데 모아 스크롤 내내 유지한다 -->
-        <header class="flex items-center gap-4 px-4 sm:px-6 py-5 border-b border-border-default shrink-0">
-          <div
-            v-if="file && icon && !loading"
-            class="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center"
-            :style="
-              file.typeBadgeStyle
-                ? { background: file.typeBadgeStyle.bg, color: file.typeBadgeStyle.text }
-                : { background: 'var(--color-slate-100)', color: 'var(--color-text-tertiary)' }
-            "
-          >
-            <component :is="icon" :size="26" :stroke-width="1.5" />
-          </div>
-
-          <div v-if="file && !loading" class="flex-1 min-w-0 flex flex-col gap-1.5">
-            <nav v-if="file.breadcrumb?.length" aria-label="분류 경로" class="flex items-center gap-1 text-sm">
-              <template v-for="(crumb, i) in file.breadcrumb" :key="crumb.label">
-                <ChevronRight v-if="i > 0" :size="13" :stroke-width="2" class="text-text-tertiary shrink-0" />
-                <button
-                  type="button"
-                  class="bg-transparent border-none p-0 text-text-tertiary font-medium cursor-pointer hover:underline hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring rounded-sm"
-                  @click="$emit('breadcrumb-click', crumb)"
-                >
-                  {{ crumb.label }}
-                </button>
-              </template>
-            </nav>
-            <h2 :id="titleId" class="m-0 text-2xl font-bold text-text-primary truncate">{{ file.name }}</h2>
-            <div class="flex items-center gap-4 flex-wrap text-sm text-text-tertiary">
-              <span v-if="file.sizeLabel" class="inline-flex items-center gap-1.5">
-                <Database :size="14" :stroke-width="1.5" />{{ file.sizeLabel }}
-              </span>
-              <span v-if="file.uploadedAt" class="inline-flex items-center gap-1.5">
-                <Calendar :size="14" :stroke-width="1.5" />{{ file.uploadedAt }}
-              </span>
+        <div
+          ref="dialogRef"
+          role="dialog"
+          aria-modal="true"
+          :aria-labelledby="titleId"
+          class="relative w-screen h-[100dvh] sm:h-auto sm:w-[90vw] sm:max-w-[1200px] sm:max-h-[90vh] sm:rounded-lg bg-bg-surface border-0 sm:border sm:border-border-default shadow-elevation-3 flex flex-col overflow-hidden font-sans"
+          @keydown.esc="requestClose"
+          @keydown.tab="onTabKey"
+        >
+          <!-- 헤더: 아이콘·정체성·핵심 메타·주요 액션을 한데 모아 스크롤 내내 유지한다 -->
+          <header class="flex items-center gap-4 px-4 sm:px-6 py-5 border-b border-border-default shrink-0">
+            <div
+              v-if="file && icon && !loading"
+              class="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center"
+              :style="
+                file.typeBadgeStyle
+                  ? { background: file.typeBadgeStyle.bg, color: file.typeBadgeStyle.text }
+                  : { background: 'var(--color-slate-100)', color: 'var(--color-text-tertiary)' }
+              "
+            >
+              <component :is="icon" :size="26" :stroke-width="1.5" />
             </div>
-          </div>
-          <!-- 로딩 중 헤더 스켈레톤 — 실제 헤더(아이콘·분류 경로·파일명·메타)와 같은 자리·크기로 둔다 -->
-          <div v-else-if="loading" class="flex-1 min-w-0 flex items-center gap-4">
-            <h2 :id="titleId" class="sr-only">파일 상세 정보 불러오는 중</h2>
-            <span class="shrink-0 w-14 h-14 rounded-xl animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-            <div class="flex-1 min-w-0 flex flex-col gap-2.5">
-              <span class="h-3.5 w-32 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-              <span class="h-6 w-2/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-              <span class="h-3.5 w-44 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-            </div>
-          </div>
-          <h2 v-else :id="titleId" class="m-0 flex-1 text-xl font-bold text-text-primary">파일 상세 정보</h2>
 
-          <div class="flex items-center gap-2 shrink-0">
-            <div v-if="file && !loading" ref="downloadMenuRef" class="relative">
-              <button
-                type="button"
-                class="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-action-primary border-none text-sm font-medium text-text-inverse cursor-pointer hover:bg-action-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                :aria-expanded="downloadMenuOpen"
-                @click="downloadMenuOpen = !downloadMenuOpen"
-              >
-                <Download :size="14" :stroke-width="1.8" />
-                다운로드
-                <ChevronDown :size="14" :stroke-width="1.8" />
-              </button>
-              <div
-                v-if="downloadMenuOpen"
-                class="absolute top-[calc(100%+6px)] right-0 w-60 rounded-lg border border-border-default bg-bg-surface shadow-elevation-2 overflow-hidden z-10 py-1"
-              >
-                <button
-                  type="button"
-                  class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
-                  @click="selectDownload()"
-                >
-                  이 데이터만 <span class="text-text-tertiary">(원본 1건)</span>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
-                >
-                  <span>연관 데이터 묶음 <span class="text-text-disabled">(zip)</span></span>
-                  <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
-                >
-                  <span>분류 묶음 <span class="text-text-disabled">(zip)</span></span>
-                  <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
-                </button>
+            <div v-if="file && !loading" class="flex-1 min-w-0 flex flex-col gap-1.5">
+              <nav v-if="file.breadcrumb?.length" aria-label="분류 경로" class="flex items-center gap-1 text-sm">
+                <template v-for="(crumb, i) in file.breadcrumb" :key="crumb.label">
+                  <ChevronRight v-if="i > 0" :size="13" :stroke-width="2" class="text-text-tertiary shrink-0" />
+                  <button
+                    type="button"
+                    class="bg-transparent border-none p-0 text-text-tertiary font-medium cursor-pointer hover:underline hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring rounded-sm"
+                    @click="$emit('breadcrumb-click', crumb)"
+                  >
+                    {{ crumb.label }}
+                  </button>
+                </template>
+              </nav>
+              <h2 :id="titleId" class="m-0 text-2xl font-bold text-text-primary truncate">{{ file.name }}</h2>
+              <div class="flex items-center gap-4 flex-wrap text-sm text-text-tertiary">
+                <span v-if="file.sizeLabel" class="inline-flex items-center gap-1.5">
+                  <Database :size="14" :stroke-width="1.5" />{{ file.sizeLabel }}
+                </span>
+                <span v-if="file.uploadedAt" class="inline-flex items-center gap-1.5">
+                  <Calendar :size="14" :stroke-width="1.5" />{{ file.uploadedAt }}
+                </span>
               </div>
             </div>
+            <!-- 로딩 중 헤더 스켈레톤 — 실제 헤더(아이콘·분류 경로·파일명·메타)와 같은 자리·크기로 둔다 -->
+            <div v-else-if="loading" class="flex-1 min-w-0 flex items-center gap-4">
+              <h2 :id="titleId" class="sr-only">파일 상세 정보 불러오는 중</h2>
+              <span class="shrink-0 w-14 h-14 rounded-xl animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <div class="flex-1 min-w-0 flex flex-col gap-2.5">
+                <span class="h-3.5 w-32 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                <span class="h-6 w-2/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                <span class="h-3.5 w-44 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              </div>
+            </div>
+            <h2 v-else :id="titleId" class="m-0 flex-1 text-xl font-bold text-text-primary">파일 상세 정보</h2>
 
-            <button
-              ref="closeBtnRef"
-              type="button"
-              aria-label="파일 상세 정보 닫기"
-              class="shrink-0 w-9 h-9 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-              @click="requestClose"
-            >
-              <X :size="18" :stroke-width="1.5" />
-            </button>
-          </div>
-        </header>
-
-        <!-- 본문: 여기만 스크롤된다 -->
-        <div class="flex-1 overflow-y-auto px-6 sm:px-8 py-8">
-          <!-- 로딩 — 본문 레이아웃(요약·키워드·추출 텍스트 | 상세 정보, 아래 관계 카드)을 그대로 본뜬 스켈레톤 -->
-          <div v-if="loading" class="flex flex-col gap-10">
-            <span class="sr-only" role="status">파일 정보를 불러오는 중입니다</span>
-            <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12" aria-hidden="true">
-              <div class="flex flex-col gap-8 min-w-0">
-                <div class="flex flex-col gap-3">
-                  <span class="h-3 w-10 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                  <span class="h-4 w-full rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                  <span class="h-4 w-11/12 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                  <span class="h-4 w-3/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+            <div class="flex items-center gap-2 shrink-0">
+              <div v-if="file && !loading" ref="downloadMenuRef" class="relative">
+                <button
+                  type="button"
+                  class="h-9 inline-flex items-center gap-1.5 px-3 rounded-md bg-action-primary border-none text-sm font-medium text-text-inverse cursor-pointer hover:bg-action-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  :aria-expanded="downloadMenuOpen"
+                  @click="downloadMenuOpen = !downloadMenuOpen"
+                >
+                  <Download :size="14" :stroke-width="1.8" />
+                  다운로드
+                  <ChevronDown :size="14" :stroke-width="1.8" />
+                </button>
+                <div
+                  v-if="downloadMenuOpen"
+                  class="absolute top-[calc(100%+6px)] right-0 w-60 rounded-lg border border-border-default bg-bg-surface shadow-elevation-2 overflow-hidden z-10 py-1"
+                >
+                  <button
+                    type="button"
+                    class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
+                    @click="selectDownload()"
+                  >
+                    이 데이터만 <span class="text-text-tertiary">(원본 1건)</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
+                  >
+                    <span>연관 데이터 묶음 <span class="text-text-disabled">(zip)</span></span>
+                    <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
+                  >
+                    <span>분류 묶음 <span class="text-text-disabled">(zip)</span></span>
+                    <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
+                  </button>
                 </div>
-                <div class="flex flex-col gap-3">
-                  <span class="h-3 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                  <div class="flex flex-wrap gap-1.5">
+              </div>
+
+              <button
+                ref="closeBtnRef"
+                type="button"
+                aria-label="파일 상세 정보 닫기"
+                class="shrink-0 w-9 h-9 flex items-center justify-center rounded-md bg-transparent border-none text-icon-default cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                @click="requestClose"
+              >
+                <X :size="18" :stroke-width="1.5" />
+              </button>
+            </div>
+          </header>
+
+          <!-- 본문: 여기만 스크롤된다 -->
+          <div class="flex-1 overflow-y-auto scrollbar-subtle px-6 sm:px-8 py-8">
+            <!-- 로딩 — 본문 레이아웃(요약·키워드·추출 텍스트 | 상세 정보, 아래 관계 카드)을 그대로 본뜬 스켈레톤 -->
+            <div v-if="loading" class="flex flex-col gap-10">
+              <span class="sr-only" role="status">파일 정보를 불러오는 중입니다</span>
+              <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12" aria-hidden="true">
+                <div class="flex flex-col gap-8 min-w-0">
+                  <div class="flex flex-col gap-3">
+                    <span class="h-3 w-10 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                    <span class="h-4 w-full rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                    <span class="h-4 w-11/12 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                    <span class="h-4 w-3/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  </div>
+                  <div class="flex flex-col gap-3">
+                    <span class="h-3 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <span
+                        v-for="w in [72, 96, 64, 88, 80]"
+                        :key="w"
+                        class="h-7 rounded-full animate-pulse motion-reduce:animate-none bg-slate-100"
+                        :style="{ width: `${w}px` }"
+                      ></span>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-3">
+                    <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                    <span class="h-40 w-full rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  </div>
+                </div>
+                <div class="flex flex-col gap-3 min-w-0">
+                  <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <div v-for="n in 6" :key="n" class="flex items-center gap-4 py-3.5 border-b border-slate-100">
+                    <span class="w-28 h-3.5 shrink-0 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
                     <span
-                      v-for="w in [72, 96, 64, 88, 80]"
-                      :key="w"
-                      class="h-7 rounded-full animate-pulse motion-reduce:animate-none bg-slate-100"
-                      :style="{ width: `${w}px` }"
+                      class="h-3.5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
+                      :style="{ width: `${[45, 30, 55, 40, 50, 35][n - 1]}%` }"
                     ></span>
                   </div>
                 </div>
-                <div class="flex flex-col gap-3">
-                  <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                  <span class="h-40 w-full rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                </div>
               </div>
-              <div class="flex flex-col gap-3 min-w-0">
-                <span class="h-3 w-16 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                <div v-for="n in 6" :key="n" class="flex items-center gap-4 py-3.5 border-b border-slate-100">
-                  <span class="w-28 h-3.5 shrink-0 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                  <span
-                    class="h-3.5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"
-                    :style="{ width: `${[45, 30, 55, 40, 50, 35][n - 1]}%` }"
-                  ></span>
+              <div class="flex flex-col gap-3" aria-hidden="true">
+                <div class="flex gap-6 pb-3 border-b border-border-default">
+                  <span class="h-4 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                  <span class="h-4 w-28 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                  <span v-for="n in 4" :key="n" class="h-[88px] rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
                 </div>
               </div>
             </div>
-            <div class="flex flex-col gap-3" aria-hidden="true">
-              <div class="flex gap-6 pb-3 border-b border-border-default">
-                <span class="h-4 w-24 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-                <span class="h-4 w-28 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-              </div>
-              <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
-                <span v-for="n in 4" :key="n" class="h-[88px] rounded-lg animate-pulse motion-reduce:animate-none bg-slate-100"></span>
-              </div>
+
+            <!-- 오류 -->
+            <div v-else-if="effectiveStatus === 'error'" class="flex flex-col items-center justify-center gap-3 py-24 text-center">
+              <CircleAlert class="text-status-danger-text" :size="28" :stroke-width="1.5" />
+              <p class="m-0 text-sm font-medium text-text-primary">{{ errorMessage || '파일 정보를 불러오지 못했습니다.' }}</p>
+              <button
+                type="button"
+                class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                @click="$emit('retry')"
+              >
+                다시 시도
+              </button>
             </div>
-          </div>
 
-          <!-- 오류 -->
-          <div v-else-if="effectiveStatus === 'error'" class="flex flex-col items-center justify-center gap-3 py-24 text-center">
-            <CircleAlert class="text-status-danger-text" :size="28" :stroke-width="1.5" />
-            <p class="m-0 text-sm font-medium text-text-primary">{{ errorMessage || '파일 정보를 불러오지 못했습니다.' }}</p>
-            <button
-              type="button"
-              class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
-              @click="$emit('retry')"
-            >
-              다시 시도
-            </button>
-          </div>
+            <!-- 표시할 파일 없음 -->
+            <div v-else-if="effectiveStatus === 'empty'" class="flex flex-col items-center justify-center gap-3 py-24 text-center">
+              <Inbox class="text-icon-muted" :size="28" :stroke-width="1.25" />
+              <p class="m-0 text-sm text-text-tertiary">표시할 파일 정보가 없습니다.</p>
+            </div>
 
-          <!-- 표시할 파일 없음 -->
-          <div v-else-if="effectiveStatus === 'empty'" class="flex flex-col items-center justify-center gap-3 py-24 text-center">
-            <Inbox class="text-icon-muted" :size="28" :stroke-width="1.25" />
-            <p class="m-0 text-sm text-text-tertiary">표시할 파일 정보가 없습니다.</p>
-          </div>
+            <!-- 본문: 좌측은 사람이 읽는 요약·원문, 우측은 훑어보는 메타 사이드바 -->
+            <div v-else class="flex flex-col gap-10">
+              <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12">
+                <!-- 좌측: 요약 → 키워드·분류 라벨. 추출 텍스트는 원문 창구가 지워져 뺐다(8/18 '상세보기 원문 제거' 결정과도 같다) -->
+                <div class="flex flex-col gap-8 min-w-0">
+                  <section class="flex flex-col gap-2 min-w-0">
+                    <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">요약</h3>
+                    <p class="m-0 text-base text-text-primary leading-relaxed">{{ file.extractedInfo.summary }}</p>
+                  </section>
 
-          <!-- 본문: 좌측은 사람이 읽는 요약·원문, 우측은 훑어보는 메타 사이드바 -->
-          <div v-else class="flex flex-col gap-10">
-            <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-8 lg:gap-12">
-              <!-- 좌측: 요약 → 키워드·분류 라벨. 추출 텍스트는 원문 창구가 지워져 뺐다(8/18 '상세보기 원문 제거' 결정과도 같다) -->
-              <div class="flex flex-col gap-8 min-w-0">
-                <section class="flex flex-col gap-2 min-w-0">
-                  <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">요약</h3>
-                  <p class="m-0 text-base text-text-primary leading-relaxed">{{ file.extractedInfo.summary }}</p>
-                </section>
+                  <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-2 min-w-0">
+                    <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">키워드·분류 라벨</h3>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        v-for="t in file.topics"
+                        :key="t.id"
+                        type="button"
+                        :disabled="t.clickable === false"
+                        class="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border border-border-default bg-bg-surface text-sm disabled:cursor-default"
+                        :class="
+                          t.clickable === false
+                            ? ''
+                            : 'cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring'
+                        "
+                        @click="$emit('topic-click', t)"
+                      >
+                        <span class="font-medium text-text-primary">{{ t.label }}</span>
+                        <span class="text-2xs text-text-tertiary bg-slate-100 rounded-full px-1.5 py-0.5 [font-feature-settings:'tnum']">{{
+                          t.relatedCount.toLocaleString()
+                        }}</span>
+                      </button>
+                      <button
+                        v-for="m in file.multimodalMeta"
+                        :key="m.id"
+                        type="button"
+                        class="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border border-border-default bg-bg-surface text-sm cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        @click="$emit('meta-click', m)"
+                      >
+                        <span class="font-medium text-text-primary">{{ m.label }}</span>
+                        <span class="text-2xs text-text-tertiary bg-slate-100 rounded-full px-1.5 py-0.5 [font-feature-settings:'tnum']">{{
+                          m.count.toLocaleString()
+                        }}</span>
+                      </button>
+                    </div>
+                  </section>
+                </div>
 
-                <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-2 min-w-0">
-                  <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">키워드·분류 라벨</h3>
-                  <div class="flex flex-wrap gap-1.5">
+                <!-- 우측: 훑어보는 상세 정보 — 공통 항목 뒤에 파일 형식별 확장 메타를 이어 붙인다 -->
+                <div class="min-w-0">
+                  <section class="flex flex-col gap-2 min-w-0">
+                    <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">상세 정보</h3>
+                    <dl class="m-0">
+                      <div v-if="file.fileFormat" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                        <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 형식</dt>
+                        <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.fileFormat }}</dd>
+                      </div>
+                      <div v-if="file.sizeLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                        <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 크기</dt>
+                        <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.sizeLabel }}</dd>
+                      </div>
+                      <div v-if="file.typeBadge" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                        <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">데이터 유형</dt>
+                        <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.typeBadge }}</dd>
+                      </div>
+                      <div v-if="breadcrumbPathLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                        <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">대분류 / 중분류</dt>
+                        <dd class="m-0 text-sm text-text-tertiary truncate">{{ breadcrumbPathLabel }}</dd>
+                      </div>
+                      <div v-if="file.uploadedAt" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                        <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">등록일</dt>
+                        <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.uploadedAt }}</dd>
+                      </div>
+                      <div v-if="file.source" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                        <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">출처</dt>
+                        <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.source }}</dd>
+                      </div>
+                      <div v-for="item in extendedMeta" :key="item.key" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                        <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">{{ item.label }}</dt>
+                        <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">
+                          {{ item.value ?? '정보 없음' }}
+                        </dd>
+                      </div>
+                    </dl>
+                  </section>
+                </div>
+              </div>
+
+              <!-- 관계 정보 — 신뢰도·설명 없이 파일명과 관계만 바로 훑는 카드 그리드 -->
+              <section class="flex flex-col gap-3">
+                <ALineTabs :key="file.id" v-model="activeTabLabel" :tabs="relationTabsMeta.map((t) => ({ label: t.label, count: t.count }))" />
+
+                <div
+                  v-if="activeRelationList.length === 0"
+                  class="flex flex-col items-center gap-2 py-12 rounded-lg border border-dashed border-border-default"
+                >
+                  <Inbox class="text-icon-muted" :size="22" :stroke-width="1.25" />
+                  <p class="m-0 text-sm text-text-tertiary">표시할 관계가 없습니다.</p>
+                </div>
+
+                <template v-else>
+                  <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                     <button
-                      v-for="t in file.topics"
-                      :key="t.id"
+                      v-for="rel in visibleRelations"
+                      :key="rel.id"
                       type="button"
-                      :disabled="t.clickable === false"
-                      class="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border border-border-default bg-bg-surface text-sm disabled:cursor-default"
-                      :class="
-                        t.clickable === false
-                          ? ''
-                          : 'cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring'
-                      "
-                      @click="$emit('topic-click', t)"
+                      class="group relative flex flex-col items-start gap-1.5 min-w-0 text-left p-3 rounded-lg border border-border-default bg-bg-surface cursor-pointer hover:bg-bg-surface-hover-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                      @click="$emit('relation-click', rel)"
                     >
-                      <span class="font-medium text-text-primary">{{ t.label }}</span>
-                      <span class="text-2xs text-text-tertiary bg-slate-100 rounded-full px-1.5 py-0.5 [font-feature-settings:'tnum']">{{
-                        t.relatedCount.toLocaleString()
-                      }}</span>
-                    </button>
-                    <button
-                      v-for="m in file.multimodalMeta"
-                      :key="m.id"
-                      type="button"
-                      class="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border border-border-default bg-bg-surface text-sm cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                      @click="$emit('meta-click', m)"
-                    >
-                      <span class="font-medium text-text-primary">{{ m.label }}</span>
-                      <span class="text-2xs text-text-tertiary bg-slate-100 rounded-full px-1.5 py-0.5 [font-feature-settings:'tnum']">{{
-                        m.count.toLocaleString()
-                      }}</span>
+                      <ArrowUpRight
+                        class="absolute top-3 right-3 text-icon-muted opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard group-hover:opacity-100 group-focus-visible:opacity-100"
+                        :size="14"
+                        :stroke-width="1.8"
+                        aria-hidden="true"
+                      />
+                      <span
+                        class="inline-flex items-center h-5 px-1.5 rounded-sm text-[10px] font-bold tracking-wide"
+                        :style="
+                          rel.typeBadgeStyle
+                            ? { background: rel.typeBadgeStyle.bg, color: rel.typeBadgeStyle.text }
+                            : { background: 'var(--color-slate-100)', color: 'var(--color-text-tertiary)' }
+                        "
+                        >{{ rel.typeBadge }}</span
+                      >
+                      <span class="w-full flex items-center gap-1.5 min-w-0">
+                        <component :is="rel.icon" v-if="rel.icon" class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
+                        <span class="text-sm font-semibold text-text-primary truncate">{{ rel.name }}</span>
+                      </span>
+                      <span v-if="rel.reason" class="w-full text-xs text-text-tertiary truncate">{{ rel.reason }}</span>
                     </button>
                   </div>
-                </section>
-              </div>
 
-              <!-- 우측: 훑어보는 상세 정보 — 공통 항목 뒤에 파일 형식별 확장 메타를 이어 붙인다 -->
-              <div class="min-w-0">
-                <section class="flex flex-col gap-2 min-w-0">
-                  <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">상세 정보</h3>
-                  <dl class="m-0">
-                    <div v-if="file.fileFormat" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
-                      <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 형식</dt>
-                      <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.fileFormat }}</dd>
-                    </div>
-                    <div v-if="file.sizeLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
-                      <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">파일 크기</dt>
-                      <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.sizeLabel }}</dd>
-                    </div>
-                    <div v-if="file.typeBadge" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
-                      <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">데이터 유형</dt>
-                      <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.typeBadge }}</dd>
-                    </div>
-                    <div v-if="breadcrumbPathLabel" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
-                      <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">대분류 / 중분류</dt>
-                      <dd class="m-0 text-sm text-text-tertiary truncate">{{ breadcrumbPathLabel }}</dd>
-                    </div>
-                    <div v-if="file.uploadedAt" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
-                      <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">등록일</dt>
-                      <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">{{ file.uploadedAt }}</dd>
-                    </div>
-                    <div v-if="file.source" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
-                      <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">출처</dt>
-                      <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.source }}</dd>
-                    </div>
-                    <div v-for="item in extendedMeta" :key="item.key" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
-                      <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">{{ item.label }}</dt>
-                      <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">
-                        {{ item.value ?? '정보 없음' }}
-                      </dd>
-                    </div>
-                  </dl>
-                </section>
-              </div>
-            </div>
-
-            <!-- 관계 정보 — 신뢰도·설명 없이 파일명과 관계만 바로 훑는 카드 그리드 -->
-            <section class="flex flex-col gap-3">
-              <ALineTabs :key="file.id" v-model="activeTabLabel" :tabs="relationTabsMeta.map((t) => ({ label: t.label }))" />
-
-              <div
-                v-if="activeRelationList.length === 0"
-                class="flex flex-col items-center gap-2 py-12 rounded-lg border border-dashed border-border-default"
-              >
-                <Inbox class="text-icon-muted" :size="22" :stroke-width="1.25" />
-                <p class="m-0 text-sm text-text-tertiary">표시할 관계가 없습니다.</p>
-              </div>
-
-              <template v-else>
-                <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                   <button
-                    v-for="rel in visibleRelations"
-                    :key="rel.id"
+                    v-if="moreRelationsCount > 0"
                     type="button"
-                    class="group relative flex flex-col items-start gap-1.5 min-w-0 text-left p-3 rounded-lg border border-border-default bg-bg-surface cursor-pointer hover:bg-bg-surface-hover-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                    @click="$emit('relation-click', rel)"
+                    class="w-full inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-bg-surface border border-border-default shadow-elevation-1 text-sm font-semibold text-text-secondary cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    @click="showMoreRelations"
                   >
-                    <ArrowUpRight
-                      class="absolute top-3 right-3 text-icon-muted opacity-0 transition-opacity duration-[var(--duration-fast)] ease-standard group-hover:opacity-100 group-focus-visible:opacity-100"
-                      :size="14"
-                      :stroke-width="1.8"
-                      aria-hidden="true"
-                    />
-                    <span
-                      class="inline-flex items-center h-5 px-1.5 rounded-sm text-[10px] font-bold tracking-wide"
-                      :style="
-                        rel.typeBadgeStyle
-                          ? { background: rel.typeBadgeStyle.bg, color: rel.typeBadgeStyle.text }
-                          : { background: 'var(--color-slate-100)', color: 'var(--color-text-tertiary)' }
-                      "
-                      >{{ rel.typeBadge }}</span
-                    >
-                    <span class="w-full flex items-center gap-1.5 min-w-0">
-                      <component :is="rel.icon" v-if="rel.icon" class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
-                      <span class="text-sm font-semibold text-text-primary truncate">{{ rel.name }}</span>
-                    </span>
-                    <span v-if="rel.reason" class="w-full text-xs text-text-tertiary truncate">{{ rel.reason }}</span>
+                    {{ Math.min(RELATION_PAGE_SIZE, moreRelationsCount) }}건 더 보기
+                    <ChevronDown :size="14" :stroke-width="2" />
                   </button>
-                </div>
-
-                <button
-                  v-if="moreRelationsCount > 0"
-                  type="button"
-                  class="w-full inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-bg-surface border border-border-default shadow-elevation-1 text-sm font-semibold text-text-secondary cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  @click="showMoreRelations"
-                >
-                  {{ Math.min(RELATION_PAGE_SIZE, moreRelationsCount) }}건 더 보기
-                  <ChevronDown :size="14" :stroke-width="2" />
-                </button>
-              </template>
-            </section>
+                </template>
+              </section>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
 
@@ -509,8 +511,8 @@ const relationTabsMeta = computed(() => {
   const related = props.file?.relations?.related?.length ?? 0
   const sameTopic = props.file?.relations?.sameTopic?.length ?? 0
   return [
-    { key: 'related', label: `연관 데이터 (${related})` },
-    { key: 'sameTopic', label: `같은 분류 파일 (${sameTopic})` }
+    { key: 'related', label: '연관 데이터', count: related },
+    { key: 'sameTopic', label: '같은 분류 파일', count: sameTopic }
   ]
 })
 const activeTabLabel = ref(relationTabsMeta.value[0]?.label ?? '')
