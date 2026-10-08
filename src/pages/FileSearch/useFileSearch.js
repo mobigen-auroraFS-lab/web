@@ -15,6 +15,8 @@ import {
   fetchAssetMmMeta,
   fetchRelationKinds,
   buildFileDetail,
+  downloadAsset,
+  downloadSelectionBundle,
   readStoredDensity,
   DENSITY_STORAGE_KEY
 } from './fileSearch.api'
@@ -412,9 +414,33 @@ export function useFileSearch() {
     selectedIds.value = toggleIn(selectedIds.value, id)
   }
 
-  /* 서버의 파일 제공 창구가 협의 대기로 지워졌다(2026-09-28) — 버튼은 두되 누르면 안내만 한다 */
-  function notifyDownloadUnavailable() {
-    showToast('파일 다운로드는 준비 중입니다. 파일 제공 방식이 정해지면 열립니다.', 3000)
+  /* 같은 받기가 겹쳐 눌리지 않게 막는다 — 큰 zip 은 몇 초 걸린다 */
+  const downloading = ref(false)
+
+  async function runDownload(task, doneMessage) {
+    if (downloading.value) return
+    downloading.value = true
+    try {
+      const result = await task()
+      showToast(doneMessage(result), 3000)
+    } catch (e) {
+      showToast(e.message, 4000)
+    } finally {
+      downloading.value = false
+    }
+  }
+
+  function downloadOriginal(file) {
+    return runDownload(() => downloadAsset(file), (r) => `${r.name} 다운로드를 시작했습니다.`)
+  }
+
+  /* 빠진 자산(노출 대상 아님 · 원본 없음)이 있으면 몇 건이 담겼는지 알려 준다 */
+  function downloadSelected() {
+    const ids = [...selectedIds.value]
+    return runDownload(
+      () => downloadSelectionBundle(ids),
+      (r) => (r.missing > 0 ? `${ids.length}건 중 ${r.files}건이 담겼습니다. (${r.missing}건 제외)` : `${ids.length}건 다운로드를 시작했습니다.`)
+    )
   }
 
   /* --------------------------------------------------------- 파일 상세 모달 */
@@ -705,7 +731,9 @@ export function useFileSearch() {
 
     toggleRowSelect,
     loadMoreRows,
-    notifyDownloadUnavailable,
+    downloading,
+    downloadOriginal,
+    downloadSelected,
 
     openFileDetail,
     closeFileDetail,

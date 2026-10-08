@@ -78,3 +78,61 @@ export async function apiFetch(path, options = {}) {
 export function fetchMe() {
   return apiFetch('/me')
 }
+
+/* 파일 받기 — 인증 헤더가 필요해 <a href> 로는 못 받는다. fetch 로 받아 Blob 으로 저장한다.
+   zip 은 스트리밍이라 도중에 끊기면 200 뒤 본문만 짧아질 수 있어, 받은 길이를 Content-Length 와 맞춰 본다 */
+function filenameFrom(res, fallback) {
+  const cd = res.headers.get('Content-Disposition') || ''
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(cd)
+  if (star) {
+    try {
+      return decodeURIComponent(star[1])
+    } catch {
+      /* 아래 일반 filename 으로 */
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(cd)
+  return plain ? plain[1] : fallback
+}
+
+export async function downloadFile(path, { method = 'GET', body, fallbackName = 'download' } = {}) {
+  const options = {
+    method,
+    headers: { Accept: '*/*', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  }
+  let res
+  try {
+    res = await send(path, options, await getToken())
+    if (res.status === 401 && import.meta.env.DEV) res = await send(path, options, await getToken({ refresh: true }))
+  } catch {
+    throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0)
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    const message = typeof err?.detail === 'string' ? err.detail : `파일을 받지 못했습니다. (${res.status})`
+    throw new ApiError(message, res.status, err?.errors ?? null)
+  }
+
+  const blob = await res.blob()
+  const expected = Number(res.headers.get('Content-Length'))
+  if (expected && blob.size !== expected) throw new ApiError('파일을 끝까지 받지 못했습니다. 다시 시도해 주세요.', res.status)
+
+  const name = filenameFrom(res, fallbackName)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+
+  return {
+    name,
+    /* 일괄 받기에서 노출 대상이 아니거나 원본이 없어 빠진 수 */
+    missing: Number(res.headers.get('X-Bundle-Missing')) || 0,
+    files: Number(res.headers.get('X-Bundle-Files')) || 0
+  }
+}

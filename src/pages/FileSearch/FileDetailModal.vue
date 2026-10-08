@@ -82,16 +82,17 @@
                 <button
                   type="button"
                   class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
-                  @click="selectDownload('original')"
+                  @click="selectDownload()"
                 >
                   이 데이터만 <span class="text-text-tertiary">(원본 1건)</span>
                 </button>
                 <button
                   type="button"
-                  class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
-                  @click="selectDownload('zip')"
+                  disabled
+                  class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
                 >
-                  연관 데이터 묶음 <span class="text-text-tertiary">(zip)</span>
+                  <span>연관 데이터 묶음 <span class="text-text-disabled">(zip)</span></span>
+                  <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
                 </button>
                 <button
                   type="button"
@@ -406,7 +407,6 @@ const props = defineProps({
 const emit = defineEmits([
   'update:open',
   'download-original',
-  'download-zip',
   'breadcrumb-click',
   'topic-click',
   'meta-click',
@@ -484,10 +484,9 @@ function onClickOutsideDownloadMenu(e) {
 onMounted(() => document.addEventListener('click', onClickOutsideDownloadMenu))
 onBeforeUnmount(() => document.removeEventListener('click', onClickOutsideDownloadMenu))
 
-function selectDownload(kind) {
+function selectDownload() {
   downloadMenuOpen.value = false
-  if (kind === 'original') emit('download-original', props.file)
-  else if (kind === 'zip') emit('download-zip', props.file)
+  emit('download-original', props.file)
 }
 
 watch(

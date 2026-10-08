@@ -74,7 +74,7 @@ npm install
 | `npm run format:check` | Prettier 포맷 위반 여부만 확인 (변경 없음) |
 
 `npm run dev`는 `/api` 요청을 백엔드(dataplatform-service)로 넘깁니다. 기본 주소는
-`http://172.16.0.194:8001`이고, 바꾸려면 `.env.example`을 `.env.local`로 복사해
+`http://172.16.0.140:8001`이고, 바꾸려면 `.env.example`을 `.env.local`로 복사해
 `VITE_API_PROXY_TARGET`을 고칩니다. 개발 모드에서는 앱이 켜질 때 개발용 토큰(`POST /auth/token`)을
 자동으로 받아 붙입니다 — 로그인 화면이 생기기 전까지의 임시 방식입니다.
 
@@ -128,8 +128,9 @@ npm install
   있고, `src/theme.css`를 통해 Tailwind CSS와 연결됩니다. 전체는 `src/style.css`
   하나에서 불러옵니다.
 - `src/pages/FileSearch/`는 실제 API에 연동돼 있습니다(계약: 서비스 팀 IDD · `화면별_API_호출_기획서`).
-  파일 받기(원본 다운로드 · zip 묶음)는 서버 창구가 협의 대기로 지워진 상태라 버튼만 보이고
-  누르면 "준비 중" 안내가 뜹니다. 상세 모달의 추출 텍스트는 원문 창구가 없어 뺐고,
+  파일 받기(원본 · 선택 일괄 zip)는 `fetch` → Blob 저장으로 연동돼 있습니다
+  (인증 헤더 때문에 `<a href>` 링크는 쓰지 않습니다). 연관 데이터 묶음 · 분류 묶음 zip은
+  협의 전이라 상세 모달에 "미결"로 비활성 표시만 합니다. 상세 모달의 추출 텍스트는 원문 창구가 없어 뺐고,
   크기 필터는 서버가 아직 거르기를 지원하지 않아(501) 건수만 보여줍니다.
 - 화면 간 라우팅 라이브러리(Vue Router 등)는 아직 도입되어 있지 않습니다. 대신
   `src/router.js`의 경량 자체 라우터가 URL 해시 변화를 반응형으로 추적하고,
