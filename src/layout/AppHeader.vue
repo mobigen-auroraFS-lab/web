@@ -1,7 +1,8 @@
 <template>
   <header
-    class="h-14 flex items-center justify-between px-8 bg-bg-surface border-b border-slate-100 sticky top-0 z-10 transition-transform duration-300 ease-out"
-    :class="headerVisible ? 'translate-y-0' : '-translate-y-full'"
+    class="h-14 flex items-center justify-between px-8 bg-bg-surface border-b border-slate-100 sticky top-0 z-10 transition-[translate,margin-top] duration-[var(--duration-slow)] ease-standard animate-rise-in motion-reduce:animate-none xl:relative xl:shrink-0"
+    :class="[headerVisible ? 'translate-y-0' : '-translate-y-full', listHeaderVisible ? '' : 'xl:-mt-14']"
+    @focusin="showHeader"
   >
     <div class="flex items-center gap-8 min-w-0">
       <a
@@ -15,6 +16,8 @@
           v-for="item in NAV_ITEMS"
           :key="item.key"
           :href="item.href"
+          :target="item.newTab ? '_blank' : undefined"
+          :rel="item.newTab ? 'noopener' : undefined"
           class="flex items-center h-8 px-3 rounded-md text-base no-underline"
           :class="
             active === item.key
@@ -61,11 +64,15 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { LogOut } from '@lucide/vue'
 import logoUrl from '../assets/images/logo.png'
 import { fetchMe } from '../api/client'
+import { useHideOnScroll } from '../composables/useHideOnScroll'
 
 /* 여러 제품 페이지가 생기면 이 목록에 항목만 추가하면 된다 */
 const NAV_ITEMS = [
   { key: 'multimodal-search', label: '멀티모달 검색', href: '#multimodal-search' },
-  { key: 'file-search', label: '파일 검색', href: '#file-search' }
+  { key: 'file-search', label: '파일 검색', href: '#file-search' },
+  /* TODO: 개발 중 확인용 임시 메뉴 — 제품 화면이 아니므로 배포 전에 뺀다.
+     디자인 가이드엔 헤더가 없어 돌아올 길이 없으므로 새 창으로 연다 */
+  { key: 'design-guide', label: '디자인 가이드', href: '#design-guide', newTab: true }
 ]
 
 defineProps({
@@ -74,7 +81,11 @@ defineProps({
 
 const profileImageError = ref(false)
 const displayName = ref('사용자')
+/* xl 미만: 페이지(window) 스크롤에 맞춰 위로 밀어 숨긴다 */
 const headerVisible = ref(true)
+/* xl 이상: 페이지는 고정이고 목록만 스크롤하므로, 목록 스크롤에 맞춰 헤더 자리를 접는다.
+   이때는 sticky를 끈다(xl:relative) — sticky가 음수 margin으로 올린 헤더를 다시 top:0에 붙잡기 때문이다 */
+const { visible: listHeaderVisible, show: showHeader } = useHideOnScroll()
 let lastScrollY = 0
 
 function onWindowScroll() {

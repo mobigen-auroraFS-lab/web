@@ -33,3 +33,85 @@ select:focus-visible {
   outline: none;
   border-color: var(--color-focus-ring) !important;
 }
+
+/* 디자인 토큰 톤에 맞춘 얇은 스크롤바. 평소엔 감춰 두고, 영역에 마우스를 올리거나 키보드로 들어오면 드러난다.
+   Chrome·Safari는 ::-webkit-scrollbar 로, 이를 모르는 Firefox는 표준 속성으로 그린다
+   (Chrome은 표준 속성이 있으면 ::-webkit-scrollbar 를 무시하므로 둘을 나눠 둔다) */
+@utility scrollbar-subtle {
+  scrollbar-gutter: stable;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  /* 가로·세로 스크롤바가 만나는 모서리 */
+  &::-webkit-scrollbar-track,
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  /* 투명 테두리로 안쪽만 칠해 4px 두께로 보이게 한다 */
+  &::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    background-clip: padding-box;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+  }
+  &:hover::-webkit-scrollbar-thumb,
+  &:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-slate-400);
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    &:hover,
+    &:focus-within {
+      scrollbar-color: var(--color-border-strong) transparent;
+    }
+  }
+}
+
+/* 상세 모달 열고 닫기(<Transition name="modal">): 배경은 서서히 어두워지고, 패널은 살짝 아래에서
+   커지며 떠오른다. 닫을 때는 더 짧게 — 사용자가 이미 다음 동작으로 넘어갔기 때문이다.
+   패널 시간을 바깥과 같게 둬야 Vue가 바깥 transition 기준으로 끝을 판정할 때 패널이 잘리지 않는다 */
+.modal-enter-active,
+.modal-enter-active [role='dialog'] {
+  transition:
+    opacity var(--duration-emphasis) var(--easing-standard),
+    transform var(--duration-emphasis) var(--easing-decelerate);
+}
+.modal-leave-active,
+.modal-leave-active [role='dialog'] {
+  transition:
+    opacity var(--duration-slow) var(--easing-standard),
+    transform var(--duration-slow) var(--easing-standard);
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-from [role='dialog'],
+.modal-leave-to [role='dialog'] {
+  transform: translateY(24px) scale(0.96);
+}
+
+/* 자체 스크롤 영역 맨 위에 sticky 머리글이 있을 때 함께 쓴다(scrollbar-subtle 과 짝).
+   클래식 스크롤바는 내용 옆에 자기 칸을 차지해 그 폭만큼 머리글 배경이 끊겨 보인다 —
+   스크롤바 칸의 머리글 높이만큼을 머리글처럼(배경 + 아래 선) 칠하고, 막대는 그 아래에서만 움직이게 한다.
+   --scroll-header-h(머리글 높이, 아래 선 포함) · --scroll-header-bg · --scroll-header-border 는 호출부에서 준다 */
+@utility scrollbar-under-header {
+  &::-webkit-scrollbar:vertical {
+    background: linear-gradient(
+      to bottom,
+      var(--scroll-header-bg) calc(var(--scroll-header-h) - 1px),
+      var(--scroll-header-border) 0 var(--scroll-header-h),
+      transparent 0
+    );
+  }
+  &::-webkit-scrollbar-track:vertical {
+    margin-top: var(--scroll-header-h);
+  }
+}

@@ -11,7 +11,7 @@
     />
     <div class="flex flex-col px-1.5 pb-1.5">
       <div v-if="groupLabel" class="text-2xs text-text-tertiary px-2 pt-2 pb-1">{{ groupLabel }}</div>
-      <div ref="listEl" class="flex flex-col max-h-[320px] overflow-y-auto">
+      <div ref="listEl" class="flex flex-col max-h-[320px] overflow-y-auto scrollbar-subtle">
         <div
           v-for="(item, i) in filtered"
           :key="item.label"

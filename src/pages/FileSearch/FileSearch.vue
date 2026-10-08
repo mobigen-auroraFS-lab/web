@@ -4,11 +4,8 @@
   <div class="grid grid-cols-1 xl:flex gap-6 xl:gap-0 items-start xl:items-stretch xl:h-full">
     <!-- 필터 사이드바 -->
     <FilterSidebar
-      :class="[
-        'transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard',
-        revealed.filter ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-      ]"
-      style="transition-delay: 60ms"
+      class="animate-rise-in motion-reduce:animate-none"
+      style="animation-delay: 80ms"
       :topics="topics"
       :subtopics="subtopics"
       :tags="tags"
@@ -43,57 +40,69 @@
     <!-- 결과: xl 이상에서는 이 컬럼 자체가 여백 없는 2단 구조다 —
          위(헤더 묶음)는 고정, 아래(테이블)만 남은 세로 공간을 채우며 자체 스크롤한다 -->
     <div
-      class="flex flex-col gap-3 min-w-0 transition-[opacity,transform] duration-[var(--duration-slow)] ease-standard xl:gap-0 xl:flex-1 xl:h-full xl:overflow-hidden"
-      :class="revealed.results ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'"
-      style="transition-delay: 120ms"
+      class="flex flex-col gap-3 min-w-0 animate-rise-in motion-reduce:animate-none xl:gap-0 xl:flex-1 xl:h-full xl:overflow-hidden"
+      style="animation-delay: 160ms"
     >
-      <div class="flex flex-col gap-3 bg-bg-surface border-b border-slate-100 xl:shrink-0 xl:px-5 xl:pt-4 xl:pb-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-x-4 gap-y-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <h1 class="m-0 text-xl font-semibold text-text-primary tracking-tight shrink-0">파일 검색</h1>
-            <span class="w-px h-4 bg-border-default shrink-0" aria-hidden="true"></span>
-            <p class="m-0 text-sm text-text-tertiary truncate">수만 건의 자료를 조건별로 필터링합니다.</p>
-          </div>
-          <div class="relative w-full sm:w-[420px] max-w-full shrink-0">
-            <div class="absolute inset-0 rounded-xl shadow-elevation-1 pointer-events-none"></div>
-            <AInput
-              v-model="searchDraft"
-              search
-              placeholder="파일명, 키워드 검색"
-              class="relative [&_input]:h-10 [&_input]:text-md [&_input]:rounded-xl [&_input]:pl-11 [&_input]:pr-16"
-              @keydown.enter.prevent="commitSearch"
-            />
-            <span
-              v-if="searchDirty"
-              aria-hidden="true"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 px-1.5 inline-flex items-center rounded border border-border-default bg-bg-canvas text-2xs text-text-tertiary pointer-events-none"
-            >
-              ⏎
-            </span>
-            <button
-              v-else-if="searchDraft"
-              aria-label="검색어 지우기"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 border-none bg-transparent text-text-tertiary rounded-full cursor-pointer flex items-center justify-center p-0 hover:bg-bg-surface-hover hover:text-text-primary"
-              @click="setSearch('')"
-            >
-              <X :size="13" :stroke-width="1.5" />
-            </button>
-            <button
-              v-else
-              type="button"
-              aria-label="명령 팔레트 열기 (Cmd/Ctrl+K)"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
-              @click="paletteOpen = true"
-            >
-              <kbd
-                class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
-                >⌘</kbd
-              >
-              <kbd
-                class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
-                >K</kbd
-              >
-            </button>
+      <!-- 검색 영역: xl 이상에서 목록을 내리면 헤더에 이어 접히고, 올리면 헤더에 이어 펼쳐진다.
+           grid 행 높이(1fr ↔ 0fr)를 transition 해 실제 높이를 몰라도 부드럽게 접고,
+           transition-delay 로 헤더보다 한 박자 늦게 움직여 위에서부터 차례로 보이게 한다 -->
+      <div
+        class="border-b border-slate-100 xl:mx-4 transition-[grid-template-rows,opacity] duration-[var(--duration-slow)] delay-[var(--hide-on-scroll-stagger)] ease-standard xl:shrink-0 xl:grid"
+        :class="headerVisible ? 'xl:grid-rows-[1fr]' : 'xl:grid-rows-[0fr] xl:opacity-0'"
+        @focusin="showHeader"
+      >
+        <!-- 좌우 여백은 바깥(mx-4)과 여기(px-1)로 나눠 구분선이 텍스트 폭에 맞게 그어지게 한다.
+             안쪽에 조금 남긴 여백은 접힘용 overflow-hidden에 검색창 그림자가 잘리지 않게 하는 몫이다 -->
+        <div class="min-h-0 xl:overflow-hidden">
+          <div class="flex flex-col gap-3 xl:px-1 xl:pt-4 xl:pb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-x-4 gap-y-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <h1 class="m-0 text-xl font-semibold text-text-primary tracking-tight shrink-0">파일 검색</h1>
+                <span class="w-px h-4 bg-border-default shrink-0" aria-hidden="true"></span>
+                <p class="m-0 text-sm text-text-tertiary truncate">수만 건의 자료를 조건별로 필터링합니다.</p>
+              </div>
+              <div class="relative w-full sm:w-[420px] max-w-full shrink-0">
+                <div class="absolute inset-0 rounded-xl shadow-elevation-1 pointer-events-none"></div>
+                <AInput
+                  v-model="searchDraft"
+                  search
+                  placeholder="파일명, 키워드 검색"
+                  class="relative [&_input]:h-10 [&_input]:text-md [&_input]:rounded-xl [&_input]:pl-11 [&_input]:pr-16"
+                  @keydown.enter.prevent="commitSearch"
+                />
+                <span
+                  v-if="searchDirty"
+                  aria-hidden="true"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 px-1.5 inline-flex items-center rounded border border-border-default bg-bg-canvas text-2xs text-text-tertiary pointer-events-none"
+                >
+                  ⏎
+                </span>
+                <button
+                  v-else-if="searchDraft"
+                  aria-label="검색어 지우기"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 border-none bg-transparent text-text-tertiary rounded-full cursor-pointer flex items-center justify-center p-0 hover:bg-bg-surface-hover hover:text-text-primary"
+                  @click="setSearch('')"
+                >
+                  <X :size="13" :stroke-width="1.5" />
+                </button>
+                <button
+                  v-else
+                  type="button"
+                  aria-label="명령 팔레트 열기 (Cmd/Ctrl+K)"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-transparent border-none p-0 cursor-pointer"
+                  @click="paletteOpen = true"
+                >
+                  <kbd
+                    class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
+                    >⌘</kbd
+                  >
+                  <kbd
+                    class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
+                    >K</kbd
+                  >
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -153,7 +162,10 @@
           </div>
         </div>
 
-        <div class="xl:flex-1 xl:min-h-0 xl:overflow-hidden">
+        <!-- 테이블도 멀티모달 카드 목록처럼 좌우·아래 여백을 두고 둥근 카드로 띄운다.
+             스크롤바 칸은 머리글 높이만큼 머리글처럼 칠한다(scrollbar-under-header, 높이는 머리글 행 = 셀 위아래 여백 + xs 글자 줄높이 + 아래 선).
+             스크롤이 없을 땐 그 칸이 빈 채로 남지 않게 자리를 미리 비우지 않는다(scrollbar-gutter:auto) -->
+        <div class="relative xl:flex-1 xl:min-h-0 xl:overflow-hidden xl:px-5 xl:pb-5">
           <ASelectionBar :count="selectedIds.length">
             <button
               class="flex items-center gap-1.5 h-[38px] px-4 bg-transparent border-none rounded-md text-sm text-slate-300 font-medium cursor-pointer whitespace-nowrap hover:bg-slate-700 hover:text-slate-100"
@@ -167,10 +179,22 @@
             </AButton>
           </ASelectionBar>
 
+          <!-- 테이블 카드 오른쪽 아래에 띄운다 — 스크롤되는 테이블 밖에 둬야 내용과 함께 밀려가지 않는다 -->
+          <div class="absolute right-9 bottom-9 z-[2]">
+            <AScrollTopButton :target="tableScrollRef" />
+          </div>
+
           <div
+            ref="tableScrollRef"
             role="table"
             aria-label="파일 검색 결과"
-            class="relative border-y border-border-default overflow-auto bg-bg-surface xl:h-full"
+            class="relative border border-border-default rounded-lg overflow-auto scrollbar-subtle scrollbar-under-header [scrollbar-gutter:auto] bg-bg-surface xl:h-full"
+            style="
+              --scroll-header-h: calc(var(--table-cell-padding-y) * 2 + var(--text-xs-size) * var(--text-xs-line) + 1px);
+              --scroll-header-bg: var(--table-header-bg);
+              --scroll-header-border: var(--table-header-border);
+            "
+            @scroll.passive="onListScroll"
           >
             <div role="rowgroup" class="sticky top-0 z-[1]">
               <div
@@ -236,8 +260,10 @@
                 :key="item.id"
                 role="row"
                 :aria-selected="selectedIds.includes(item.id)"
-                class="group grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px]"
+                class="group grid grid-cols-[36px_1fr_90px_70px_280px_112px_80px_44px] min-w-[936px] motion-reduce:animate-none"
+                :style="{ animationDelay: riseIds.has(item.id) ? rowRiseDelay(i) : undefined }"
                 :class="[
+                  riseIds.has(item.id) ? 'animate-rise-in' : 'animate-fade-in',
                   i === visibleRows.length - 1 ? '' : 'border-b border-slate-100',
                   selectedIds.includes(item.id) ? 'bg-bg-surface-selected' : 'hover:bg-[var(--table-row-hover-bg)]'
                 ]"
@@ -405,7 +431,7 @@
     @update:model-value="closeFacetModal"
   >
     <AInput v-model="facetQuery" search :placeholder="`${facetModalTitle} 검색`" />
-    <div class="flex flex-col max-h-[320px] overflow-y-auto -mx-1 px-1">
+    <div class="flex flex-col max-h-[320px] overflow-y-auto scrollbar-subtle -mx-1 px-1">
       <div
         v-for="row in facetModalRows"
         :key="row.label"
@@ -461,12 +487,14 @@ import ADialog from '../../components/ADialog.vue'
 import AEmptyState from '../../components/AEmptyState.vue'
 import ASelectionBar from '../../components/ASelectionBar.vue'
 import ASegmentedControl from '../../components/ASegmentedControl.vue'
+import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import FilterSidebar from '../../layout/FilterSidebar.vue'
 import FileDetailModal from './FileDetailModal.vue'
 import CommandPalette from '../../layout/CommandPalette.vue'
 
 import { DENSITY_OPTIONS } from './fileSearch.api'
 import { useFileSearch } from './useFileSearch'
+import { useHideOnScroll } from '../../composables/useHideOnScroll'
 
 const {
   searchDraft,
@@ -552,9 +580,38 @@ const skeletonRowCount = computed(() => (listLoading.value ? 10 : loadingMore.va
 /* 파일명 자리 길이를 행마다 달리해 실제 목록처럼 보이게 한다 */
 const SKELETON_NAME_WIDTHS = ['42%', '58%', '35%', '50%', '64%']
 
-/* ---------------------------------------------------------------- reveal-in */
+/* ------------------------------------------------- 헤더·검색 영역 감추기 */
 
-const revealed = ref({ hero: false, filter: false, results: false })
+/* 목록을 내리면 헤더(AppHeader)와 검색 영역을 차례로 감추고, 올리면 차례로 다시 보인다 */
+const { visible: headerVisible, onScroll: onListScroll, show: showHeader } = useHideOnScroll()
+
+/* 맨 위로 버튼이 지켜보고 올릴 테이블 스크롤 영역 */
+const tableScrollRef = ref(null)
+
+/* ------------------------------------------------------------ 행 등장 연출 */
+
+/* 화면에 처음 들어와 받은 첫 결과만 위에서부터 한 줄씩 차례로 올린다. 이후 조건 변경·더 불러오기는
+   기다림 없이 짧게 페이드만 한다 — 자주 반복하는 동작이라 연출이 길면 굼떠 보인다.
+   ROW_RISE_MAX 줄 뒤로는 마지막 줄과 함께 올라와 아래 행이 위 행보다 먼저 떠 보이지 않게 한다 */
+const ROW_RISE_STEP_MS = 30
+const ROW_RISE_MAX = 16
+
+/* 차례로 올라오는 행. 행마다 처음 정한 연출을 끝까지 유지한다 — 이미 올라온 행의 애니메이션을 바꾸면
+   처음부터 다시 재생된다. 새 조회 땐 로딩 중 목록이 비워져 모든 행이 새로 그려지므로 그때 비운다 */
+const riseIds = new Set()
+let riseIntroDone = false
+watch(visibleRows, (rows, prev) => {
+  const appended = prev?.length > 0 && rows.length > prev.length && rows[0]?.id === prev[0]?.id
+  if (appended) return
+  riseIds.clear()
+  if (riseIntroDone || rows.length === 0) return
+  rows.forEach((r) => riseIds.add(r.id))
+  riseIntroDone = true
+})
+
+function rowRiseDelay(i) {
+  return `${Math.min(i, ROW_RISE_MAX) * ROW_RISE_STEP_MS}ms`
+}
 
 /* ------------------------------------------------------------ 무한 스크롤 */
 
@@ -604,9 +661,6 @@ onMounted(() => {
     )
     observeLoadMore()
   }
-  requestAnimationFrame(() => {
-    revealed.value = { hero: true, filter: true, results: true }
-  })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('hashchange', applyUrlState)

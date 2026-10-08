@@ -4,7 +4,7 @@
       v-for="(tab, i) in tabs"
       :key="tab.label"
       :ref="(el) => setTabRef(el, i)"
-      class="bg-transparent border-none py-2 px-0.5 pb-3 -mb-px text-base whitespace-nowrap"
+      class="inline-flex items-center gap-1.5 bg-transparent border-none py-2 px-0.5 pb-3 -mb-px text-base whitespace-nowrap"
       :class="
         tab.disabled
           ? 'text-text-disabled cursor-not-allowed font-medium'
@@ -16,6 +16,19 @@
       @click="select(tab)"
     >
       {{ tab.label }}
+      <!-- 개수는 라벨과 분리한 배지로 둔다 — 선택 탭은 밑줄과 같은 색으로 채워 함께 묶여 보이게 한다 -->
+      <span
+        v-if="tab.count != null"
+        class="inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-full text-2xs font-semibold [font-feature-settings:'tnum']"
+        :class="
+          tab.disabled
+            ? 'bg-slate-50 text-text-disabled'
+            : active === tab.label
+              ? 'bg-text-primary text-text-inverse'
+              : 'bg-slate-100 text-text-tertiary'
+        "
+        >{{ tab.count.toLocaleString() }}</span
+      >
     </button>
     <span
       class="absolute -bottom-px h-0.5 bg-text-primary transition-[left,width] duration-[180ms] ease-standard"
@@ -31,7 +44,7 @@ const props = defineProps({
   tabs: {
     type: Array,
     required: true
-    // [{ label, disabled }]
+    // [{ label, count, disabled }] — count 를 주면 라벨 옆에 개수 배지를 붙인다
   },
   modelValue: { type: String, default: null }
 })
