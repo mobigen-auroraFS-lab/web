@@ -79,8 +79,8 @@ export function fetchMe() {
   return apiFetch('/me')
 }
 
-/* 파일 받기 — 인증 헤더가 필요해 <a href> 로는 못 받는다. fetch 로 받아 Blob 으로 저장한다.
-   zip 은 스트리밍이라 도중에 끊기면 200 뒤 본문만 짧아질 수 있어, 받은 길이를 Content-Length 와 맞춰 본다 */
+/* 파일 받기 — 단건은 서버가 주는 짧은 수명의 다운로드 링크(IF-ASSET-15)를 브라우저가 직접 열어 받는다(브라우저 다운로드 관리자가
+   받으므로 큰 파일도 메모리에 모으지 않고 진행률 · 이어받기가 된다). 묶음 zip 은 링크가 없어 헤더 인증 fetch 로 받아 Blob 으로 저장한다 */
 function filenameFrom(res, fallback) {
   const cd = res.headers.get('Content-Disposition') || ''
   const star = /filename\*=UTF-8''([^;]+)/i.exec(cd)
@@ -115,7 +115,13 @@ export async function downloadFile(path, { method = 'GET', body, fallbackName = 
     throw new ApiError(message, res.status, err?.errors ?? null)
   }
 
-  const blob = await res.blob()
+  /* zip 은 스트리밍이라 받는 도중 서버가 끊기면 blob() 이 네트워크 오류로 던진다 — 영어 오류 대신 안내 문장으로 바꾼다 */
+  let blob
+  try {
+    blob = await res.blob()
+  } catch {
+    throw new ApiError('파일을 끝까지 받지 못했습니다. 다시 시도해 주세요.', res.status)
+  }
   const expected = Number(res.headers.get('Content-Length'))
   if (expected && blob.size !== expected) throw new ApiError('파일을 끝까지 받지 못했습니다. 다시 시도해 주세요.', res.status)
 
@@ -135,4 +141,35 @@ export async function downloadFile(path, { method = 'GET', body, fallbackName = 
     missing: Number(res.headers.get('X-Bundle-Missing')) || 0,
     files: Number(res.headers.get('X-Bundle-Files')) || 0
   }
+}
+
+/* 링크로 열기 전 HEAD 로 먼저 확인하는 이유 — 링크를 바로 열었다가 실패하면 브라우저가 JSON 오류 화면으로 이동한다(HEAD 는 본문도 접근 기록도 없다) */
+const LINK_ERRORS = {
+  404: '다운로드 대상을 찾을 수 없거나 받을 수 없는 자료입니다.',
+  410: '원본 파일을 찾을 수 없습니다. 파일이 옮겨졌거나 삭제되었을 수 있습니다.',
+  503: '서버가 혼잡하거나 일시적으로 쓸 수 없습니다. 잠시 후 다시 시도해 주세요.'
+}
+
+/** IF-ASSET-15 → IF-ASSET-03 — 원본 1건을 다운로드 링크로 받는다. 링크는 5분쯤 뒤 만료되어 누를 때마다 새로 받는다 */
+export async function downloadByLink(assetId, fallbackName = 'download') {
+  const { url } = await apiFetch(`/assets/${encodeURIComponent(assetId)}/download-link`, { method: 'POST' })
+  /* 서버가 준 url 은 서버 기준 경로라 프록시 접두사만 붙인다 */
+  const href = `${API_BASE}${url}`
+
+  let head
+  try {
+    head = await fetch(href, { method: 'HEAD' })
+  } catch {
+    throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0)
+  }
+  if (!head.ok) throw new ApiError(LINK_ERRORS[head.status] ?? `파일을 받지 못했습니다. (${head.status})`, head.status)
+
+  /* 파일 이름은 서버의 Content-Disposition(attachment)이 정한다 */
+  const a = document.createElement('a')
+  a.href = href
+  a.download = ''
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  return { name: filenameFrom(head, fallbackName) }
 }

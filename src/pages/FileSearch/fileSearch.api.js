@@ -1,5 +1,5 @@
 import { Image as ImageIcon, FileText, Video, Archive, Music, File } from '@lucide/vue'
-import { apiFetch, downloadFile, toQuery } from '../../api/client'
+import { apiFetch, downloadByLink, downloadFile, toQuery } from '../../api/client'
 
 /**
  * 파일 검색 화면이 부르는 API 와, 응답을 화면 모델로 바꾸는 매핑.
@@ -208,9 +208,9 @@ export function readStoredDensity() {
 
 /* ------------------------------------------------------------ 파일 받기 */
 
-/** IF-ASSET-03 — 원본 1건 */
+/** IF-ASSET-15 → IF-ASSET-03 — 원본 1건(다운로드 링크) */
 export function downloadAsset(asset) {
-  return downloadFile(`/assets/${encodeURIComponent(asset.id)}/download`, { fallbackName: asset.name })
+  return downloadByLink(asset.id, asset.name)
 }
 
 /** IF-ASSET-12 — 고른 자산들 zip (서버 상한 200건 · 500MB) */
