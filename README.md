@@ -42,7 +42,8 @@ src/
     Login/
       Login.vue            # 자리만 마련된 placeholder — 라우팅 미연결
     MultimodalSearch/
-      MultimodalSearch.vue # 멀티모달 검색 화면 (#multimodal-search · 아직 목업 데이터)
+      MultimodalSearch.vue # 멀티모달 검색 화면 (#multimodal-search · 개체 목록 API 연동)
+      EntityDetailModal.vue # 개체 상세 모달
   main.js              # 앱 마운트 시작점
 ```
 
@@ -90,7 +91,7 @@ npm install
 2. 기본 주소(`http://localhost:5173`) → 파일 검색 화면(`src/pages/FileSearch/FileSearch.vue`),
    실제 서비스 화면(제품)의 메인 진입점입니다.
 3. 헤더 내비게이션의 "멀티모달 검색"을 클릭하거나 주소 뒤에 `#multimodal-search`를
-   붙이면 해당 화면(`src/pages/MultimodalSearch/MultimodalSearch.vue`, 현재 목업 데이터)으로
+   붙이면 해당 화면(`src/pages/MultimodalSearch/MultimodalSearch.vue`)으로
    전환됩니다.
 4. 주소 뒤에 `#design-guide` 를 붙이면(`http://localhost:5173/#design-guide`) 디자인 시스템
    컴포넌트 카탈로그(`src/DesignGuide/DesignGuide.vue`)로 전환됩니다.
@@ -132,6 +133,9 @@ npm install
   (인증 헤더 때문에 `<a href>` 링크는 쓰지 않습니다). 연관 데이터 묶음 · 분류 묶음 zip은
   협의 전이라 상세 모달에 "미결"로 비활성 표시만 합니다. 상세 모달의 추출 텍스트는 원문 창구가 없어 뺐고,
   크기 필터는 서버가 아직 거르기를 지원하지 않아(501) 건수만 보여줍니다.
+- `src/pages/MultimodalSearch/`는 개체 API(IDD IF-ENTITY-01 · 02 · 05)에 연동돼 있습니다. 결과 단위는
+  인물 · 장소 · 작품 같은 개체이고, 종류(하나) · 갈래(여럿, AND) · 반드시 포함할 자료(문서·이미지·영상·음성, 여럿이면 AND)로 좁힙니다.
+  등록일 필터는 개체에 날짜가 없어 두지 않았고, 개체 묶음 다운로드는 협의 전이라 "미결"로 표시만 합니다.
 - 화면 간 라우팅 라이브러리(Vue Router 등)는 아직 도입되어 있지 않습니다. 대신
   `src/router.js`의 경량 자체 라우터가 URL 해시 변화를 반응형으로 추적하고,
   `src/App.vue`가 그 값에 따라 화면을 전환합니다 — 새로고침 없이 주소창 해시만

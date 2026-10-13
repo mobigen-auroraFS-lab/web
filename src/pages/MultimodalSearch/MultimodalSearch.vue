@@ -46,13 +46,15 @@
         </div>
         <div class="border-b border-slate-100 -mt-2"></div>
 
-        <div class="flex flex-col gap-3" role="group" aria-label="유형">
+        <p v-if="searchTerms.length" class="m-0 -mt-2 text-2xs text-text-tertiary">칩 건수는 검색어와 상관없이 전체 자료 기준입니다.</p>
+
+        <div class="flex flex-col gap-3" role="group" aria-label="종류">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-sm font-bold text-text-primary">유형</span>
+            <span class="text-sm font-bold text-text-primary">종류</span>
             <button
-              v-if="types.length"
+              v-if="entityType"
               class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-              @click="types = []"
+              @click="entityType = ''"
             >
               해제
             </button>
@@ -65,28 +67,27 @@
               :count="chip.count"
               :active="chip.active"
               :disabled="chip.disabled"
-              @click="types = toggleIn(types, chip.label)"
+              @click="toggleType(chip.label)"
             />
           </div>
         </div>
 
-        <!-- 분야 3갈래: 그룹끼리는 AND, 그룹 안에서는 OR. 장르만 유형에 따라 열린다 -->
-        <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="분야">
+        <!-- 갈래: 서버가 묶어 주는 기준별로 나눠 보여준다. 여럿 고르면 모두 가진 개체만 남는다(AND) -->
+        <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="갈래">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-sm font-bold text-text-primary">분야</span>
+            <span class="text-sm font-bold text-text-primary">갈래</span>
             <button
-              v-if="hasFieldSelection"
+              v-if="areas.length"
               class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-              @click="clearFields"
+              @click="areas = []"
             >
               해제
             </button>
           </div>
           <div class="flex flex-col gap-5">
-            <div v-for="group in fieldGroups" :key="group.key" class="flex flex-col gap-2" role="group" :aria-label="group.label">
-              <span class="text-xs font-medium" :class="group.locked ? 'text-text-disabled' : 'text-text-tertiary'">{{ group.label }}</span>
-              <AEmptyState v-if="group.locked" size="sm" :icon="Lock" description="유형을 선택하면 장르가 열립니다" />
-              <div v-else class="flex gap-2 flex-wrap items-center">
+            <div v-for="group in areaGroups" :key="group.label" class="flex flex-col gap-2" role="group" :aria-label="group.label">
+              <span class="text-xs font-medium text-text-tertiary">{{ group.label }}</span>
+              <div class="flex gap-2 flex-wrap items-center">
                 <AFilterChip
                   v-for="chip in group.chips"
                   :key="chip.label"
@@ -94,14 +95,15 @@
                   :count="chip.count"
                   :active="chip.active"
                   :disabled="chip.disabled"
-                  @click="toggleField(group.key, chip.label)"
+                  @click="toggleArea(chip.label)"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 반드시 포함할 자료 — 고른 모달리티를 모두 갖춘 작품만(AND). 결과를 쪼개는 조건이 아니라 보조 조건이라 아래쪽에 둔다 -->
+        <!-- 반드시 포함할 자료 — 고른 자료 유형을 모두 가진 개체만(AND). 칩 숫자는 "이 칩을 더 누르면 남는 개체 수"다.
+             등록일 필터는 개체에 날짜가 없어 두지 않는다 -->
         <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="반드시 포함할 자료">
           <div class="flex items-center justify-between gap-2">
             <span class="text-sm font-bold text-text-primary">반드시 포함할 자료</span>
@@ -121,48 +123,9 @@
               :count="chip.count"
               :active="chip.active"
               :disabled="chip.disabled"
-              @click="modalities = toggleIn(modalities, chip.label)"
+              @click="toggleModality(chip.label)"
             />
           </div>
-        </div>
-
-        <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="등록일">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-sm font-bold text-text-primary">등록일</span>
-            <button
-              v-if="dateFrom || dateTo"
-              class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
-              @click="clearDateRange"
-            >
-              해제
-            </button>
-          </div>
-          <div class="flex gap-2 flex-wrap items-center">
-            <AFilterChip
-              v-for="preset in DATE_PRESETS"
-              :key="preset.days"
-              :label="preset.label"
-              :active="isDatePresetActive(preset.days)"
-              :disabled="datePresetCounts[preset.days] === 0 && !isDatePresetActive(preset.days)"
-              @click="applyDatePreset(preset.days)"
-            />
-          </div>
-          <APopover v-model="datePickerOpen" :panel-width="280" :panel-max-height="320">
-            <template #trigger="{ toggle }">
-              <button
-                class="flex items-center gap-2 w-[200px] max-w-full h-control-md px-2.5 bg-bg-surface border border-border-default rounded-md cursor-pointer box-border hover:border-border-strong"
-                :class="dateFrom || dateTo ? 'text-text-primary' : 'text-text-tertiary'"
-                :aria-expanded="datePickerOpen"
-                @click="toggle"
-              >
-                <CalendarIcon class="text-icon-default shrink-0" :size="14" :stroke-width="1.5" />
-                <span class="truncate text-sm">{{ dateRangeLabel }}</span>
-              </button>
-            </template>
-            <template #content>
-              <ACalendar range v-model:start="dateFrom" v-model:end="dateTo" @update:end="onDateRangeEnd" />
-            </template>
-          </APopover>
         </div>
       </div>
     </aside>
@@ -188,7 +151,9 @@
               <div class="flex items-center gap-3 min-w-0">
                 <h1 class="m-0 text-xl font-semibold text-text-primary tracking-tight shrink-0">멀티모달 검색</h1>
                 <span class="w-px h-4 bg-border-default shrink-0" aria-hidden="true"></span>
-                <p class="m-0 text-sm text-text-tertiary truncate">텍스트·이미지·영상을 함께 찾아 작품별로 묶어 보여줍니다.</p>
+                <p class="m-0 text-sm text-text-tertiary truncate">
+                  문서·이미지·영상·음성 자료를 인물·장소·작품 같은 개체별로 묶어 보여줍니다.
+                </p>
               </div>
               <div class="relative w-full sm:w-[420px] max-w-full shrink-0">
                 <div class="absolute inset-0 rounded-xl shadow-elevation-1 pointer-events-none"></div>
@@ -262,11 +227,14 @@
 
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div class="text-md text-text-primary" aria-live="polite">
-              {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ results.length.toLocaleString() }}</span
-              ><span class="font-bold">편</span>
-              <span v-if="appliedConditions.length > 0" class="text-sm text-text-tertiary font-normal ml-2"
-                >(전체 {{ films.length.toLocaleString() }}편 중)</span
-              >
+              <template v-if="!listLoading && !listError">
+                {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ total.toLocaleString() }}</span
+                ><span class="font-bold">개</span>
+                <span v-if="resultSearchValue && scopeTotal !== total" class="text-sm text-text-tertiary font-normal ml-2"
+                  >(결과 내 검색 전 {{ scopeTotal.toLocaleString() }}개)</span
+                >
+              </template>
+              <span v-else-if="listLoading" class="text-text-tertiary">불러오는 중…</span>
             </div>
             <div class="relative w-[190px] shrink-0">
               <ListFilter
@@ -304,106 +272,91 @@
           class="xl:flex-1 xl:min-h-0 xl:-mt-1 xl:overflow-y-auto scrollbar-subtle xl:px-5 xl:pb-8"
           @scroll.passive="onListScroll"
         >
+          <!-- 오류 — 검색 엔진 연결 실패(503) 등. 조건은 그대로 두고 다시 시도할 수 있게 한다 -->
+          <AEmptyState v-if="listError" :icon="CircleAlert" title="목록을 불러오지 못했습니다" :description="listError">
+            <button
+              class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+              @click="retryList"
+            >
+              다시 시도
+            </button>
+          </AEmptyState>
+
           <ul
-            v-if="results.length"
+            v-else-if="results.length || listLoading"
             aria-label="멀티모달 검색 결과"
+            :aria-busy="listLoading"
             class="m-0 p-0 xl:pt-1 list-none grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4"
           >
-            <li
-              v-for="(film, i) in results"
-              :key="film.id"
-              :style="{ animationDelay: `${Math.min(i, 8) * 50}ms` }"
-              class="animate-rise-in motion-reduce:animate-none group relative flex flex-col gap-3 min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 cursor-pointer transition-[border-color,box-shadow,transform] duration-[var(--duration-fast)] ease-standard hover:border-border-strong hover:shadow-elevation-2 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-focus-ring"
-            >
-              <!-- 제목 줄 오른쪽에 최근 자료 등록일을 둔다 — 작품끼리 최신성을 한눈에 비교하도록 -->
-              <div class="flex items-start justify-between gap-3 min-w-0">
-                <div class="flex flex-col gap-1 min-w-0">
-                  <!-- 제목 버튼의 클릭 영역을 카드 전체로 늘린다 — 카드 어디를 눌러도 상세가 열리고, 키보드로는 제목에 한 번만 멈춘다 -->
-                  <h3
-                    class="m-0 text-md font-semibold text-text-primary truncate transition-colors duration-[var(--duration-fast)] group-hover:text-action-primary"
-                  >
-                    <button
-                      type="button"
-                      class="bg-transparent border-none p-0 font-[inherit] text-[length:inherit] text-inherit cursor-pointer focus-visible:outline-none after:absolute after:inset-0 after:content-['']"
-                      @click="openFilmDetail(film.id)"
+            <template v-if="!listLoading">
+              <li
+                v-for="(entity, i) in results"
+                :key="entity.id"
+                :style="{ animationDelay: `${Math.min(i, 8) * 50}ms` }"
+                class="animate-rise-in motion-reduce:animate-none group relative flex flex-col gap-3 min-w-0 rounded-lg border border-border-default bg-bg-surface p-4 cursor-pointer transition-[border-color,box-shadow,transform] duration-[var(--duration-fast)] ease-standard hover:border-border-strong hover:shadow-elevation-2 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-focus-ring"
+              >
+                <div class="flex items-start justify-between gap-3 min-w-0">
+                  <div class="flex flex-col gap-1 min-w-0">
+                    <!-- 제목 버튼의 클릭 영역을 카드 전체로 늘린다 — 카드 어디를 눌러도 상세가 열리고, 키보드로는 제목에 한 번만 멈춘다 -->
+                    <h3
+                      class="m-0 text-md font-semibold text-text-primary truncate transition-colors duration-[var(--duration-fast)] group-hover:text-action-primary"
                     >
-                      {{ film.title }}
-                    </button>
-                  </h3>
-                  <p class="m-0 text-xs text-text-tertiary truncate">
-                    {{ film.type }} · {{ film.genre }} · {{ film.country }} · {{ film.decade }}
+                      <button
+                        type="button"
+                        class="bg-transparent border-none p-0 font-[inherit] text-[length:inherit] text-inherit cursor-pointer focus-visible:outline-none after:absolute after:inset-0 after:content-['']"
+                        @click="openEntityDetail(entity)"
+                      >
+                        {{ entity.name }}
+                      </button>
+                    </h3>
+                    <p class="m-0 text-xs text-text-tertiary truncate">
+                      {{ entity.type }}<template v-if="entity.areas.length"> · {{ entity.areas.join(' · ') }}</template>
+                    </p>
+                  </div>
+                  <!-- '확인된 N건' — 완전성을 약속하지 않는 표현으로 쓴다(IDD IF-ENTITY-01) -->
+                  <p class="m-0 shrink-0 pt-0.5 text-2xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">
+                    확인된 {{ entity.confirmedCount.toLocaleString() }}건
                   </p>
                 </div>
-                <p class="m-0 shrink-0 pt-0.5 text-2xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">
-                  등록일 {{ film.latestDate }}
-                </p>
-              </div>
 
-              <!-- 이 작품에 연결된 모달리티별 자료 수 — 없는 모달리티도 자리를 지켜 작품끼리 비교할 수 있게 한다 -->
-              <div class="flex gap-1.5 flex-wrap" aria-label="연결된 자료">
-                <span
-                  v-for="(n, m) in film.modalityCounts"
-                  :key="m"
-                  class="inline-flex items-center gap-1 h-6 px-2 rounded-md text-2xs font-semibold [font-feature-settings:'tnum']"
-                  :style="n ? { background: MODALITY_STYLE[m].bg, color: MODALITY_STYLE[m].text } : null"
-                  :class="n ? '' : 'bg-slate-50 text-text-disabled'"
-                >
-                  <component :is="MODALITY_STYLE[m].icon" :size="12" :stroke-width="1.8" aria-hidden="true" />
-                  {{ m }} {{ n }}
-                </span>
-              </div>
+                <p v-if="entity.description" class="m-0 text-sm text-text-secondary line-clamp-2">{{ entity.description }}</p>
 
-              <div class="flex flex-col gap-1.5 border-t border-slate-100 pt-3 min-w-0">
-                <!-- 제목 옆 건수: 검색 근거면 맞은 자료 수, 아니면 조건(기간·모달리티) 안의 연결 자료 수 -->
-                <p class="m-0 text-2xs font-semibold text-text-tertiary [font-feature-settings:'tnum']">
-                  <template v-if="film.isMatchedEvidence">
-                    검색 근거 <span class="text-text-primary">{{ film.evidence.length }}건</span>
-                    <span v-if="film.evidenceModalityCount > 1" class="text-action-primary"
-                      >&nbsp;· {{ film.evidenceModalityCount }}개 모달리티 교차</span
-                    >
-                    <span v-if="film.metaMatches.length"> · 작품 정보({{ film.metaMatches.join(', ') }})</span>
-                  </template>
-                  <template v-else-if="film.metaMatches.length"
-                    >작품 정보({{ film.metaMatches.join(', ') }})에서 일치 · 연결 자료
-                    <span class="text-text-primary">{{ film.scopedCount }}건</span></template
+                <!-- 갖춘 모달리티 — 목록 API 는 건수 없이 보유 여부만 준다. 없는 모달리티도 자리를 지켜 비교할 수 있게 한다 -->
+                <div class="flex gap-1.5 flex-wrap border-t border-slate-100 pt-3" aria-label="갖춘 자료">
+                  <span
+                    v-for="m in MODALITY_ORDER"
+                    :key="m"
+                    class="inline-flex items-center gap-1 h-6 px-2 rounded-md text-2xs font-semibold"
+                    :style="entity.modalities.includes(m) ? { background: MODALITY_STYLE[m].bg, color: MODALITY_STYLE[m].text } : null"
+                    :class="entity.modalities.includes(m) ? '' : 'bg-slate-50 text-text-disabled'"
                   >
-                  <template v-else
-                    >{{ hasDateRange ? '등록일 범위 안의 연결 자료' : '연결 자료' }}
-                    <span class="text-text-primary">{{ film.scopedCount }}건</span></template
-                  >
-                </p>
-                <ul class="m-0 p-0 list-none flex flex-col gap-1">
-                  <li v-for="a in film.evidence.slice(0, 4)" :key="a.id" class="flex items-center gap-2 min-w-0 text-xs">
-                    <component
-                      :is="MODALITY_STYLE[a.modality].icon"
-                      :size="13"
-                      :stroke-width="1.8"
-                      class="shrink-0"
-                      :style="{ color: MODALITY_STYLE[a.modality].text }"
-                      :aria-label="a.modality"
-                    />
-                    <span class="shrink-0 font-medium text-text-primary">{{ a.label }}</span>
-                    <span class="shrink-0 text-text-tertiary [font-feature-settings:'tnum']">{{ a.locator }}</span>
-                    <!-- 근거 유형 + 관련도 점(진할수록 높음). 색 없이 흰 바탕 테두리 배지 -->
-                    <span
-                      v-if="film.isMatchedEvidence"
-                      class="shrink-0 inline-flex items-center gap-1 h-[18px] px-1.5 rounded-sm border border-border-default bg-bg-surface text-2xs font-medium text-text-secondary"
-                      :title="`관련도 ${a.score.toFixed(2)}`"
-                      ><span class="w-1.5 h-1.5 rounded-full" :style="{ background: GRADE_COLOR[a.grade] }" aria-hidden="true"></span
-                      >{{ a.basis }}<span class="sr-only"> · 관련도 {{ a.grade }}</span></span
-                    >
-                    <span class="min-w-0 truncate text-text-secondary">{{ a.text }}</span>
-                  </li>
-                </ul>
-                <p v-if="film.evidence.length > 4" class="m-0 text-2xs text-text-tertiary">외 {{ film.evidence.length - 4 }}건</p>
-              </div>
+                    <component :is="MODALITY_STYLE[m].icon" :size="12" :stroke-width="1.8" aria-hidden="true" />
+                    {{ m }}
+                  </span>
+                </div>
+
+                <!-- 검색으로 들어온 개체만 — 서버가 무엇 때문에 맞았는지 알려준다 -->
+                <p v-if="entity.matchReason" class="m-0 text-2xs text-text-tertiary truncate">일치: {{ entity.matchReason }}</p>
+              </li>
+            </template>
+            <!-- 스켈레톤 카드 — 첫 조회·조건 변경 중엔 목록 자리를, 더 불러오는 중엔 목록 끝을 채운다 -->
+            <li
+              v-for="n in skeletonCardCount"
+              :key="`sk-${n}`"
+              aria-hidden="true"
+              class="flex flex-col gap-3 rounded-lg border border-border-default bg-bg-surface p-4"
+            >
+              <span class="h-4 w-2/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <span class="h-3 w-3/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <span class="h-3.5 w-full rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <span class="h-6 w-4/5 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
             </li>
           </ul>
 
           <div v-else>
             <AEmptyState
               :icon="SearchX"
-              title="조건에 해당하는 작품이 없습니다"
+              title="조건에 해당하는 개체가 없습니다"
               :description="`적용된 조건 ${appliedConditions.length}개가 서로 맞지 않을 수 있습니다. 조건을 줄여보세요.`"
             >
               <button
@@ -418,23 +371,28 @@
               >
             </AEmptyState>
           </div>
+
+          <!-- 이어 받기 감시 지점 — 화면 가까이 오면 다음 쪽을 받는다 -->
+          <div ref="loadMoreRef" class="flex items-center justify-center min-h-12 py-3 text-xs text-text-tertiary" aria-live="polite">
+            <span v-if="loadingMore" class="sr-only">더 불러오는 중입니다</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <FilmDetailModal
-    v-model:open="filmDetailOpen"
-    :film="filmDetail"
+  <EntityDetailModal
+    v-model:open="entityDetailOpen"
+    :target="entityDetailTarget"
+    :entity="entityDetail"
+    :status="entityDetailStatus"
+    :error-message="entityDetailError"
     :modality-style="MODALITY_STYLE"
-    :grade-color="GRADE_COLOR"
-    :basis-icon="BASIS_ICON"
-    @classification-click="applyFilmClassification"
-    @film-click="openFilmDetail"
-    @download="downloadFilmBundle"
+    @type-click="applyEntityType"
+    @retry="retryEntityDetail"
   />
 
-  <!-- 상세 모달(z-70) 위에 떠야 다운로드 안내가 보인다 -->
+  <!-- 상세 모달(z-70) 위에 떠야 안내가 보인다 -->
   <div v-if="toastMessage" class="fixed bottom-6 right-6 z-[80]">
     <AToast :title="toastMessage" />
   </div>
@@ -443,93 +401,84 @@
   <CommandPalette
     v-model:open="paletteOpen"
     :items="paletteItems"
-    group-label="필터를 고르거나 작품명을 입력하세요"
-    placeholder="명령 또는 작품 검색…"
+    group-label="필터를 고르거나 개체 이름을 입력하세요"
+    placeholder="명령 또는 개체 검색…"
     @select="runPaletteItem"
   />
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import {
-  Calendar as CalendarIcon,
   X,
   ListFilter,
-  Lock,
   SearchX,
+  CircleAlert,
   Film,
   Image as ImageIcon,
   FileText,
   AudioLines,
-  Captions,
-  ScanText,
-  Mic,
-  ScanEye,
-  Sparkles,
-  Link2,
-  Type,
-  ScanSearch,
   PanelLeftClose,
   PanelLeftOpen
 } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
-import ACalendar from '../../components/ACalendar.vue'
 import AFilterChip from '../../components/AFilterChip.vue'
 import AEmptyState from '../../components/AEmptyState.vue'
-import APopover from '../../components/APopover.vue'
 import ATooltip from '../../components/ATooltip.vue'
 import AToast from '../../components/AToast.vue'
 
-import { DATE_PRESETS } from './multimodalSearch.mock'
+import { MODALITY_ORDER } from './multimodalSearch.api'
 import { useMultimodalSearch } from './useMultimodalSearch'
-import FilmDetailModal from './FilmDetailModal.vue'
+import EntityDetailModal from './EntityDetailModal.vue'
 import CommandPalette from '../../layout/CommandPalette.vue'
 import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import { useHideOnScroll } from '../../composables/useHideOnScroll'
 
 const {
-  films,
   searchDraft,
   resultSearchDraft,
+  resultSearchValue,
+  entityType,
+  areas,
   modalities,
-  types,
-  dateFrom,
-  dateTo,
   searchDirty,
   commitSearch,
   setSearch,
   commitResultSearch,
   setResultSearch,
   results,
-  hasDateRange,
+  total,
+  scopeTotal,
+  listLoading,
+  loadingMore,
+  listError,
+  loadMoreRows,
+  retryList,
   searchTerms,
   resultKeywordPrefix,
   typeChips,
+  toggleType,
+  areaGroups,
+  toggleArea,
   modalityChips,
-  fieldGroups,
-  toggleField,
-  hasFieldSelection,
-  clearFields,
-  dateRangeLabel,
-  datePresetCounts,
+  toggleModality,
   appliedConditions,
   clearAllConditions,
-  clearDateRange,
-  applyDatePreset,
-  isDatePresetActive,
-  filmDetailOpen,
-  filmDetail,
-  openFilmDetail,
-  applyFilmClassification,
+  entityDetailOpen,
+  entityDetailTarget,
+  entityDetail,
+  entityDetailStatus,
+  entityDetailError,
+  openEntityDetail,
+  retryEntityDetail,
+  applyEntityType,
   toastMessage,
-  downloadFilmBundle,
   paletteOpen,
   paletteItems,
   closePalette,
-  runPaletteItem,
-  toggleIn
+  runPaletteItem
 } = useMultimodalSearch()
 
 /* 모달리티별 배지 색·아이콘 — 파일 검색 목록의 확장자 배지 색과 맞춘다 (이미지·문서·영상) */
@@ -540,13 +489,15 @@ const MODALITY_STYLE = {
   음성: { icon: AudioLines, bg: 'color-mix(in oklch, var(--color-viz-6) 12%, white)', text: 'var(--color-viz-6)' }
 }
 
+const skeletonCardCount = computed(() => (listLoading.value ? 6 : loadingMore.value ? 3 : 0))
+
 /* ------------------------------------------------------------- 키보드 단축키 */
 
-/* 작품 상세 모달이 떠 있으면 ⌘K를 무시한다 — 팔레트가 모달 아래 층이라 열려도 보이지 않는다.
+/* 개체 상세 모달이 떠 있으면 ⌘K를 무시한다 — 팔레트가 모달 아래 층이라 열려도 보이지 않는다.
    모달의 Escape는 모달이 스스로 처리한다 */
 function onGlobalKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-    if (filmDetailOpen.value) return
+    if (entityDetailOpen.value) return
     e.preventDefault()
     paletteOpen.value = !paletteOpen.value
     return
@@ -554,30 +505,6 @@ function onGlobalKeydown(e) {
   if (e.key === 'Escape' && paletteOpen.value) closePalette()
 }
 
-/* 근거 유형별 아이콘 — 색 대신 모양으로 유형을 구분한다. 위 여섯은 검색 근거, 아래 셋은 작품 연결 근거 */
-const BASIS_ICON = {
-  본문: FileText,
-  자막: Captions,
-  OCR: ScanText,
-  음성인식: Mic,
-  '이미지 캡션': ScanEye,
-  '장면 유사': Sparkles,
-  '메타데이터 연결': Link2,
-  '제목 자동 연결': Type,
-  '장면 자동 연결': ScanSearch
-}
-
-/* 관련도 등급별 점 색 — 높음일수록 진한 브랜드색 */
-const GRADE_COLOR = {
-  높음: 'var(--color-action-primary)',
-  중간: 'var(--color-primary-300)',
-  낮음: 'var(--color-slate-300)'
-}
-
-onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', onGlobalKeydown))
-
-/* 위치 계산·바깥 클릭·Escape는 APopover가 처리한다 — 범위가 완성될 때만 여기서 닫는다 */
 /* 목록을 내리면 헤더(AppHeader)와 검색 영역을 차례로 감추고, 올리면 차례로 다시 보인다 */
 const { visible: headerVisible, onScroll: onListScroll, show: showHeader } = useHideOnScroll()
 
@@ -590,8 +517,38 @@ function toggleFilterPanel() {
 /* 맨 위로 버튼이 지켜보고 올릴 목록 스크롤 영역 */
 const listScrollRef = ref(null)
 
-const datePickerOpen = ref(false)
-function onDateRangeEnd(date) {
-  if (date) datePickerOpen.value = false
-}
+/* ------------------------------------------------------------ 무한 스크롤 */
+
+const loadMoreRef = ref(null)
+let loadObserver = null
+
+/* 받은 쪽이 짧아 감시 지점이 계속 화면 안에 있으면 교차 상태가 바뀌지 않아 콜백이 다시 오지 않는다 —
+   목록이 바뀔 때마다 다시 등록해 지금 상태로 한 번 더 판정받는다 */
+watch(
+  () => results.value.length,
+  () => {
+    if (!loadObserver || !loadMoreRef.value) return
+    loadObserver.unobserve(loadMoreRef.value)
+    loadObserver.observe(loadMoreRef.value)
+  },
+  { flush: 'post' }
+)
+
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  if ('IntersectionObserver' in window) {
+    loadObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMoreRows()
+      },
+      { rootMargin: '240px 0px' }
+    )
+    if (loadMoreRef.value) loadObserver.observe(loadMoreRef.value)
+  }
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  loadObserver?.disconnect()
+  loadObserver = null
+})
 </script>
