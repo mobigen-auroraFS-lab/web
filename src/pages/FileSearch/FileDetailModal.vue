@@ -87,10 +87,13 @@
                   >
                     이 데이터만 <span class="text-text-tertiary">(원본 1건)</span>
                   </button>
+                  <!-- 연관 데이터 · 분류 묶음은 기능은 연결돼 있지만 협의 전이라 "미결"로 막아 둔다.
+                       열 때는 아래 두 버튼의 disabled · 미결 배지만 걷으면 된다 -->
                   <button
                     type="button"
                     disabled
                     class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
+                    @click="selectDownload('relations')"
                   >
                     <span>연관 데이터 묶음 <span class="text-text-disabled">(zip)</span></span>
                     <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
@@ -99,6 +102,7 @@
                     type="button"
                     disabled
                     class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
+                    @click="selectDownload('category')"
                   >
                     <span>분류 묶음 <span class="text-text-disabled">(zip)</span></span>
                     <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
@@ -264,7 +268,11 @@
                         <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">출처</dt>
                         <dd class="m-0 text-sm text-text-tertiary truncate">{{ file.source }}</dd>
                       </div>
-                      <div v-for="item in extendedMeta" :key="item.key" class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100">
+                      <div
+                        v-for="item in extendedMeta"
+                        :key="item.key"
+                        class="flex items-baseline gap-4 py-3.5 first:pt-1 border-b border-slate-100"
+                      >
                         <dt class="w-28 shrink-0 text-sm font-semibold text-text-primary truncate">{{ item.label }}</dt>
                         <dd class="m-0 text-sm text-text-tertiary truncate [font-feature-settings:'tnum']">
                           {{ item.value ?? '정보 없음' }}
@@ -277,7 +285,11 @@
 
               <!-- 관계 정보 — 신뢰도·설명 없이 파일명과 관계만 바로 훑는 카드 그리드 -->
               <section class="flex flex-col gap-3">
-                <ALineTabs :key="file.id" v-model="activeTabLabel" :tabs="relationTabsMeta.map((t) => ({ label: t.label, count: t.count }))" />
+                <ALineTabs
+                  :key="file.id"
+                  v-model="activeTabLabel"
+                  :tabs="relationTabsMeta.map((t) => ({ label: t.label, count: t.count }))"
+                />
 
                 <div
                   v-if="activeRelationList.length === 0"
@@ -409,6 +421,8 @@ const props = defineProps({
 const emit = defineEmits([
   'update:open',
   'download-original',
+  'download-relations',
+  'download-category',
   'breadcrumb-click',
   'topic-click',
   'meta-click',
@@ -486,9 +500,9 @@ function onClickOutsideDownloadMenu(e) {
 onMounted(() => document.addEventListener('click', onClickOutsideDownloadMenu))
 onBeforeUnmount(() => document.removeEventListener('click', onClickOutsideDownloadMenu))
 
-function selectDownload() {
+function selectDownload(kind = 'original') {
   downloadMenuOpen.value = false
-  emit('download-original', props.file)
+  emit(`download-${kind}`, props.file)
 }
 
 watch(

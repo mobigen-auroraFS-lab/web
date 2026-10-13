@@ -1,5 +1,5 @@
 import { Image as ImageIcon, FileText, Video, Archive, Music, File } from '@lucide/vue'
-import { apiFetch, downloadFile, toQuery } from '../../api/client'
+import { apiFetch, downloadBundleByLink, downloadByLink, downloadSelectionByForm, toQuery } from '../../api/client'
 
 /**
  * 파일 검색 화면이 부르는 API 와, 응답을 화면 모델로 바꾸는 매핑.
@@ -208,12 +208,24 @@ export function readStoredDensity() {
 
 /* ------------------------------------------------------------ 파일 받기 */
 
-/** IF-ASSET-03 — 원본 1건 */
+/** IF-ASSET-15 → IF-ASSET-03 — 원본 1건(다운로드 링크) */
 export function downloadAsset(asset) {
-  return downloadFile(`/assets/${encodeURIComponent(asset.id)}/download`, { fallbackName: asset.name })
+  return downloadByLink(asset.id, asset.name)
 }
 
-/** IF-ASSET-12 — 고른 자산들 zip (서버 상한 200건 · 500MB) */
-export function downloadSelectionBundle(ids) {
-  return downloadFile('/assets/bundle', { method: 'POST', body: { asset_ids: ids }, fallbackName: 'assets.zip' })
+/** IF-ASSET-17 — 고른 자산들 zip(폼 제출 · 건수 · 용량 상한 없음). 서버가 오류 본문을 주면 onError 로 알린다 */
+export function downloadSelectionBundle(ids, options) {
+  return downloadSelectionByForm(ids, options)
+}
+
+/** IF-ASSET-05 — 이 자산과 관계된 자산 zip(묶음 링크) */
+export function downloadRelationBundle(asset) {
+  return downloadBundleByLink(`/assets/${encodeURIComponent(asset.id)}/bundle`)
+}
+
+/** IF-ASSET-18 — 이 파일이 속한 분류(주제 · 하위주제)의 자료 전부 zip(묶음 링크).
+    하위주제가 없는 파일은 `subtopic=`(빈 값)으로 보내야 같은 분류(하위주제 없음)만 담긴다 — toQuery 는 빈 값을 빼므로 직접 만든다 */
+export function downloadCategoryBundle(asset) {
+  const { topic, subtopic } = asset.topics[0]
+  return downloadBundleByLink(`/topics/${encodeURIComponent(topic)}/bundle?subtopic=${encodeURIComponent(subtopic ?? '')}`)
 }

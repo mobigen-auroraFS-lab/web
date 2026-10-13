@@ -1,5 +1,16 @@
 import { ref, computed, watch } from 'vue'
-import { PAGE_SIZE, MODALITY_ORDER, MODALITY_LABELS, fetchEntities, fetchEntityFacets, fetchEntityCard, normalizeEntity, buildEntityDetail } from './multimodalSearch.api'
+import {
+  PAGE_SIZE,
+  MODALITY_ORDER,
+  MODALITY_LABELS,
+  fetchEntities,
+  fetchEntityFacets,
+  fetchEntityCard,
+  downloadEntityBundle,
+  downloadEntityAssets,
+  normalizeEntity,
+  buildEntityDetail
+} from './multimodalSearch.api'
 
 function toggleIn(list, val) {
   return list.includes(val) ? list.filter((v) => v !== val) : [...list, val]
@@ -68,7 +79,13 @@ export function useMultimodalSearch() {
   const listError = ref('')
 
   function conditionParams() {
-    return { q: searchValue.value, refine: resultSearchValue.value, entityType: entityType.value, areas: areas.value, modalities: modalities.value }
+    return {
+      q: searchValue.value,
+      refine: resultSearchValue.value,
+      entityType: entityType.value,
+      areas: areas.value,
+      modalities: modalities.value
+    }
   }
 
   /* 조건이 빠르게 여러 번 바뀌면 늦게 도착한 옛 응답이 새 결과를 덮어쓸 수 있다 — 마지막 요청만 반영한다 */
@@ -182,7 +199,10 @@ export function useMultimodalSearch() {
     ...(resultSearchValue.value ? [{ label: `결과 내 검색: ${resultSearchValue.value}`, remove: () => setResultSearch('') }] : []),
     ...(entityType.value ? [{ label: `종류: ${entityType.value}`, remove: () => (entityType.value = '') }] : []),
     ...areas.value.map((v) => ({ label: `갈래: ${v}`, remove: () => (areas.value = areas.value.filter((x) => x !== v)) })),
-    ...modalities.value.map((v) => ({ label: `포함 자료: ${v}`, remove: () => (modalities.value = modalities.value.filter((x) => x !== v)) }))
+    ...modalities.value.map((v) => ({
+      label: `포함 자료: ${v}`,
+      remove: () => (modalities.value = modalities.value.filter((x) => x !== v))
+    }))
   ])
 
   const resultKeywordPrefix = computed(() => {
@@ -237,6 +257,32 @@ export function useMultimodalSearch() {
   }
   function retryEntityDetail() {
     if (entityDetailTarget.value) loadEntityDetail(entityDetailTarget.value)
+  }
+
+  /* 묶음 다운로드 — 연결 자료 전체는 카드 묶음, 보고 있는 자료 유형 탭만은 그 탭의 자산 id 로 고른 자산 묶음을 받는다 */
+  const downloading = ref(false)
+  async function downloadEntity({ key, assetIds }) {
+    const target = entityDetailTarget.value
+    if (!target || downloading.value) return
+    downloading.value = true
+    try {
+      if (key === 'all') {
+        const r = await downloadEntityBundle(target.type, target.uid)
+        showToast(
+          r.missing > 0
+            ? `${target.name} · ${r.count}건 다운로드를 시작했습니다. (${r.missing}건 제외)`
+            : `${target.name} · ${r.count}건 다운로드를 시작했습니다.`,
+          3000
+        )
+      } else {
+        const r = await downloadEntityAssets(assetIds, { onError: (message) => showToast(message, 4000) })
+        showToast(`${target.name} · ${r.count}건 다운로드를 시작했습니다.`, 3000)
+      }
+    } catch (e) {
+      showToast(e.message, 4000)
+    } finally {
+      downloading.value = false
+    }
   }
 
   /* 모달의 종류 경로를 누르면 그 종류로 목록을 좁힌다 */
@@ -316,6 +362,8 @@ export function useMultimodalSearch() {
     openEntityDetail,
     retryEntityDetail,
     applyEntityType,
+    downloadEntity,
+    downloading,
 
     toastMessage,
 

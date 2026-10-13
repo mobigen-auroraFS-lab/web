@@ -79,8 +79,8 @@ export function fetchMe() {
   return apiFetch('/me')
 }
 
-/* 파일 받기 — 인증 헤더가 필요해 <a href> 로는 못 받는다. fetch 로 받아 Blob 으로 저장한다.
-   zip 은 스트리밍이라 도중에 끊기면 200 뒤 본문만 짧아질 수 있어, 받은 길이를 Content-Length 와 맞춰 본다 */
+/* 파일 받기 — 단건은 서버가 주는 짧은 수명의 다운로드 링크(IF-ASSET-15)를 브라우저가 직접 열어 받는다(브라우저 다운로드 관리자가
+   받으므로 큰 파일도 메모리에 모으지 않고 진행률 · 이어받기가 된다). 묶음 zip 은 링크가 없어 헤더 인증 fetch 로 받아 Blob 으로 저장한다 */
 function filenameFrom(res, fallback) {
   const cd = res.headers.get('Content-Disposition') || ''
   const star = /filename\*=UTF-8''([^;]+)/i.exec(cd)
@@ -115,7 +115,13 @@ export async function downloadFile(path, { method = 'GET', body, fallbackName = 
     throw new ApiError(message, res.status, err?.errors ?? null)
   }
 
-  const blob = await res.blob()
+  /* zip 은 스트리밍이라 받는 도중 서버가 끊기면 blob() 이 네트워크 오류로 던진다 — 영어 오류 대신 안내 문장으로 바꾼다 */
+  let blob
+  try {
+    blob = await res.blob()
+  } catch {
+    throw new ApiError('파일을 끝까지 받지 못했습니다. 다시 시도해 주세요.', res.status)
+  }
   const expected = Number(res.headers.get('Content-Length'))
   if (expected && blob.size !== expected) throw new ApiError('파일을 끝까지 받지 못했습니다. 다시 시도해 주세요.', res.status)
 
@@ -135,4 +141,111 @@ export async function downloadFile(path, { method = 'GET', body, fallbackName = 
     missing: Number(res.headers.get('X-Bundle-Missing')) || 0,
     files: Number(res.headers.get('X-Bundle-Files')) || 0
   }
+}
+
+/* 링크로 열기 전 HEAD 로 먼저 확인하는 이유 — 링크를 바로 열었다가 실패하면 브라우저가 JSON 오류 화면으로 이동한다(HEAD 는 본문도 접근 기록도 없다) */
+const LINK_ERRORS = {
+  404: '다운로드 대상을 찾을 수 없거나 받을 수 없는 자료입니다.',
+  410: '원본 파일을 찾을 수 없습니다. 파일이 옮겨졌거나 삭제되었을 수 있습니다.',
+  503: '서버가 혼잡하거나 일시적으로 쓸 수 없습니다. 잠시 후 다시 시도해 주세요.'
+}
+
+/** IF-ASSET-15 → IF-ASSET-03 — 원본 1건을 다운로드 링크로 받는다. 링크는 5분쯤 뒤 만료되어 누를 때마다 새로 받는다 */
+export async function downloadByLink(assetId, fallbackName = 'download') {
+  const { url } = await apiFetch(`/assets/${encodeURIComponent(assetId)}/download-link`, { method: 'POST' })
+  /* 서버가 준 url 은 서버 기준 경로라 프록시 접두사만 붙인다 */
+  const href = `${API_BASE}${url}`
+
+  let head
+  try {
+    head = await fetch(href, { method: 'HEAD' })
+  } catch {
+    throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0)
+  }
+  if (!head.ok) throw new ApiError(LINK_ERRORS[head.status] ?? `파일을 받지 못했습니다. (${head.status})`, head.status)
+
+  /* 파일 이름은 서버의 Content-Disposition(attachment)이 정한다 */
+  const a = document.createElement('a')
+  a.href = href
+  a.download = ''
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  return { name: filenameFrom(head, fallbackName) }
+}
+
+/* ----------------------------------------------------------- 묶음(zip) 받기 */
+
+/* 묶음도 링크로 받는다(IF-ASSET-16) — 건수 · 용량 상한이 없어 수 GB 도 가능하므로, 브라우저 다운로드 관리자가 받게 하고 메모리에 모으지 않는다.
+   링크는 그 요청 대상(경로 + 조건)에만 통하고 곧 만료되므로 누를 때마다 새로 받는다 */
+async function mintBundleLink(method, url) {
+  const body = await apiFetch('/bundle-links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, url })
+  })
+  return `${API_BASE}${body.url}`
+}
+
+const BUNDLE_ERRORS = {
+  404: '내려받을 대상을 찾을 수 없습니다.',
+  409: '내려받을 수 있는 파일이 없습니다. 원본이 없거나 받을 수 없는 자료입니다.',
+  503: '묶음 내려받기가 몰려 있습니다. 잠시 후 다시 시도해 주세요.'
+}
+
+/** GET 묶음(관계 · 개체 · 카드) — 링크를 열기 전 HEAD 로 확인해 오류를 문장으로 알린다(바로 열었다 실패하면 브라우저가 JSON 화면으로 이동한다) */
+export async function downloadBundleByLink(url) {
+  const href = await mintBundleLink('GET', url)
+  let head
+  try {
+    head = await fetch(href, { method: 'HEAD' })
+  } catch {
+    throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0)
+  }
+  if (!head.ok) throw new ApiError(BUNDLE_ERRORS[head.status] ?? `묶음을 받지 못했습니다. (${head.status})`, head.status)
+  const a = document.createElement('a')
+  a.href = href
+  a.download = ''
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  return { count: Number(head.headers.get('X-Bundle-Count')) || 0, missing: Number(head.headers.get('X-Bundle-Missing')) || 0 }
+}
+
+/** 고른 자산 묶음 — 폼 제출(IF-ASSET-17)로 받는다. 숨은 iframe 으로 제출해 화면은 그대로 두고, 서버가 오류 JSON 을 주면 onError 로 알린다 */
+export async function downloadSelectionByForm(ids, { onError } = {}) {
+  const href = await mintBundleLink('POST', '/assets/bundle/download')
+  const frame = document.createElement('iframe')
+  frame.name = `bundle-${Date.now()}`
+  frame.style.display = 'none'
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = href
+  form.target = frame.name
+  form.style.display = 'none'
+  ids.forEach((id) => {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = 'asset_ids'
+    input.value = id
+    form.appendChild(input)
+  })
+  /* 내려받기가 시작되면 load 가 오지 않는다 — load 가 오면 서버가 오류 본문을 준 것이다.
+     단, 빈 iframe 은 붙이는 순간 about:blank 로 load 가 한 번 오므로(Chrome) 그건 거른다 */
+  frame.addEventListener('load', () => {
+    if (frame.contentWindow?.location.href === 'about:blank') return
+    try {
+      const detail = JSON.parse(frame.contentDocument?.body?.innerText ?? '')?.detail
+      onError?.(typeof detail === 'string' ? detail : '묶음을 받지 못했습니다.')
+    } catch {
+      onError?.('묶음을 받지 못했습니다.')
+    }
+  })
+  document.body.append(frame, form)
+  form.submit()
+  setTimeout(() => {
+    form.remove()
+    frame.remove()
+  }, 60000)
+  return { count: ids.length }
 }

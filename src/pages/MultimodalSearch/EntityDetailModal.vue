@@ -54,11 +54,11 @@
                   v-for="opt in downloadOptions"
                   :key="opt.key"
                   type="button"
-                  disabled
-                  class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
+                  :disabled="downloading || opt.count === 0"
+                  class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover disabled:text-text-disabled disabled:cursor-not-allowed"
+                  @click="selectDownload(opt)"
                 >
-                  <span>{{ opt.label }} <span class="text-text-disabled [font-feature-settings:'tnum']">(zip · {{ opt.count }}건)</span></span>
-                  <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
+                  {{ opt.label }} <span class="text-text-tertiary [font-feature-settings:'tnum']">(zip · {{ opt.count }}건)</span>
                 </button>
               </div>
             </div>
@@ -145,7 +145,9 @@
                         >
                           <component :is="modalityStyle[m].icon" :size="14" :stroke-width="1.8" aria-hidden="true" />
                         </span>
-                        <span class="w-10 shrink-0 text-sm font-medium" :class="n ? 'text-text-primary' : 'text-text-disabled'">{{ m }}</span>
+                        <span class="w-10 shrink-0 text-sm font-medium" :class="n ? 'text-text-primary' : 'text-text-disabled'">{{
+                          m
+                        }}</span>
                         <span class="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden" aria-hidden="true">
                           <span
                             class="block h-full rounded-full"
@@ -234,9 +236,11 @@ const props = defineProps({
   status: { type: String, default: 'ready' },
   errorMessage: { type: String, default: '' },
   /* 모달리티별 { icon, bg, text } — 목록 카드와 같은 색을 쓰도록 화면에서 넘겨받는다 */
-  modalityStyle: { type: Object, required: true }
+  modalityStyle: { type: Object, required: true },
+  /* 묶음을 받는 중이면 메뉴를 막는다 */
+  downloading: { type: Boolean, default: false }
 })
-const emit = defineEmits(['update:open', 'type-click', 'retry'])
+const emit = defineEmits(['update:open', 'type-click', 'download', 'retry'])
 
 const titleId = useId()
 const dialogRef = ref(null)
@@ -319,6 +323,11 @@ watch(
     downloadMenuOpen.value = false
   }
 )
+
+function selectDownload(opt) {
+  downloadMenuOpen.value = false
+  emit('download', { key: opt.key, assetIds: opt.key === 'all' ? [] : visibleAssets.value.map((a) => a.id) })
+}
 
 /* 모달리티 묶음은 해당 탭을 보고 있을 때만 보여준다 */
 const downloadOptions = computed(() => [

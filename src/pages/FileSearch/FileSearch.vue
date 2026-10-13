@@ -416,6 +416,8 @@
     :error-message="fileDetailError"
     @retry="retryFileDetail"
     @download-original="downloadOriginal"
+    @download-relations="downloadRelations"
+    @download-category="downloadCategory"
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
@@ -545,6 +547,8 @@ const {
   loadMoreRows,
   downloading,
   downloadOriginal,
+  downloadRelations,
+  downloadCategory,
   downloadSelected,
   openFileDetail,
   closeFileDetail,
