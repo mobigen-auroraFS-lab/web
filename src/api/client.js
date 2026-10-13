@@ -230,8 +230,10 @@ export async function downloadSelectionByForm(ids, { onError } = {}) {
     input.value = id
     form.appendChild(input)
   })
-  /* 내려받기가 시작되면 load 가 오지 않는다 — load 가 오면 서버가 오류 본문을 준 것이다 */
+  /* 내려받기가 시작되면 load 가 오지 않는다 — load 가 오면 서버가 오류 본문을 준 것이다.
+     단, 빈 iframe 은 붙이는 순간 about:blank 로 load 가 한 번 오므로(Chrome) 그건 거른다 */
   frame.addEventListener('load', () => {
+    if (frame.contentWindow?.location.href === 'about:blank') return
     try {
       const detail = JSON.parse(frame.contentDocument?.body?.innerText ?? '')?.detail
       onError?.(typeof detail === 'string' ? detail : '묶음을 받지 못했습니다.')
