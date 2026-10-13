@@ -17,6 +17,7 @@ import {
   buildFileDetail,
   downloadAsset,
   downloadRelationBundle,
+  downloadCategoryBundle,
   downloadSelectionBundle,
   readStoredDensity,
   DENSITY_STORAGE_KEY
@@ -447,6 +448,14 @@ export function useFileSearch() {
     )
   }
 
+  /* 상세 모달의 「분류 묶음」 — 이 파일이 속한 분류(주제 · 하위주제)의 자료 전부. 큰 분류는 수천 건이다 */
+  function downloadCategory(file) {
+    return runDownload(
+      () => downloadCategoryBundle(file),
+      (r) => `${file.topics[0].label} 분류 ${r.count.toLocaleString()}건 다운로드를 시작했습니다.`
+    )
+  }
+
   /* 상세 모달의 「연관 데이터 묶음」 — 이 자산과 확인된 관계로 이어진 자산 zip */
   function downloadRelations(file) {
     return runDownload(
@@ -749,6 +758,7 @@ export function useFileSearch() {
     downloading,
     downloadOriginal,
     downloadRelations,
+    downloadCategory,
     downloadSelected,
 
     openFileDetail,

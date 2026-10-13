@@ -417,6 +417,7 @@
     @retry="retryFileDetail"
     @download-original="downloadOriginal"
     @download-relations="downloadRelations"
+    @download-category="downloadCategory"
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
@@ -547,6 +548,7 @@ const {
   downloading,
   downloadOriginal,
   downloadRelations,
+  downloadCategory,
   downloadSelected,
   openFileDetail,
   closeFileDetail,

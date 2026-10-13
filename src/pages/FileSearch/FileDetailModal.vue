@@ -87,17 +87,22 @@
                   >
                     이 데이터만 <span class="text-text-tertiary">(원본 1건)</span>
                   </button>
+                  <!-- 연관 데이터 · 분류 묶음은 기능은 연결돼 있지만 협의 전이라 "미결"로 막아 둔다.
+                       열 때는 아래 두 버튼의 disabled · 미결 배지만 걷으면 된다 -->
                   <button
                     type="button"
-                    class="w-full text-left px-3 py-2.5 text-sm text-text-primary bg-transparent border-none cursor-pointer hover:bg-bg-surface-hover"
+                    disabled
+                    class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
                     @click="selectDownload('relations')"
                   >
-                    연관 데이터 묶음 <span class="text-text-tertiary">(zip)</span>
+                    <span>연관 데이터 묶음 <span class="text-text-disabled">(zip)</span></span>
+                    <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
                   </button>
                   <button
                     type="button"
                     disabled
                     class="w-full flex items-center justify-between gap-2 text-left px-3 py-2.5 text-sm text-text-disabled bg-transparent border-none cursor-not-allowed"
+                    @click="selectDownload('category')"
                   >
                     <span>분류 묶음 <span class="text-text-disabled">(zip)</span></span>
                     <span class="text-2xs font-semibold text-text-tertiary bg-slate-100 rounded-sm px-1.5 py-0.5 shrink-0">미결</span>
@@ -417,6 +422,7 @@ const emit = defineEmits([
   'update:open',
   'download-original',
   'download-relations',
+  'download-category',
   'breadcrumb-click',
   'topic-click',
   'meta-click',
@@ -496,7 +502,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onClickOutsideDownlo
 
 function selectDownload(kind = 'original') {
   downloadMenuOpen.value = false
-  emit(kind === 'relations' ? 'download-relations' : 'download-original', props.file)
+  emit(`download-${kind}`, props.file)
 }
 
 watch(

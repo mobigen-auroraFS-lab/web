@@ -222,3 +222,10 @@ export function downloadSelectionBundle(ids, options) {
 export function downloadRelationBundle(asset) {
   return downloadBundleByLink(`/assets/${encodeURIComponent(asset.id)}/bundle`)
 }
+
+/** IF-ASSET-18 — 이 파일이 속한 분류(주제 · 하위주제)의 자료 전부 zip(묶음 링크).
+    하위주제가 없는 파일은 `subtopic=`(빈 값)으로 보내야 같은 분류(하위주제 없음)만 담긴다 — toQuery 는 빈 값을 빼므로 직접 만든다 */
+export function downloadCategoryBundle(asset) {
+  const { topic, subtopic } = asset.topics[0]
+  return downloadBundleByLink(`/topics/${encodeURIComponent(topic)}/bundle?subtopic=${encodeURIComponent(subtopic ?? '')}`)
+}
