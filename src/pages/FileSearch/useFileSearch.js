@@ -16,6 +16,7 @@ import {
   fetchRelationKinds,
   buildFileDetail,
   downloadAsset,
+  downloadRelationBundle,
   downloadSelectionBundle,
   readStoredDensity,
   DENSITY_STORAGE_KEY
@@ -431,15 +432,29 @@ export function useFileSearch() {
   }
 
   function downloadOriginal(file) {
-    return runDownload(() => downloadAsset(file), (r) => `${r.name} 다운로드를 시작했습니다.`)
+    return runDownload(
+      () => downloadAsset(file),
+      (r) => `${r.name} 다운로드를 시작했습니다.`
+    )
   }
 
-  /* 빠진 자산(노출 대상 아님 · 원본 없음)이 있으면 몇 건이 담겼는지 알려 준다 */
+  /* 폼 제출이라 담긴 수는 받는 쪽(브라우저)에서 알 수 없다 — 서버가 오류 본문을 주면 그 문장을 보여 준다 */
   function downloadSelected() {
     const ids = [...selectedIds.value]
     return runDownload(
-      () => downloadSelectionBundle(ids),
-      (r) => (r.missing > 0 ? `${ids.length}건 중 ${r.files}건이 담겼습니다. (${r.missing}건 제외)` : `${ids.length}건 다운로드를 시작했습니다.`)
+      () => downloadSelectionBundle(ids, { onError: (message) => showToast(message, 4000) }),
+      (r) => `${r.count}건 다운로드를 시작했습니다.`
+    )
+  }
+
+  /* 상세 모달의 「연관 데이터 묶음」 — 이 자산과 확인된 관계로 이어진 자산 zip */
+  function downloadRelations(file) {
+    return runDownload(
+      () => downloadRelationBundle(file),
+      (r) =>
+        r.missing > 0
+          ? `연관 데이터 ${r.count}건 다운로드를 시작했습니다. (${r.missing}건 제외)`
+          : `연관 데이터 ${r.count}건 다운로드를 시작했습니다.`
     )
   }
 
@@ -733,6 +748,7 @@ export function useFileSearch() {
     loadMoreRows,
     downloading,
     downloadOriginal,
+    downloadRelations,
     downloadSelected,
 
     openFileDetail,

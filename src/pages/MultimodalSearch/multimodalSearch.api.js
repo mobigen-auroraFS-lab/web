@@ -1,4 +1,4 @@
-import { apiFetch, toQuery } from '../../api/client'
+import { apiFetch, downloadBundleByLink, downloadSelectionByForm, toQuery } from '../../api/client'
 
 /**
  * 멀티모달 검색 화면이 부르는 API 와, 응답을 화면 모델로 바꾸는 매핑.
@@ -37,6 +37,16 @@ export function fetchEntityFacets({ entityType, areas, modalities }) {
 /** IF-ENTITY-05 */
 export function fetchEntityCard(type, uid) {
   return apiFetch(entityPath(type, uid))
+}
+
+/** IF-ENTITY-06 — 카드의 구성 자산 전부 zip(묶음 링크 · 건수 · 용량 상한 없음) */
+export function downloadEntityBundle(type, uid) {
+  return downloadBundleByLink(`${entityPath(type, uid)}/bundle`)
+}
+
+/** IF-ASSET-17 — 고른 자산들 zip(폼 제출) — 상세에서 보고 있는 자료 유형 탭만 받을 때 */
+export function downloadEntityAssets(assetIds, options) {
+  return downloadSelectionByForm(assetIds, options)
 }
 
 /* ------------------------------------------------------------- 응답 매핑 */

@@ -388,7 +388,9 @@
     :status="entityDetailStatus"
     :error-message="entityDetailError"
     :modality-style="MODALITY_STYLE"
+    :downloading="downloading"
     @type-click="applyEntityType"
+    @download="downloadEntity"
     @retry="retryEntityDetail"
   />
 
@@ -474,6 +476,8 @@ const {
   openEntityDetail,
   retryEntityDetail,
   applyEntityType,
+  downloadEntity,
+  downloading,
   toastMessage,
   paletteOpen,
   paletteItems,

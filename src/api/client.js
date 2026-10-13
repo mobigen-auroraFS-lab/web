@@ -173,3 +173,77 @@ export async function downloadByLink(assetId, fallbackName = 'download') {
   a.remove()
   return { name: filenameFrom(head, fallbackName) }
 }
+
+/* ----------------------------------------------------------- 묶음(zip) 받기 */
+
+/* 묶음도 링크로 받는다(IF-ASSET-16) — 건수 · 용량 상한이 없어 수 GB 도 가능하므로, 브라우저 다운로드 관리자가 받게 하고 메모리에 모으지 않는다.
+   링크는 그 요청 대상(경로 + 조건)에만 통하고 곧 만료되므로 누를 때마다 새로 받는다 */
+async function mintBundleLink(method, url) {
+  const body = await apiFetch('/bundle-links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method, url })
+  })
+  return `${API_BASE}${body.url}`
+}
+
+const BUNDLE_ERRORS = {
+  404: '내려받을 대상을 찾을 수 없습니다.',
+  409: '내려받을 수 있는 파일이 없습니다. 원본이 없거나 받을 수 없는 자료입니다.',
+  503: '묶음 내려받기가 몰려 있습니다. 잠시 후 다시 시도해 주세요.'
+}
+
+/** GET 묶음(관계 · 개체 · 카드) — 링크를 열기 전 HEAD 로 확인해 오류를 문장으로 알린다(바로 열었다 실패하면 브라우저가 JSON 화면으로 이동한다) */
+export async function downloadBundleByLink(url) {
+  const href = await mintBundleLink('GET', url)
+  let head
+  try {
+    head = await fetch(href, { method: 'HEAD' })
+  } catch {
+    throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0)
+  }
+  if (!head.ok) throw new ApiError(BUNDLE_ERRORS[head.status] ?? `묶음을 받지 못했습니다. (${head.status})`, head.status)
+  const a = document.createElement('a')
+  a.href = href
+  a.download = ''
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  return { count: Number(head.headers.get('X-Bundle-Count')) || 0, missing: Number(head.headers.get('X-Bundle-Missing')) || 0 }
+}
+
+/** 고른 자산 묶음 — 폼 제출(IF-ASSET-17)로 받는다. 숨은 iframe 으로 제출해 화면은 그대로 두고, 서버가 오류 JSON 을 주면 onError 로 알린다 */
+export async function downloadSelectionByForm(ids, { onError } = {}) {
+  const href = await mintBundleLink('POST', '/assets/bundle/download')
+  const frame = document.createElement('iframe')
+  frame.name = `bundle-${Date.now()}`
+  frame.style.display = 'none'
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = href
+  form.target = frame.name
+  form.style.display = 'none'
+  ids.forEach((id) => {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = 'asset_ids'
+    input.value = id
+    form.appendChild(input)
+  })
+  /* 내려받기가 시작되면 load 가 오지 않는다 — load 가 오면 서버가 오류 본문을 준 것이다 */
+  frame.addEventListener('load', () => {
+    try {
+      const detail = JSON.parse(frame.contentDocument?.body?.innerText ?? '')?.detail
+      onError?.(typeof detail === 'string' ? detail : '묶음을 받지 못했습니다.')
+    } catch {
+      onError?.('묶음을 받지 못했습니다.')
+    }
+  })
+  document.body.append(frame, form)
+  form.submit()
+  setTimeout(() => {
+    form.remove()
+    frame.remove()
+  }, 60000)
+  return { count: ids.length }
+}

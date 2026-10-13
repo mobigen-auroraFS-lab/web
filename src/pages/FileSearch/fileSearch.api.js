@@ -1,5 +1,5 @@
 import { Image as ImageIcon, FileText, Video, Archive, Music, File } from '@lucide/vue'
-import { apiFetch, downloadByLink, downloadFile, toQuery } from '../../api/client'
+import { apiFetch, downloadBundleByLink, downloadByLink, downloadSelectionByForm, toQuery } from '../../api/client'
 
 /**
  * 파일 검색 화면이 부르는 API 와, 응답을 화면 모델로 바꾸는 매핑.
@@ -213,7 +213,12 @@ export function downloadAsset(asset) {
   return downloadByLink(asset.id, asset.name)
 }
 
-/** IF-ASSET-12 — 고른 자산들 zip (서버 상한 200건 · 500MB) */
-export function downloadSelectionBundle(ids) {
-  return downloadFile('/assets/bundle', { method: 'POST', body: { asset_ids: ids }, fallbackName: 'assets.zip' })
+/** IF-ASSET-17 — 고른 자산들 zip(폼 제출 · 건수 · 용량 상한 없음). 서버가 오류 본문을 주면 onError 로 알린다 */
+export function downloadSelectionBundle(ids, options) {
+  return downloadSelectionByForm(ids, options)
+}
+
+/** IF-ASSET-05 — 이 자산과 관계된 자산 zip(묶음 링크) */
+export function downloadRelationBundle(asset) {
+  return downloadBundleByLink(`/assets/${encodeURIComponent(asset.id)}/bundle`)
 }
