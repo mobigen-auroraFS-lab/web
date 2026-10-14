@@ -29,7 +29,9 @@
       </nav>
     </div>
     <div class="flex items-center gap-3">
-      <button class="flex items-center gap-2 bg-transparent border-none cursor-pointer py-1 px-2 rounded-md hover:bg-bg-surface-hover">
+      <!-- 프로필 영역은 누를 때 하는 일이 없어(계정 화면 · 메뉴가 정해지지 않음 — 화면별 API 호출 기획서 부록 D) 지금은
+           <div> 로 둔다. 계정 메뉴가 생기면 <button class="... cursor-pointer hover:bg-bg-surface-hover"> 로 되돌리고 클릭 핸들러를 단다 -->
+      <div class="flex items-center gap-2 py-1 px-2 rounded-md">
         <img
           v-if="!profileImageError"
           src="https://api.dicebear.com/9.x/notionists/svg?seed=hong-gildong&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&backgroundType=gradientLinear"
@@ -47,11 +49,12 @@
           <span class="text-sm text-text-primary font-semibold leading-tight">{{ displayName }}</span>
           <span class="text-xs text-text-tertiary leading-tight">hong@data-portal.kr</span>
         </span>
-      </button>
+      </div>
+      <!-- 로그인 화면이 없어 로그아웃이 할 일이 없다(IDD 공통규약 401) — 감춰 둔다. 로그인 화면이 생기면 hidden 만 걷는다 -->
       <button
         title="로그아웃"
         aria-label="로그아웃"
-        class="w-8 h-8 flex items-center justify-center bg-transparent border border-border-default rounded-md text-icon-default cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong hover:text-text-primary"
+        class="hidden w-8 h-8 flex items-center justify-center bg-transparent border border-border-default rounded-md text-icon-default cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong hover:text-text-primary"
       >
         <LogOut :size="16" :stroke-width="1.5" />
       </button>
