@@ -28,8 +28,17 @@ defineProps({
 
   showMoreTopics: { type: Boolean, default: false },
   showMoreSubtopics: { type: Boolean, default: false },
-  showMoreTags: { type: Boolean, default: false }
+  showMoreTags: { type: Boolean, default: false },
+  /* 첫 집계가 오기 전 — 건수로 채워지는 칩 그룹(주제·파일 형식·크기)을 스켈레톤으로 둔다 */
+  loading: { type: Boolean, default: false }
 })
+
+/* 스켈레톤 칩 폭 — 실제 칩처럼 길이를 달리한다 */
+const SKELETON_CHIPS = {
+  topic: [112, 132, 88, 96, 120, 72],
+  fileType: [76, 72, 68, 64],
+  size: [104, 96, 88]
+}
 
 /* xl 이상에서 아이콘만 남기고 접는다. 화면에 들어올 때마다 펼친 상태로 시작하도록 저장하지 않는다 */
 const filterCollapsed = ref(false)
@@ -109,6 +118,7 @@ function onDateRangeEnd(date) {
         </ATooltip>
       </div>
       <div class="border-b border-slate-100 -mt-2"></div>
+      <span v-if="loading" class="sr-only" role="status">필터를 불러오는 중입니다</span>
 
       <div class="flex flex-col gap-3" role="group" aria-label="주제">
         <div class="flex items-center justify-between gap-2">
@@ -121,7 +131,15 @@ function onDateRangeEnd(date) {
             해제
           </button>
         </div>
-        <div class="flex gap-2 flex-wrap items-center">
+        <div v-if="loading" class="flex gap-2 flex-wrap items-center" aria-hidden="true">
+          <span
+            v-for="w in SKELETON_CHIPS.topic"
+            :key="w"
+            class="h-[30px] rounded-md animate-pulse motion-reduce:animate-none bg-slate-100"
+            :style="{ width: `${w}px` }"
+          ></span>
+        </div>
+        <div v-else class="flex gap-2 flex-wrap items-center">
           <AFilterChip
             v-for="chip in visibleTopicChips"
             :key="chip.label"
@@ -217,7 +235,15 @@ function onDateRangeEnd(date) {
             해제
           </button>
         </div>
-        <div class="flex gap-2 flex-wrap items-center">
+        <div v-if="loading" class="flex gap-2 flex-wrap items-center" aria-hidden="true">
+          <span
+            v-for="w in SKELETON_CHIPS.fileType"
+            :key="w"
+            class="h-[30px] rounded-md animate-pulse motion-reduce:animate-none bg-slate-100"
+            :style="{ width: `${w}px` }"
+          ></span>
+        </div>
+        <div v-else class="flex gap-2 flex-wrap items-center">
           <AFilterChip
             v-for="chip in fileTypeChips"
             :key="chip.label"
@@ -233,7 +259,15 @@ function onDateRangeEnd(date) {
       <div class="flex flex-col gap-3 border-t border-slate-100 pt-4">
         <span class="text-sm font-bold text-text-primary">크기</span>
         <!-- 크기로 거르기는 서버가 아직 지원하지 않아(size_bucket 501) 건수만 보여준다 -->
-        <div class="flex gap-2 flex-wrap items-center" role="group" aria-label="크기별 건수">
+        <div v-if="loading" class="flex gap-2 flex-wrap items-center" aria-hidden="true">
+          <span
+            v-for="w in SKELETON_CHIPS.size"
+            :key="w"
+            class="h-[30px] rounded-md animate-pulse motion-reduce:animate-none bg-slate-100"
+            :style="{ width: `${w}px` }"
+          ></span>
+        </div>
+        <div v-else class="flex gap-2 flex-wrap items-center" role="group" aria-label="크기별 건수">
           <AFilterChip v-for="chip in sizeRangeChips" :key="chip.value" :label="chip.label" :count="chip.count" disabled />
         </div>
       </div>

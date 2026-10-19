@@ -45,6 +45,7 @@
           </ATooltip>
         </div>
         <div class="border-b border-slate-100 -mt-2"></div>
+        <span v-if="filtersLoading" class="sr-only" role="status">필터를 불러오는 중입니다</span>
 
         <p v-if="searchTerms.length" class="m-0 -mt-2 text-2xs text-text-tertiary">칩 건수는 검색어와 상관없이 전체 자료 기준입니다.</p>
 
@@ -59,7 +60,15 @@
               해제
             </button>
           </div>
-          <div class="flex gap-2 flex-wrap items-center">
+          <div v-if="filtersLoading" class="flex gap-2 flex-wrap items-center" aria-hidden="true">
+            <span
+              v-for="w in [76, 64, 84, 72]"
+              :key="w"
+              class="h-[30px] rounded-md animate-pulse motion-reduce:animate-none bg-slate-100"
+              :style="{ width: `${w}px` }"
+            ></span>
+          </div>
+          <div v-else class="flex gap-2 flex-wrap items-center">
             <AFilterChip
               v-for="chip in typeChips"
               :key="chip.label"
@@ -84,7 +93,21 @@
               해제
             </button>
           </div>
-          <div class="flex flex-col gap-5">
+          <!-- 갈래는 묶음 수도 서버가 정하므로, 로딩 중엔 묶음 두 개 모양만 잡아 둔다 -->
+          <div v-if="filtersLoading" class="flex flex-col gap-5" aria-hidden="true">
+            <div v-for="n in 2" :key="n" class="flex flex-col gap-2">
+              <span class="h-3 w-14 rounded animate-pulse motion-reduce:animate-none bg-slate-100"></span>
+              <div class="flex gap-2 flex-wrap items-center">
+                <span
+                  v-for="w in [68, 88, 60, 76, 84]"
+                  :key="w"
+                  class="h-[30px] rounded-md animate-pulse motion-reduce:animate-none bg-slate-100"
+                  :style="{ width: `${w}px` }"
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="flex flex-col gap-5">
             <div v-for="group in areaGroups" :key="group.label" class="flex flex-col gap-2" role="group" :aria-label="group.label">
               <span class="text-xs font-medium text-text-tertiary">{{ group.label }}</span>
               <div class="flex gap-2 flex-wrap items-center">
@@ -97,6 +120,13 @@
                   :disabled="chip.disabled"
                   @click="toggleArea(chip.label)"
                 />
+                <button
+                  v-if="group.showMore"
+                  class="h-[30px] px-2 bg-transparent border-none text-xs text-action-primary font-medium cursor-pointer whitespace-nowrap hover:text-action-primary-hover hover:underline"
+                  @click="openAreaModal(group.label)"
+                >
+                  전체 보기
+                </button>
               </div>
             </div>
           </div>
@@ -115,7 +145,15 @@
               해제
             </button>
           </div>
-          <div class="flex gap-2 flex-wrap items-center">
+          <div v-if="filtersLoading" class="flex gap-2 flex-wrap items-center" aria-hidden="true">
+            <span
+              v-for="w in [68, 76, 64, 64]"
+              :key="w"
+              class="h-[30px] rounded-md animate-pulse motion-reduce:animate-none bg-slate-100"
+              :style="{ width: `${w}px` }"
+            ></span>
+          </div>
+          <div v-else class="flex gap-2 flex-wrap items-center">
             <AFilterChip
               v-for="chip in modalityChips"
               :key="chip.label"
@@ -400,6 +438,18 @@
   </div>
 
   <!-- ⌘K 커맨드 팔레트 -->
+  <!-- 갈래 전체 보기: 묶음에 칩이 많아 사이드바에 다 담지 못할 때 검색으로 고른다 -->
+  <FacetPickerDialog
+    :open="areaModalGroup !== null"
+    :title="areaModalGroup ?? ''"
+    :total="areaModalOptions.length"
+    :rows="areaModalRows"
+    v-model:query="areaModalQuery"
+    @close="closeAreaModal"
+    @toggle="toggleAreaDraft"
+    @confirm="confirmAreaModal"
+  />
+
   <CommandPalette
     v-model:open="paletteOpen"
     :items="paletteItems"
@@ -435,6 +485,7 @@ import { MODALITY_ORDER } from './multimodalSearch.api'
 import { useMultimodalSearch } from './useMultimodalSearch'
 import EntityDetailModal from './EntityDetailModal.vue'
 import CommandPalette from '../../layout/CommandPalette.vue'
+import FacetPickerDialog from '../../layout/FacetPickerDialog.vue'
 import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import { useHideOnScroll } from '../../composables/useHideOnScroll'
 
@@ -454,6 +505,7 @@ const {
   total,
   scopeTotal,
   listLoading,
+  filtersLoading,
   loadingMore,
   listError,
   loadMoreRows,
@@ -464,6 +516,14 @@ const {
   toggleType,
   areaGroups,
   toggleArea,
+  areaModalGroup,
+  areaModalQuery,
+  areaModalOptions,
+  areaModalRows,
+  openAreaModal,
+  closeAreaModal,
+  toggleAreaDraft,
+  confirmAreaModal,
   modalityChips,
   toggleModality,
   appliedConditions,

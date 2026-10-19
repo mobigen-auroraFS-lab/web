@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import {
   PAGE_SIZE,
+  FACET_VISIBLE_COUNT,
   MODALITY_ORDER,
   MODALITY_LABELS,
   fetchEntities,
@@ -139,6 +140,9 @@ export function useMultimodalSearch() {
   const facetTypes = ref([])
   const facetAreas = ref([])
   const facetModalities = ref([])
+  /* 첫 집계가 오기 전에만 필터를 스켈레톤으로 둔다 — 이후엔 이전 칩을 둔 채 숫자만 갈아 끼운다 */
+  const facetsLoaded = ref(false)
+  const filtersLoading = computed(() => !facetsLoaded.value)
   let facetSeq = 0
 
   async function fetchFacets() {
@@ -149,12 +153,14 @@ export function useMultimodalSearch() {
       facetTypes.value = body.types ?? []
       facetAreas.value = body.areas ?? []
       facetModalities.value = body.modalities ?? []
+      facetsLoaded.value = true
     } catch {
       /* 칩 건수는 부가 정보라, 실패해도 목록은 그대로 보여준다 */
       if (seq === facetSeq) {
         facetTypes.value = []
         facetAreas.value = []
         facetModalities.value = []
+        facetsLoaded.value = true
       }
     }
   }
@@ -167,18 +173,60 @@ export function useMultimodalSearch() {
     entityType.value = entityType.value === name ? '' : name
   }
 
-  /* 갈래는 서버가 묶어 주는 기준(skill)별로 나눠 보여준다 — 칩 순서는 서버 순서를 그대로 쓴다 */
-  const areaGroups = computed(() => {
+  /* 갈래는 서버가 묶어 주는 기준(skill)별로 나눠 보여준다 — 칩 순서는 서버 순서를 그대로 쓴다.
+     파일 검색과 같이 묶음마다 상위 몇 개만 보이고, 고른 칩은 순위와 상관없이 늘 앞에 붙든다 */
+  const areaOptionsByGroup = computed(() => {
     const groups = new Map()
     facetAreas.value.forEach((a) => {
       if (!groups.has(a.skill)) groups.set(a.skill, [])
-      groups.get(a.skill).push(toChip(a.name, areas.value.includes(a.name), a.entities))
+      groups.get(a.skill).push(a)
     })
-    return [...groups].map(([label, chips]) => ({ label, chips }))
+    return groups
   })
+  const areaGroups = computed(() =>
+    [...areaOptionsByGroup.value].map(([label, options]) => {
+      const picked = options.filter((a) => areas.value.includes(a.name))
+      const rest = options.filter((a) => !areas.value.includes(a.name))
+      const chips = [...picked, ...rest]
+        .slice(0, Math.max(FACET_VISIBLE_COUNT, picked.length))
+        .map((a) => toChip(a.name, areas.value.includes(a.name), a.entities))
+      return { label, chips, showMore: options.length > chips.length }
+    })
+  )
   function toggleArea(name) {
     areas.value = toggleIn(areas.value, name)
   }
+
+  /* 갈래 '전체 보기' 창 — 고르는 동안은 draft에 담고, 선택 완료 때 그 묶음의 선택만 바꿔 끼운다 */
+  const areaModalGroup = ref(null)
+  const areaModalQuery = ref('')
+  const areaModalDraft = ref([])
+  const areaModalOptions = computed(() => areaOptionsByGroup.value.get(areaModalGroup.value) ?? [])
+  function openAreaModal(group) {
+    areaModalGroup.value = group
+    areaModalQuery.value = ''
+    const names = new Set((areaOptionsByGroup.value.get(group) ?? []).map((a) => a.name))
+    areaModalDraft.value = areas.value.filter((a) => names.has(a))
+  }
+  function closeAreaModal() {
+    areaModalGroup.value = null
+  }
+  function toggleAreaDraft(name) {
+    areaModalDraft.value = toggleIn(areaModalDraft.value, name)
+  }
+  function confirmAreaModal() {
+    const names = new Set(areaModalOptions.value.map((a) => a.name))
+    areas.value = [...areas.value.filter((a) => !names.has(a)), ...areaModalDraft.value]
+    closeAreaModal()
+  }
+  /* 창 안은 가나다순 — 체크하는 동안 목록이 눈앞에서 재정렬되면 안 된다 */
+  const areaModalRows = computed(() => {
+    const q = areaModalQuery.value.trim().toLowerCase()
+    return areaModalOptions.value
+      .filter((a) => !q || a.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+      .map((a) => ({ label: a.name, count: a.entities, active: areaModalDraft.value.includes(a.name) }))
+  })
 
   /* 자료 유형 칩 건수 — 서버가 항상 네 유형을 0건까지 준다. 건수는 "이 칩을 더 누르면 남는 개체 수"(AND)라
      이미 고른 칩은 지금 결과 수와 같다. 갈래 칩 건수는 자료 유형 조건을 적용하지 못한다(IDD IF-ENTITY-02) */
@@ -337,6 +385,7 @@ export function useMultimodalSearch() {
     total,
     scopeTotal,
     listLoading,
+    filtersLoading,
     loadingMore,
     listError,
     hasMore,
@@ -349,6 +398,14 @@ export function useMultimodalSearch() {
     toggleType,
     areaGroups,
     toggleArea,
+    areaModalGroup,
+    areaModalQuery,
+    areaModalOptions,
+    areaModalRows,
+    openAreaModal,
+    closeAreaModal,
+    toggleAreaDraft,
+    confirmAreaModal,
     modalityChips,
     toggleModality,
     appliedConditions,

@@ -135,6 +135,10 @@ export function useFileSearch() {
   const facetAxes = ref({})
   const listLoading = ref(false)
   const loadingMore = ref(false)
+  /* 필터 칩은 첫 응답이 오기 전에만 스켈레톤으로 둔다 — 이후 조건이 바뀔 때마다 칩을 지우면
+     고른 칩이 사라졌다 나타나 깜빡이므로, 그때는 이전 칩을 둔 채 숫자만 갈아 끼운다 */
+  const facetsLoaded = ref(false)
+  const filtersLoading = computed(() => listLoading.value && !facetsLoaded.value)
 
   /* 같은 이름을 반복해 보내는 배열 규칙은 toQuery 가 처리한다. 크기(size_bucket)는
      서버가 아직 501 이라 보내지 않는다 */
@@ -167,6 +171,7 @@ export function useFileSearch() {
     ])
     if (seq !== listSeq) return
     listLoading.value = false
+    facetsLoaded.value = true
 
     if (page.status === 'fulfilled') {
       const body = page.value
@@ -732,6 +737,7 @@ export function useFileSearch() {
     resultKeywordPrefix,
     totalLabel,
     listLoading,
+    filtersLoading,
     loadingMore,
     hasMore,
 

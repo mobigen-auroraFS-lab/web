@@ -22,6 +22,7 @@
       :show-more-topics="showMoreTopics"
       :show-more-subtopics="showMoreSubtopics"
       :show-more-tags="showMoreTags"
+      :loading="filtersLoading"
       @clear-topics="topics = []"
       @clear-subtopics="subtopics = []"
       @clear-tags="tags = []"
@@ -425,42 +426,16 @@
   />
 
   <!-- 패싯 전체 보기: 사이드바에 다 담을 수 없을 때 검색으로 고른다 -->
-  <ADialog
-    :model-value="facetModal !== null"
-    :title="`${facetModalTitle} 선택`"
-    :description="`전체 ${facetModalTotal}개 · 건수는 전체 자료 기준 · 선택 완료를 누르면 목록에 반영됩니다`"
-    width="460px"
-    @update:model-value="closeFacetModal"
-  >
-    <AInput v-model="facetQuery" search :placeholder="`${facetModalTitle} 검색`" />
-    <div class="flex flex-col max-h-[320px] overflow-y-auto scrollbar-subtle -mx-1 px-1">
-      <div
-        v-for="row in facetModalRows"
-        :key="row.label"
-        class="flex items-center justify-between gap-3 px-2 py-2 rounded-md"
-        :class="row.count === 0 && !row.active ? '' : 'hover:bg-bg-surface-hover'"
-      >
-        <ACheckbox :model-value="row.active" :disabled="row.count === 0 && !row.active" @update:model-value="toggleFacetValue(row.label)">
-          <span class="text-sm">{{ row.label }}</span>
-        </ACheckbox>
-        <span class="text-xs [font-feature-settings:'tnum']" :class="row.count === 0 ? 'text-text-disabled' : 'text-text-tertiary'">{{
-          row.count.toLocaleString()
-        }}</span>
-      </div>
-      <p v-if="facetModalRows.length === 0" class="m-0 py-6 text-sm text-text-tertiary text-center">
-        "{{ facetQuery }}"와 일치하는 {{ facetModalTitle }}이(가) 없습니다.
-      </p>
-    </div>
-    <template #footer="{ close }">
-      <button
-        class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
-        @click="close"
-      >
-        취소
-      </button>
-      <AButton variant="primary" class="!h-control-md" @click="confirmFacetModal">선택 완료</AButton>
-    </template>
-  </ADialog>
+  <FacetPickerDialog
+    :open="facetModal !== null"
+    :title="facetModalTitle"
+    :total="facetModalTotal"
+    :rows="facetModalRows"
+    v-model:query="facetQuery"
+    @close="closeFacetModal"
+    @toggle="toggleFacetValue"
+    @confirm="confirmFacetModal"
+  />
 
   <!-- ⌘K 커맨드 팔레트 -->
   <CommandPalette
@@ -485,12 +460,12 @@ import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
 import ACheckbox from '../../components/ACheckbox.vue'
 import AToast from '../../components/AToast.vue'
-import ADialog from '../../components/ADialog.vue'
 import AEmptyState from '../../components/AEmptyState.vue'
 import ASelectionBar from '../../components/ASelectionBar.vue'
 import ASegmentedControl from '../../components/ASegmentedControl.vue'
 import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import FilterSidebar from '../../layout/FilterSidebar.vue'
+import FacetPickerDialog from '../../layout/FacetPickerDialog.vue'
 import FileDetailModal from './FileDetailModal.vue'
 import CommandPalette from '../../layout/CommandPalette.vue'
 
@@ -525,6 +500,7 @@ const {
   resultKeywordPrefix,
   totalLabel,
   listLoading,
+  filtersLoading,
   loadingMore,
   hasMore,
   visibleTopicChips,

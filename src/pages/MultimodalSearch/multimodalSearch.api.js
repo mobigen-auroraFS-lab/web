@@ -1,5 +1,8 @@
 import { apiFetch, downloadBundleByLink, downloadSelectionByForm, toQuery } from '../../api/client'
 
+/* 사이드바엔 갈래 묶음마다 상위 몇 개만 — 나머지는 '전체 보기' 창에서 고른다. 파일 검색과 같은 기준이다 */
+export const FACET_VISIBLE_COUNT = 8
+
 /**
  * 멀티모달 검색 화면이 부르는 API 와, 응답을 화면 모델로 바꾸는 매핑.
  * 결과 단위는 개체(인물·장소·작품 등 — 같은 것에 관한 자료를 한 이름 아래 모은 것)다.
