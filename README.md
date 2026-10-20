@@ -29,6 +29,7 @@ src/
   components/          # 재사용 UI 컴포넌트 (AButton, AInput 등)
   layout/              # 화면 공통 레이아웃 (헤더, 기본 레이아웃 틀). 재사용 컴포넌트와
                         # 달리 이 앱 자체의 뼈대라 components/와 분리
+  composables/         # 두 화면 이상이 함께 쓰는 로직 (useFileDetail · useHideOnScroll)
   DesignGuide/
     DesignGuide.vue      # 디자인 시스템 컴포넌트 카탈로그 (#design-guide). 요구사항
                           # 화면이 아니라 pages/ 바깥에 둠
@@ -37,8 +38,7 @@ src/
       FileSearch.vue      # 템플릿
       useFileSearch.js    # 조건 상태 · 서버 조회 · URL 동기화 (composable)
       fileSearch.api.js   # 이 화면이 부르는 API 와 응답 → 화면 모델 매핑
-      FileDetailModal.vue # 파일 상세 모달
-      CommandPalette.vue  # ⌘K 팔레트
+      FileDetailModal.vue # 파일 상세 모달 (멀티모달 검색의 연결 자료에서도 가져다 쓴다)
     Login/
       Login.vue            # 자리만 마련된 placeholder — 라우팅 미연결
     MultimodalSearch/

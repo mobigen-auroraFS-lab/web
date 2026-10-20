@@ -391,7 +391,23 @@
     :downloading="downloading"
     @type-click="applyEntityType"
     @download="downloadEntity"
+    @asset-click="openFileDetail"
     @retry="retryEntityDetail"
+  />
+
+  <!-- 연결 자료를 누르면 개체 상세 위에 겹쳐 뜬다 — 파일 검색의 파일 상세와 같은 모달이다 -->
+  <FileDetailModal
+    v-model:open="fileDetailOpen"
+    :file="fileDetail"
+    :icon="fileDetail?.icon ?? null"
+    :status="fileDetailStatus"
+    :error-message="fileDetailError"
+    @retry="retryFileDetail"
+    @download-original="downloadFileOriginal"
+    @breadcrumb-click="onFileBreadcrumbClick"
+    @topic-click="onFileTopicClick"
+    @meta-click="onFileMetaClick"
+    @relation-click="openFileDetail"
   />
 
   <!-- 상세 모달(z-70) 위에 떠야 안내가 보인다 -->
@@ -434,6 +450,7 @@ import AToast from '../../components/AToast.vue'
 import { MODALITY_ORDER } from './multimodalSearch.api'
 import { useMultimodalSearch } from './useMultimodalSearch'
 import EntityDetailModal from './EntityDetailModal.vue'
+import FileDetailModal from '../FileSearch/FileDetailModal.vue'
 import CommandPalette from '../../layout/CommandPalette.vue'
 import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import { useHideOnScroll } from '../../composables/useHideOnScroll'
@@ -476,6 +493,16 @@ const {
   openEntityDetail,
   retryEntityDetail,
   applyEntityType,
+  fileDetailOpen,
+  fileDetail,
+  fileDetailStatus,
+  fileDetailError,
+  openFileDetail,
+  retryFileDetail,
+  onFileMetaClick,
+  onFileBreadcrumbClick,
+  onFileTopicClick,
+  downloadFileOriginal,
   downloadEntity,
   downloading,
   toastMessage,
@@ -501,7 +528,7 @@ const skeletonCardCount = computed(() => (listLoading.value ? 6 : loadingMore.va
    모달의 Escape는 모달이 스스로 처리한다 */
 function onGlobalKeydown(e) {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-    if (entityDetailOpen.value) return
+    if (entityDetailOpen.value || fileDetailOpen.value) return
     e.preventDefault()
     paletteOpen.value = !paletteOpen.value
     return
