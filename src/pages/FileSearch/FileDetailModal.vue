@@ -450,17 +450,20 @@ function requestClose() {
 /* ------------------------------------------------------- 포커스·스크롤 관리 */
 
 let previouslyFocused = null
+let prevBodyOverflow = ''
 
 watch(
   () => props.open,
   async (isOpen) => {
     if (isOpen) {
       previouslyFocused = document.activeElement
+      /* 모달이 겹쳐 열릴 수 있어(개체 상세 위의 파일 상세) 닫을 때는 열기 전 값으로 되돌린다 */
+      prevBodyOverflow = document.body.style.overflow
       document.body.style.overflow = 'hidden'
       await nextTick()
       closeBtnRef.value?.focus()
     } else {
-      document.body.style.overflow = ''
+      document.body.style.overflow = prevBodyOverflow
       previouslyFocused?.focus?.()
       previouslyFocused = null
     }

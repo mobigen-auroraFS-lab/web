@@ -1,4 +1,6 @@
 import { ref, computed, watch } from 'vue'
+import { useFileDetail } from '../../composables/useFileDetail'
+import { downloadAsset } from '../FileSearch/fileSearch.api'
 import {
   PAGE_SIZE,
   FACET_VISIBLE_COUNT,
@@ -333,6 +335,57 @@ export function useMultimodalSearch() {
     }
   }
 
+  /* ------------------------------------------------- 연결 자료 → 파일 상세 */
+
+  /* 개체 상세 모달 위에 파일 상세 모달을 겹쳐 연다 — 닫으면 개체 상세로 돌아온다.
+     파일 상세는 파일 검색과 같은 모달 · 같은 조회(GET /assets/{id})를 쓴다 */
+  const {
+    open: fileDetailOpen,
+    detail: fileDetail,
+    status: fileDetailStatus,
+    error: fileDetailError,
+    openDetail: openFileDetail,
+    close: closeFileDetail,
+    retry: retryFileDetail
+  } = useFileDetail()
+
+  /* 파일 상세 안에서 소속 개체 칩을 누르면 그 개체로 옮겨 간다 */
+  function onFileMetaClick(meta) {
+    const [type, ...rest] = meta.id.split(':')
+    closeFileDetail()
+    openEntityDetail({ id: meta.id.replace(':', '/'), type, uid: rest.join(':'), name: meta.label })
+  }
+
+  /* 분류 경로 · 주제 칩은 개체 검색에는 없는 조건이라, 그 분류로 거른 파일 검색 화면으로 보낸다 */
+  function goFileSearch(topic, subtopic) {
+    const p = new URLSearchParams()
+    p.set('topic', topic)
+    if (subtopic) p.set('sub', subtopic)
+    closeFileDetail()
+    location.hash = `#file-search?${p}`
+  }
+  function onFileBreadcrumbClick(crumb) {
+    const [topicCrumb, subtopicCrumb] = fileDetail.value?.breadcrumb ?? []
+    if (topicCrumb) goFileSearch(topicCrumb.label, crumb.level === 'subtopic' ? subtopicCrumb?.label : null)
+  }
+  function onFileTopicClick(topicChip) {
+    goFileSearch(topicChip.topic, topicChip.subtopic)
+  }
+
+  /* 파일 상세의 「이 데이터만」 — 연관 · 분류 묶음은 협의 전이라 모달에서 막혀 있다 */
+  async function downloadFileOriginal(file) {
+    if (downloading.value) return
+    downloading.value = true
+    try {
+      const r = await downloadAsset(file)
+      showToast(`${r.name} 다운로드를 시작했습니다.`, 3000)
+    } catch (e) {
+      showToast(e.message, 4000)
+    } finally {
+      downloading.value = false
+    }
+  }
+
   /* 모달의 종류 경로를 누르면 그 종류로 목록을 좁힌다 */
   function applyEntityType() {
     const type = entityDetail.value?.type ?? entityDetailTarget.value?.type
@@ -419,6 +472,16 @@ export function useMultimodalSearch() {
     openEntityDetail,
     retryEntityDetail,
     applyEntityType,
+    fileDetailOpen,
+    fileDetail,
+    fileDetailStatus,
+    fileDetailError,
+    openFileDetail,
+    retryFileDetail,
+    onFileMetaClick,
+    onFileBreadcrumbClick,
+    onFileTopicClick,
+    downloadFileOriginal,
     downloadEntity,
     downloading,
 

@@ -179,31 +179,39 @@
                     <li
                       v-for="a in visibleAssets"
                       :key="a.id"
-                      class="flex items-center gap-3 min-w-0 -mx-3 px-3 py-3 border-b border-slate-100 transition-colors duration-[var(--duration-fast)] ease-standard hover:bg-[var(--table-row-hover-bg)]"
+                      class="-mx-3 border-b border-slate-100"
                     >
-                      <span
-                        class="shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
-                        :style="{ background: modalityStyle[a.modality].bg, color: modalityStyle[a.modality].text }"
+                      <!-- 행 전체가 파일 상세를 여는 버튼이다 — 키보드로는 행마다 한 번 멈춘다 -->
+                      <button
+                        type="button"
+                        class="group flex w-full items-center gap-3 min-w-0 px-3 py-3 text-left bg-transparent border-none cursor-pointer transition-colors duration-[var(--duration-fast)] ease-standard hover:bg-[var(--table-row-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        :aria-label="`${a.name} 상세 보기`"
+                        @click="$emit('asset-click', { id: a.id, name: a.name })"
                       >
-                        <component :is="modalityStyle[a.modality].icon" :size="15" :stroke-width="1.8" :aria-label="a.modality" />
-                      </span>
-                      <div class="flex-1 min-w-0 flex flex-col gap-1">
-                        <p class="m-0 text-sm font-medium text-text-primary truncate">{{ a.name }}</p>
-                        <div v-if="a.forms.length" class="flex flex-wrap gap-1">
-                          <span
-                            v-for="f in a.forms"
-                            :key="f"
-                            class="inline-flex items-center h-5 px-1.5 rounded-sm border border-border-default bg-bg-surface text-2xs font-medium text-text-secondary"
-                            >{{ f }}</span
-                          >
+                        <span
+                          class="shrink-0 w-8 h-8 rounded-md flex items-center justify-center"
+                          :style="{ background: modalityStyle[a.modality].bg, color: modalityStyle[a.modality].text }"
+                        >
+                          <component :is="modalityStyle[a.modality].icon" :size="15" :stroke-width="1.8" :aria-label="a.modality" />
+                        </span>
+                        <div class="flex-1 min-w-0 flex flex-col gap-1">
+                          <p class="m-0 text-sm font-medium text-text-primary truncate group-hover:text-action-primary">{{ a.name }}</p>
+                          <div v-if="a.forms.length" class="flex flex-wrap gap-1">
+                            <span
+                              v-for="f in a.forms"
+                              :key="f"
+                              class="inline-flex items-center h-5 px-1.5 rounded-sm border border-border-default bg-bg-surface text-2xs font-medium text-text-secondary"
+                              >{{ f }}</span
+                            >
+                          </div>
                         </div>
-                      </div>
-                      <!-- 소속 상태 — 확인 전은 자동 연결이라 틀릴 수 있음을 알린다 -->
-                      <span
-                        class="shrink-0 inline-flex items-center h-5 px-1.5 rounded-sm text-2xs font-semibold"
-                        :class="a.status === '확인됨' ? 'bg-primary-50 text-primary-700' : 'bg-slate-100 text-text-tertiary'"
-                        >{{ a.status }}</span
-                      >
+                        <!-- 소속 상태 — 확인 전은 자동 연결이라 틀릴 수 있음을 알린다 -->
+                        <span
+                          class="shrink-0 inline-flex items-center h-5 px-1.5 rounded-sm text-2xs font-semibold"
+                          :class="a.status === '확인됨' ? 'bg-primary-50 text-primary-700' : 'bg-slate-100 text-text-tertiary'"
+                          >{{ a.status }}</span
+                        >
+                      </button>
                     </li>
                   </ul>
                 </div>
@@ -240,7 +248,7 @@ const props = defineProps({
   /* 묶음을 받는 중이면 메뉴를 막는다 */
   downloading: { type: Boolean, default: false }
 })
-const emit = defineEmits(['update:open', 'type-click', 'download', 'retry'])
+const emit = defineEmits(['update:open', 'type-click', 'download', 'asset-click', 'retry'])
 
 const titleId = useId()
 const dialogRef = ref(null)
@@ -253,16 +261,19 @@ function requestClose() {
 /* ------------------------------------------------------- 포커스·스크롤 관리 */
 
 let previouslyFocused = null
+let prevBodyOverflow = ''
 watch(
   () => props.open,
   async (isOpen) => {
     if (isOpen) {
       previouslyFocused = document.activeElement
+      /* 모달이 겹쳐 열릴 수 있어(개체 상세 위의 파일 상세) 닫을 때는 열기 전 값으로 되돌린다 */
+      prevBodyOverflow = document.body.style.overflow
       document.body.style.overflow = 'hidden'
       await nextTick()
       closeBtnRef.value?.focus()
     } else {
-      document.body.style.overflow = ''
+      document.body.style.overflow = prevBodyOverflow
       previouslyFocused?.focus?.()
       previouslyFocused = null
     }

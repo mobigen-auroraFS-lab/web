@@ -1,4 +1,5 @@
 import { ref, computed, watch } from 'vue'
+import { useFileDetail } from '../../composables/useFileDetail'
 import {
   SORTABLE,
   DATE_PRESETS,
@@ -11,10 +12,6 @@ import {
   fetchFacetExtra,
   fetchTopics,
   fetchTags,
-  fetchAssetDetail,
-  fetchAssetMmMeta,
-  fetchRelationKinds,
-  buildFileDetail,
   downloadAsset,
   downloadRelationBundle,
   downloadCategoryBundle,
@@ -76,8 +73,16 @@ export function useFileSearch() {
   const sortKey = ref('date')
   const sortDir = ref('desc')
   const toastMessage = ref('')
-  const fileDetailOpen = ref(false)
-  const fileDetailTarget = ref(null)
+  const {
+    open: fileDetailOpen,
+    target: fileDetailTarget,
+    detail: fileDetail,
+    status: fileDetailStatus,
+    error: fileDetailError,
+    openDetail: openFileDetail,
+    close: closeFileDetail,
+    retry: retryFileDetail
+  } = useFileDetail()
   const density = ref(readStoredDensity())
 
   const facetModal = ref(null)
@@ -473,58 +478,6 @@ export function useFileSearch() {
   }
 
   /* --------------------------------------------------------- 파일 상세 모달 */
-
-  const fileDetail = ref(null)
-  const fileDetailStatus = ref('ready')
-  const fileDetailError = ref('')
-  let detailSeq = 0
-  let relationKindsPromise = null
-
-  /* 관계 종류 이름은 거의 바뀌지 않는 작은 목록이라 처음 모달을 열 때 한 번만 받는다 */
-  function loadRelationKinds() {
-    relationKindsPromise ??= fetchRelationKinds()
-      .then((body) => Object.fromEntries((body.rows ?? []).map((k) => [k.kind_code, k.kind_name_ko])))
-      .catch(() => {
-        relationKindsPromise = null
-        return {}
-      })
-    return relationKindsPromise
-  }
-
-  async function loadFileDetail(id) {
-    const seq = ++detailSeq
-    fileDetailStatus.value = 'loading'
-    fileDetailError.value = ''
-    try {
-      const [detail, mmMeta, kindNames] = await Promise.all([
-        fetchAssetDetail(id),
-        fetchAssetMmMeta(id).catch(() => ({ items: [] })),
-        loadRelationKinds()
-      ])
-      if (seq !== detailSeq) return
-      fileDetail.value = buildFileDetail(detail, mmMeta, kindNames)
-      fileDetailStatus.value = 'ready'
-    } catch (e) {
-      if (seq !== detailSeq) return
-      fileDetail.value = null
-      fileDetailStatus.value = 'error'
-      /* 관계 카드에 등록 전 자산이 섞여 오면 404 가 난다(IDD 11절 ⑤) */
-      fileDetailError.value = e.status === 404 ? '볼 수 없는 자료입니다. 삭제되었거나 아직 등록이 끝나지 않았을 수 있습니다.' : e.message
-    }
-  }
-
-  /* FileDetailModal이 포커스 저장/복귀를 스스로 처리하므로 여는 쪽은 대상만 쥐면 된다 */
-  function openFileDetail(item) {
-    fileDetailTarget.value = item
-    fileDetailOpen.value = true
-    loadFileDetail(item.id)
-  }
-  function closeFileDetail() {
-    fileDetailOpen.value = false
-  }
-  function retryFileDetail() {
-    if (fileDetailTarget.value) loadFileDetail(fileDetailTarget.value.id)
-  }
 
   function addTopicFilter(topic, subtopic) {
     if (topic && !topics.value.includes(topic)) topics.value = [...topics.value, topic]
