@@ -46,6 +46,17 @@
         </div>
         <div class="border-b border-slate-100 -mt-2"></div>
         <span v-if="filtersLoading" class="sr-only" role="status">필터를 불러오는 중입니다</span>
+        <!-- 칩 조회 실패 — 칩이 비거나 숫자가 낡은 것을 「0건」으로 오해하지 않게 알린다 -->
+        <div v-if="facetsError" role="alert" class="flex items-center justify-between gap-2 -mt-2 rounded-md bg-status-danger-bg px-3 py-2">
+          <span class="text-xs text-status-danger-text">필터를 불러오지 못했습니다.</span>
+          <button
+            type="button"
+            class="shrink-0 bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:underline"
+            @click="retryFacets"
+          >
+            다시 시도
+          </button>
+        </div>
 
         <p v-if="searchTerms.length" class="m-0 -mt-2 text-2xs text-text-tertiary">칩 건수는 검색어와 상관없이 전체 자료 기준입니다.</p>
 
@@ -197,6 +208,7 @@
                 <div class="absolute inset-0 rounded-xl shadow-elevation-1 pointer-events-none"></div>
                 <AInput
                   v-model="searchDraft"
+                  :maxlength="300"
                   search
                   placeholder="키워드 검색"
                   class="relative [&_input]:h-10 [&_input]:text-md [&_input]:rounded-xl [&_input]:pl-11 [&_input]:pr-16"
@@ -282,6 +294,7 @@
               />
               <AInput
                 v-model="resultSearchDraft"
+                :maxlength="300"
                 placeholder="결과 내 검색"
                 class="[&_input]:h-8 [&_input]:text-sm [&_input]:pl-8 [&_input]:pr-8 [&_input]:bg-slate-100 [&_input]:border-transparent hover:[&_input]:bg-slate-200"
                 @keydown.enter.prevent="commitResultSearch"
@@ -310,14 +323,18 @@
           class="xl:flex-1 xl:min-h-0 xl:-mt-1 xl:overflow-y-auto scrollbar-subtle xl:px-5 xl:pb-8"
           @scroll.passive="onListScroll"
         >
-          <!-- 오류 — 검색 엔진 연결 실패(503) 등. 조건은 그대로 두고 다시 시도할 수 있게 한다 -->
-          <AEmptyState v-if="listError" :icon="CircleAlert" title="목록을 불러오지 못했습니다" :description="listError">
+          <!-- 오류 — 연결 실패 · 5xx · 시간 초과만 「다시 시도」를 보인다. 400 · 422 는 조건을 고치라는 안내다 -->
+          <AEmptyState v-if="listError" :icon="CircleAlert" title="목록을 불러오지 못했습니다" :description="listError.message">
             <button
+              v-if="listError.retryable"
               class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
               @click="retryList"
             >
               다시 시도
             </button>
+            <AButton v-else-if="appliedConditions.length" variant="primary" class="!h-control-md" @click="clearAllConditions"
+              >조건 모두 해제</AButton
+            >
           </AEmptyState>
 
           <ul
@@ -425,6 +442,7 @@
     :entity="entityDetail"
     :status="entityDetailStatus"
     :error-message="entityDetailError"
+    :retryable="entityDetailRetryable"
     :modality-style="MODALITY_STYLE"
     :downloading="downloading"
     @type-click="applyEntityType"
@@ -440,6 +458,7 @@
     :icon="fileDetail?.icon ?? null"
     :status="fileDetailStatus"
     :error-message="fileDetailError"
+    :retryable="fileDetailRetryable"
     @retry="retryFileDetail"
     @download-original="downloadFileOriginal"
     @breadcrumb-click="onFileBreadcrumbClick"
@@ -521,6 +540,8 @@ const {
   filtersLoading,
   loadingMore,
   listError,
+  facetsError,
+  retryFacets,
   loadMoreRows,
   retryList,
   searchTerms,
@@ -546,6 +567,7 @@ const {
   entityDetail,
   entityDetailStatus,
   entityDetailError,
+  entityDetailRetryable,
   openEntityDetail,
   retryEntityDetail,
   applyEntityType,
@@ -553,6 +575,7 @@ const {
   fileDetail,
   fileDetailStatus,
   fileDetailError,
+  fileDetailRetryable,
   openFileDetail,
   retryFileDetail,
   onFileMetaClick,
@@ -562,6 +585,7 @@ const {
   downloadEntity,
   downloading,
   toastMessage,
+  applyUrlState,
   paletteOpen,
   paletteItems,
   closePalette,
@@ -613,20 +637,32 @@ watch(
   { flush: 'post' }
 )
 
+/* xl 이상에서는 화면이 아니라 목록 상자가 스크롤된다 — 그 상자를 root 로 둬야 rootMargin(240px 미리 받기)이
+   상자 기준으로 먹는다. 폭이 xl 경계를 넘나들면 root 가 바뀌므로 다시 만든다 */
+const xlQuery = window.matchMedia('(min-width: 80rem)')
+function createLoadObserver() {
+  loadObserver?.disconnect()
+  if (!('IntersectionObserver' in window)) return
+  loadObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMoreRows()
+    },
+    { root: xlQuery.matches ? listScrollRef.value : null, rootMargin: '240px 0px' }
+  )
+  if (loadMoreRef.value) loadObserver.observe(loadMoreRef.value)
+}
+
 onMounted(() => {
+  /* 주소창에서 조건을 고쳐 들어오면(같은 화면 안의 해시 이동) 그 조건으로 다시 맞춘다 */
+  window.addEventListener('hashchange', applyUrlState)
   window.addEventListener('keydown', onGlobalKeydown)
-  if ('IntersectionObserver' in window) {
-    loadObserver = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMoreRows()
-      },
-      { rootMargin: '240px 0px' }
-    )
-    if (loadMoreRef.value) loadObserver.observe(loadMoreRef.value)
-  }
+  createLoadObserver()
+  xlQuery.addEventListener('change', createLoadObserver)
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('hashchange', applyUrlState)
   window.removeEventListener('keydown', onGlobalKeydown)
+  xlQuery.removeEventListener('change', createLoadObserver)
   loadObserver?.disconnect()
   loadObserver = null
 })

@@ -15,6 +15,7 @@ defineProps({
   subtopics: { type: Array, required: true },
   tags: { type: Array, required: true },
   fileTypes: { type: Array, required: true },
+  sizeBuckets: { type: Array, default: () => [] },
   dateFrom: { type: Date, default: null },
   dateTo: { type: Date, default: null },
 
@@ -51,11 +52,13 @@ const emit = defineEmits([
   'clear-subtopics',
   'clear-tags',
   'clear-file-types',
+  'clear-sizes',
   'clear-date-range',
   'toggle-topic',
   'toggle-subtopic',
   'toggle-tag',
   'toggle-file-type',
+  'toggle-size',
   'apply-date-preset',
   'open-facet',
   'update:dateFrom',
@@ -256,9 +259,17 @@ function onDateRangeEnd(date) {
         </div>
       </div>
 
-      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4">
-        <span class="text-sm font-bold text-text-primary">크기</span>
-        <!-- 크기로 거르기는 서버가 아직 지원하지 않아(size_bucket 501) 건수만 보여준다 -->
+      <div class="flex flex-col gap-3 border-t border-slate-100 pt-4" role="group" aria-label="크기">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-bold text-text-primary">크기</span>
+          <button
+            v-if="sizeBuckets.length"
+            class="bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:text-action-primary-hover"
+            @click="emit('clear-sizes')"
+          >
+            해제
+          </button>
+        </div>
         <div v-if="loading" class="flex gap-2 flex-wrap items-center" aria-hidden="true">
           <span
             v-for="w in SKELETON_CHIPS.size"
@@ -267,8 +278,16 @@ function onDateRangeEnd(date) {
             :style="{ width: `${w}px` }"
           ></span>
         </div>
-        <div v-else class="flex gap-2 flex-wrap items-center" role="group" aria-label="크기별 건수">
-          <AFilterChip v-for="chip in sizeRangeChips" :key="chip.value" :label="chip.label" :count="chip.count" disabled />
+        <div v-else class="flex gap-2 flex-wrap items-center">
+          <AFilterChip
+            v-for="chip in sizeRangeChips"
+            :key="chip.value"
+            :label="chip.label"
+            :count="chip.count"
+            :active="chip.active"
+            :disabled="chip.disabled"
+            @click="emit('toggle-size', chip.value)"
+          />
         </div>
       </div>
 

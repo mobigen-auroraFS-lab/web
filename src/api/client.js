@@ -6,12 +6,30 @@
 const API_BASE = '/api'
 
 export class ApiError extends Error {
-  constructor(message, status, errors = null) {
+  constructor(message, status, errors = null, { aborted = false } = {}) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.errors = errors
+    /* 조건이 바뀌어 화면이 스스로 끊은 요청 — 사용자에게 알릴 오류가 아니다 */
+    this.aborted = aborted
   }
+
+  /* 같은 요청을 다시 보내 볼 만한 오류인지 — 연결 실패 · 시간 초과(status 0)와 5xx 만이다.
+     400 · 404 · 422 는 다시 보내도 같으므로 「다시 시도」를 보이지 않는다(입력을 고치거나 닫는다) */
+  get retryable() {
+    return !this.aborted && (this.status === 0 || this.status >= 500)
+  }
+}
+
+/* 응답을 기다리는 최대 시간 — 넘으면 끊고 늦다고 알린다 */
+const REQUEST_TIMEOUT_MS = 30000
+
+/* 서버가 JSON 봉투 없이 실패했을 때(앞단 프록시가 대신 답한 경우)의 문구 */
+const GATEWAY_MESSAGES = {
+  502: '서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  503: '서버가 잠시 요청을 받을 수 없습니다. 잠시 후 다시 시도해 주세요.',
+  504: '응답이 늦어 중단했습니다. 잠시 후 다시 시도해 주세요.'
 }
 
 /* 운영 모드에서 /auth/token 은 404 라, 로그인 화면이 생기기 전까지 토큰은 dev 빌드에서만 받는다 */
@@ -53,22 +71,49 @@ async function send(path, options, token) {
   return fetch(`${API_BASE}${path}`, { ...options, headers })
 }
 
-export async function apiFetch(path, options = {}) {
+/**
+ * options.signal 로 화면이 이전 요청을 끊을 수 있고(조건이 바뀔 때), REQUEST_TIMEOUT_MS 가 지나면 스스로 끊는다.
+ * 끊긴 이유에 따라 aborted(조용히 무시) · 시간 초과(다시 시도 가능)로 나눠 던진다.
+ */
+export async function apiFetch(path, { signal, ...options } = {}) {
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, REQUEST_TIMEOUT_MS)
+  const onAbort = () => controller.abort()
+  if (signal?.aborted) controller.abort()
+  else signal?.addEventListener('abort', onAbort, { once: true })
+
   let res
+  let body
   try {
-    res = await send(path, options, await getToken())
+    const opts = { ...options, signal: controller.signal }
+    res = await send(path, opts, await getToken())
     /* 토큰 만료(8시간)·서버 재기동으로 서명 키가 바뀐 경우 — 한 번만 새로 받아 다시 보낸다 */
-    if (res.status === 401 && import.meta.env.DEV) res = await send(path, options, await getToken({ refresh: true }))
+    if (res.status === 401 && import.meta.env.DEV) res = await send(path, opts, await getToken({ refresh: true }))
+    body = await res.json().catch((e) => {
+      if (e?.name === 'AbortError') throw e
+      return null
+    })
   } catch {
+    if (timedOut) throw new ApiError('응답이 늦습니다. 잠시 후 다시 시도해 주세요.', 0)
+    if (signal?.aborted) throw new ApiError('요청을 취소했습니다.', 0, null, { aborted: true })
     throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0)
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onAbort)
   }
 
-  const body = await res.json().catch(() => null)
-  /* 서버의 실패 응답은 늘 JSON 봉투다 — JSON 이 아닌 5xx 는 dev 프록시가 서버에 붙지 못한 경우다 */
-  if (res.status >= 500 && !body) throw new ApiError('서버에 연결할 수 없습니다. 백엔드가 켜져 있는지 확인해 주세요.', res.status)
   if (!res.ok) {
-    /* 실패 응답은 언제나 {detail: 문자열} — 그대로 사용자에게 보여줄 수 있는 한국어 문장이다 */
-    const message = typeof body?.detail === 'string' ? body.detail : `요청을 처리하지 못했습니다. (${res.status})`
+    /* 실패 응답은 언제나 {detail: 문자열} — 그대로 사용자에게 보여줄 수 있는 한국어 문장이다(IDD 공통규약 · 전달사항 1-6).
+       JSON 이 아닌 5xx 는 앞단 프록시가 서버에 붙지 못한 경우라 상태 코드로 문구를 고른다 */
+    const message =
+      typeof body?.detail === 'string'
+        ? body.detail
+        : (GATEWAY_MESSAGES[res.status] ??
+          (res.status >= 500 ? '서버에 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.' : `요청을 처리하지 못했습니다. (${res.status})`))
     throw new ApiError(message, res.status, body?.errors ?? null)
   }
   return body

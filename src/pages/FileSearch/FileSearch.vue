@@ -10,6 +10,7 @@
       :subtopics="subtopics"
       :tags="tags"
       :file-types="fileTypes"
+      :size-buckets="sizeBuckets"
       :date-from="dateFrom"
       :date-to="dateTo"
       :visible-topic-chips="visibleTopicChips"
@@ -27,11 +28,13 @@
       @clear-subtopics="subtopics = []"
       @clear-tags="tags = []"
       @clear-file-types="fileTypes = []"
+      @clear-sizes="sizeBuckets = []"
       @clear-date-range="clearDateRange"
       @toggle-topic="(label) => (topics = toggleIn(topics, label))"
       @toggle-subtopic="(label) => (subtopics = toggleIn(subtopics, label))"
       @toggle-tag="(label) => (tags = toggleIn(tags, label))"
       @toggle-file-type="(label) => (fileTypes = toggleIn(fileTypes, label))"
+      @toggle-size="(key) => (sizeBuckets = toggleIn(sizeBuckets, key))"
       @apply-date-preset="applyDatePreset"
       @open-facet="openFacetModal"
       @update:date-from="(d) => (dateFrom = d)"
@@ -67,6 +70,7 @@
                 <AInput
                   v-model="searchDraft"
                   search
+                  :maxlength="300"
                   placeholder="파일명, 키워드 검색"
                   class="relative [&_input]:h-10 [&_input]:text-md [&_input]:rounded-xl [&_input]:pl-11 [&_input]:pr-16"
                   @keydown.enter.prevent="commitSearch"
@@ -134,9 +138,26 @@
 
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div class="text-md text-text-primary" aria-live="polite">
-              {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ totalLabel }}</span>
+              <template v-if="!listError">
+                {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ totalLabel }}</span>
+              </template>
             </div>
             <div class="flex items-center gap-2 shrink-0">
+              <!-- 관련도순 — 검색어가 있을 때만 뜻이 있다. 다른 열 머리글을 누르면 그 열 정렬로 바뀐다 -->
+              <button
+                v-if="searchTerms.length"
+                type="button"
+                :aria-pressed="sortKey === 'relevance'"
+                class="h-8 px-3 rounded-md border text-xs font-semibold cursor-pointer whitespace-nowrap"
+                :class="
+                  sortKey === 'relevance'
+                    ? 'bg-action-primary border-action-primary text-text-inverse'
+                    : 'bg-bg-surface border-border-default text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary'
+                "
+                @click="sortByRelevance"
+              >
+                관련도순
+              </button>
               <div class="relative w-[190px]">
                 <ListFilter
                   class="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 text-icon-muted pointer-events-none"
@@ -145,6 +166,7 @@
                 />
                 <AInput
                   v-model="resultSearchDraft"
+                  :maxlength="300"
                   placeholder="결과 내 검색"
                   class="[&_input]:h-8 [&_input]:text-sm [&_input]:pl-8 [&_input]:pr-8 [&_input]:bg-slate-100 [&_input]:border-transparent hover:[&_input]:bg-slate-200"
                   @keydown.enter.prevent="commitResultSearch"
@@ -376,7 +398,22 @@
                 <div></div>
               </div>
             </div>
-            <div v-if="!listLoading && visibleRows.length === 0" class="p-6">
+            <!-- 목록 요청 실패 — 연결 실패 · 5xx · 시간 초과만 「다시 시도」를 보인다. 400 · 422 는 조건을 고치라는 안내다 -->
+            <div v-if="!listLoading && listError" class="p-6">
+              <AEmptyState :icon="CircleAlert" title="목록을 불러오지 못했습니다" :description="listError.message">
+                <button
+                  v-if="listError.retryable"
+                  class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                  @click="retryList"
+                >
+                  다시 시도
+                </button>
+                <AButton v-else-if="appliedConditions.length" variant="primary" class="!h-control-md" @click="clearAllConditions"
+                  >조건 모두 해제</AButton
+                >
+              </AEmptyState>
+            </div>
+            <div v-else-if="!listLoading && visibleRows.length === 0" class="p-6">
               <AEmptyState
                 :icon="SearchX"
                 title="조건에 해당하는 파일이 없습니다"
@@ -415,6 +452,7 @@
     :icon="fileDetailIcon"
     :status="fileDetailStatus"
     :error-message="fileDetailError"
+    :retryable="fileDetailRetryable"
     @retry="retryFileDetail"
     @download-original="downloadOriginal"
     @download-relations="downloadRelations"
@@ -432,6 +470,7 @@
     :entity="entityDetail"
     :status="entityDetailStatus"
     :error-message="entityDetailError"
+    :retryable="entityDetailRetryable"
     :modality-style="MODALITY_STYLE"
     :downloading="entityDownloading"
     :type-clickable="false"
@@ -470,7 +509,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { X, Download, SearchX, ArrowUp, ListFilter } from '@lucide/vue'
+import { X, Download, SearchX, ArrowUp, ListFilter, CircleAlert } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
@@ -500,6 +539,7 @@ const {
   dateFrom,
   dateTo,
   fileTypes,
+  sizeBuckets,
   selectedIds,
   sortKey,
   sortDir,
@@ -535,10 +575,13 @@ const {
   clearAllConditions,
   clearDateRange,
   toggleSort,
+  sortByRelevance,
   ariaSortFor,
   applyDatePreset,
   toggleRowSelect,
   loadMoreRows,
+  listError,
+  retryList,
   downloading,
   downloadOriginal,
   downloadRelations,
@@ -549,11 +592,13 @@ const {
   fileDetail,
   fileDetailStatus,
   fileDetailError,
+  fileDetailRetryable,
   entityDetailOpen,
   entityDetailTarget,
   entityDetail,
   entityDetailStatus,
   entityDetailError,
+  entityDetailRetryable,
   retryEntityDetail,
   entityDownloading,
   downloadEntity,

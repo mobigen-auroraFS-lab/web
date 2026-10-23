@@ -17,6 +17,7 @@
         :value="modelValue"
         :placeholder="placeholder"
         :disabled="disabled"
+        :maxlength="maxlength ?? undefined"
         @input="$emit('update:modelValue', $event.target.value)"
       />
     </div>
@@ -34,7 +35,9 @@ defineProps({
   disabled: { type: Boolean, default: false },
   error: { type: String, default: '' },
   search: { type: Boolean, default: false },
-  type: { type: String, default: 'text' }
+  type: { type: String, default: 'text' },
+  /* 입력할 수 있는 최대 글자 수 — 서버 상한과 맞출 때 쓴다(예: 검색어 300자) */
+  maxlength: { type: Number, default: null }
 })
 
 defineEmits(['update:modelValue'])

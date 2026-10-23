@@ -34,16 +34,20 @@ const entityPath = (type, uid) => `/mm-meta/${encodeURIComponent(type)}/${encode
 /* ------------------------------------------------------------------- 호출 */
 
 /** IF-ENTITY-01 — areas · modalities 는 쉼표 한 줄이다(같은 이름 반복이 아니다). 여럿 고르면 모두 가진 개체만(AND) */
-export function fetchEntities({ q, refine, entityType, areas, modalities, cursor, limit = PAGE_SIZE }) {
+export function fetchEntities({ q, refine, entityType, areas, modalities, cursor, limit = PAGE_SIZE }, options) {
   return apiFetch(
-    `/mm-meta${toQuery({ q, refine, entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities), cursor, limit })}`
+    `/mm-meta${toQuery({ q, refine, entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities), cursor, limit })}`,
+    options
   )
 }
 
 /** IF-ENTITY-02 — q · refine 을 받지 않아 검색 중에도 건수는 전체 자료 기준이다.
     자료 유형 칩 건수는 "이미 고른 유형에 이 칩을 더 누르면 남는 개체 수"(AND)다 */
-export function fetchEntityFacets({ entityType, areas, modalities }) {
-  return apiFetch(`/mm-meta/facets${toQuery({ entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities) })}`)
+export function fetchEntityFacets({ entityType, areas, modalities }, options) {
+  return apiFetch(
+    `/mm-meta/facets${toQuery({ entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities) })}`,
+    options
+  )
 }
 
 /** IF-ENTITY-05 */

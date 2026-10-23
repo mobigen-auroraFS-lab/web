@@ -97,12 +97,13 @@ export function normalizeItem(row) {
 /* ----------------------------------------------------------------- 호출 */
 
 /** IF-ASSET-09 */
-export function searchFiles(params) {
-  return apiFetch(`/file-search${toQuery(params)}`)
+/* options.signal — 조건이 바뀌면 화면이 이전 요청을 끊는다 */
+export function searchFiles(params, options) {
+  return apiFetch(`/file-search${toQuery(params)}`, options)
 }
 /** IF-ASSET-14 — 형식 · 크기 · 기간 칩 건수 */
-export function fetchFacetExtra(params) {
-  return apiFetch(`/file-search/facet-extra${toQuery(params)}`)
+export function fetchFacetExtra(params, options) {
+  return apiFetch(`/file-search/facet-extra${toQuery(params)}`, options)
 }
 /** IF-ASSET-07 */
 export function fetchTopics() {

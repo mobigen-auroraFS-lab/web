@@ -100,11 +100,21 @@
               <CircleAlert class="text-status-danger-text" :size="28" :stroke-width="1.5" />
               <p class="m-0 text-sm font-medium text-text-primary">{{ errorMessage || '개체 정보를 불러오지 못했습니다.' }}</p>
               <button
+                v-if="retryable"
                 type="button"
                 class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
                 @click="$emit('retry')"
               >
                 다시 시도
+              </button>
+              <!-- 404 · 422 처럼 다시 보내도 같은 실패는 닫기만 둔다 -->
+              <button
+                v-else
+                type="button"
+                class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                @click="requestClose"
+              >
+                닫기
               </button>
             </div>
 
@@ -255,6 +265,8 @@ const props = defineProps({
   /* 'loading' | 'ready' | 'error' */
   status: { type: String, default: 'ready' },
   errorMessage: { type: String, default: '' },
+  /* 오류가 다시 보내 볼 만한 것인지 — 거짓이면 「다시 시도」 대신 닫기를 보인다 */
+  retryable: { type: Boolean, default: true },
   /* 모달리티별 { icon, bg, text } — 목록 카드와 같은 색을 쓰도록 화면에서 넘겨받는다 */
   modalityStyle: { type: Object, required: true },
   /* 종류 경로를 눌러 목록을 좁힐 수 있는 화면인지 */
