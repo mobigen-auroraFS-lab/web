@@ -46,6 +46,17 @@
         </div>
         <div class="border-b border-slate-100 -mt-2"></div>
         <span v-if="filtersLoading" class="sr-only" role="status">필터를 불러오는 중입니다</span>
+        <!-- 칩 조회 실패 — 칩이 비거나 숫자가 낡은 것을 「0건」으로 오해하지 않게 알린다 -->
+        <div v-if="facetsError" role="alert" class="flex items-center justify-between gap-2 -mt-2 rounded-md bg-status-danger-bg px-3 py-2">
+          <span class="text-xs text-status-danger-text">필터를 불러오지 못했습니다.</span>
+          <button
+            type="button"
+            class="shrink-0 bg-transparent border-none text-xs text-action-primary font-semibold cursor-pointer hover:underline"
+            @click="retryFacets"
+          >
+            다시 시도
+          </button>
+        </div>
 
         <p v-if="searchTerms.length" class="m-0 -mt-2 text-2xs text-text-tertiary">칩 건수는 검색어와 상관없이 전체 자료 기준입니다.</p>
 
@@ -197,6 +208,7 @@
                 <div class="absolute inset-0 rounded-xl shadow-elevation-1 pointer-events-none"></div>
                 <AInput
                   v-model="searchDraft"
+                  :maxlength="300"
                   search
                   placeholder="키워드 검색"
                   class="relative [&_input]:h-10 [&_input]:text-md [&_input]:rounded-xl [&_input]:pl-11 [&_input]:pr-16"
@@ -226,7 +238,7 @@
                 >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
-                    >⌘</kbd
+                    >{{ MOD_KEY }}</kbd
                   >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
@@ -282,6 +294,7 @@
               />
               <AInput
                 v-model="resultSearchDraft"
+                :maxlength="300"
                 placeholder="결과 내 검색"
                 class="[&_input]:h-8 [&_input]:text-sm [&_input]:pl-8 [&_input]:pr-8 [&_input]:bg-slate-100 [&_input]:border-transparent hover:[&_input]:bg-slate-200"
                 @keydown.enter.prevent="commitResultSearch"
@@ -310,14 +323,18 @@
           class="xl:flex-1 xl:min-h-0 xl:-mt-1 xl:overflow-y-auto scrollbar-subtle xl:px-5 xl:pb-8"
           @scroll.passive="onListScroll"
         >
-          <!-- 오류 — 검색 엔진 연결 실패(503) 등. 조건은 그대로 두고 다시 시도할 수 있게 한다 -->
-          <AEmptyState v-if="listError" :icon="CircleAlert" title="목록을 불러오지 못했습니다" :description="listError">
+          <!-- 오류 — 연결 실패 · 5xx · 시간 초과만 「다시 시도」를 보인다. 400 · 422 는 조건을 고치라는 안내다 -->
+          <AEmptyState v-if="listError" :icon="CircleAlert" title="목록을 불러오지 못했습니다" :description="listError.message">
             <button
+              v-if="listError.retryable"
               class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
               @click="retryList"
             >
               다시 시도
             </button>
+            <AButton v-else-if="appliedConditions.length" variant="primary" class="!h-control-md" @click="clearAllConditions"
+              >조건 모두 해제</AButton
+            >
           </AEmptyState>
 
           <ul
@@ -351,9 +368,9 @@
                       {{ entity.type }}<template v-if="entity.areas.length"> · {{ entity.areas.join(' · ') }}</template>
                     </p>
                   </div>
-                  <!-- '확인된 N건' — 완전성을 약속하지 않는 표현으로 쓴다(IDD IF-ENTITY-01) -->
+                  <!-- confirmed_count 는 연결된 자료 수(확인 전 포함)다 — 「확인된」이라 쓰면 사람이 확인한 수로 읽힌다(IDD IF-ENTITY-01) -->
                   <p class="m-0 shrink-0 pt-0.5 text-2xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">
-                    확인된 {{ entity.confirmedCount.toLocaleString() }}건
+                    연결된 {{ entity.confirmedCount.toLocaleString() }}건
                   </p>
                 </div>
 
@@ -374,7 +391,7 @@
                 </div>
 
                 <!-- 검색으로 들어온 개체만 — 서버가 무엇 때문에 맞았는지 알려준다 -->
-                <p v-if="entity.matchReason" class="m-0 text-2xs text-text-tertiary truncate">일치: {{ entity.matchReason }}</p>
+                <p v-if="entity.matchReason" class="m-0 text-2xs text-text-tertiary truncate">{{ entity.matchReason }}</p>
               </li>
             </template>
             <!-- 스켈레톤 카드 — 첫 조회·조건 변경 중엔 목록 자리를, 더 불러오는 중엔 목록 끝을 채운다 -->
@@ -425,10 +442,13 @@
     :entity="entityDetail"
     :status="entityDetailStatus"
     :error-message="entityDetailError"
+    :retryable="entityDetailRetryable"
     :modality-style="MODALITY_STYLE"
     :downloading="downloading"
     @type-click="applyEntityType"
+    :bundle-confirm="entityBundleConfirm"
     @download="downloadEntity"
+    @answer-confirm="answerEntityBundleConfirm"
     @asset-click="openFileDetail"
     @retry="retryEntityDetail"
   />
@@ -440,11 +460,13 @@
     :icon="fileDetail?.icon ?? null"
     :status="fileDetailStatus"
     :error-message="fileDetailError"
+    :retryable="fileDetailRetryable"
     @retry="retryFileDetail"
     @download-original="downloadFileOriginal"
     @breadcrumb-click="onFileBreadcrumbClick"
     @topic-click="onFileTopicClick"
     @meta-click="onFileMetaClick"
+    @tag-click="onFileTagClick"
     @relation-click="openFileDetail"
   />
 
@@ -482,10 +504,6 @@ import {
   ListFilter,
   SearchX,
   CircleAlert,
-  Film,
-  Image as ImageIcon,
-  FileText,
-  AudioLines,
   PanelLeftClose,
   PanelLeftOpen
 } from '@lucide/vue'
@@ -497,7 +515,7 @@ import AEmptyState from '../../components/AEmptyState.vue'
 import ATooltip from '../../components/ATooltip.vue'
 import AToast from '../../components/AToast.vue'
 
-import { MODALITY_ORDER } from './multimodalSearch.api'
+import { MODALITY_ORDER, MODALITY_STYLE } from './multimodalSearch.api'
 import { useMultimodalSearch } from './useMultimodalSearch'
 import EntityDetailModal from './EntityDetailModal.vue'
 import FileDetailModal from '../FileSearch/FileDetailModal.vue'
@@ -505,6 +523,9 @@ import CommandPalette from '../../layout/CommandPalette.vue'
 import FacetPickerDialog from '../../layout/FacetPickerDialog.vue'
 import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import { useHideOnScroll } from '../../composables/useHideOnScroll'
+
+/* 단축키 표기 — 맥은 ⌘, 그 밖(Windows 등)은 Ctrl. 단축키 처리는 둘 다 받는다(metaKey || ctrlKey) */
+const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl'
 
 const {
   searchDraft,
@@ -525,6 +546,8 @@ const {
   filtersLoading,
   loadingMore,
   listError,
+  facetsError,
+  retryFacets,
   loadMoreRows,
   retryList,
   searchTerms,
@@ -550,6 +573,7 @@ const {
   entityDetail,
   entityDetailStatus,
   entityDetailError,
+  entityDetailRetryable,
   openEntityDetail,
   retryEntityDetail,
   applyEntityType,
@@ -557,28 +581,25 @@ const {
   fileDetail,
   fileDetailStatus,
   fileDetailError,
+  fileDetailRetryable,
   openFileDetail,
   retryFileDetail,
   onFileMetaClick,
   onFileBreadcrumbClick,
   onFileTopicClick,
+  onFileTagClick,
   downloadFileOriginal,
   downloadEntity,
+  entityBundleConfirm,
+  answerEntityBundleConfirm,
   downloading,
   toastMessage,
+  applyUrlState,
   paletteOpen,
   paletteItems,
   closePalette,
   runPaletteItem
 } = useMultimodalSearch()
-
-/* 모달리티별 배지 색·아이콘 — 파일 검색 목록의 확장자 배지 색과 맞춘다 (이미지·문서·영상) */
-const MODALITY_STYLE = {
-  문서: { icon: FileText, bg: 'color-mix(in oklch, var(--color-viz-1) 12%, white)', text: 'var(--color-viz-1)' },
-  이미지: { icon: ImageIcon, bg: 'color-mix(in oklch, var(--color-viz-2) 12%, white)', text: 'var(--color-viz-2)' },
-  영상: { icon: Film, bg: 'color-mix(in oklch, var(--color-viz-4) 12%, white)', text: 'var(--color-viz-4)' },
-  음성: { icon: AudioLines, bg: 'color-mix(in oklch, var(--color-viz-6) 12%, white)', text: 'var(--color-viz-6)' }
-}
 
 const skeletonCardCount = computed(() => (listLoading.value ? 6 : loadingMore.value ? 3 : 0))
 
@@ -625,20 +646,32 @@ watch(
   { flush: 'post' }
 )
 
+/* xl 이상에서는 화면이 아니라 목록 상자가 스크롤된다 — 그 상자를 root 로 둬야 rootMargin(240px 미리 받기)이
+   상자 기준으로 먹는다. 폭이 xl 경계를 넘나들면 root 가 바뀌므로 다시 만든다 */
+const xlQuery = window.matchMedia('(min-width: 80rem)')
+function createLoadObserver() {
+  loadObserver?.disconnect()
+  if (!('IntersectionObserver' in window)) return
+  loadObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMoreRows()
+    },
+    { root: xlQuery.matches ? listScrollRef.value : null, rootMargin: '240px 0px' }
+  )
+  if (loadMoreRef.value) loadObserver.observe(loadMoreRef.value)
+}
+
 onMounted(() => {
+  /* 주소창에서 조건을 고쳐 들어오면(같은 화면 안의 해시 이동) 그 조건으로 다시 맞춘다 */
+  window.addEventListener('hashchange', applyUrlState)
   window.addEventListener('keydown', onGlobalKeydown)
-  if ('IntersectionObserver' in window) {
-    loadObserver = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMoreRows()
-      },
-      { rootMargin: '240px 0px' }
-    )
-    if (loadMoreRef.value) loadObserver.observe(loadMoreRef.value)
-  }
+  createLoadObserver()
+  xlQuery.addEventListener('change', createLoadObserver)
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('hashchange', applyUrlState)
   window.removeEventListener('keydown', onGlobalKeydown)
+  xlQuery.removeEventListener('change', createLoadObserver)
   loadObserver?.disconnect()
   loadObserver = null
 })

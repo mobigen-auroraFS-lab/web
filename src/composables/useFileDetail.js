@@ -23,6 +23,8 @@ export function useFileDetail() {
   const detail = ref(null)
   const status = ref('ready')
   const error = ref('')
+  /* 다시 보내 볼 만한 실패인지(연결 실패 · 5xx · 시간 초과) — 404 · 422 는 「다시 시도」 대신 닫기를 보인다 */
+  const retryable = ref(true)
   let seq = 0
 
   /* 조건이 빠르게 바뀌어도 마지막 요청의 응답만 반영한다 */
@@ -43,6 +45,7 @@ export function useFileDetail() {
       if (mySeq !== seq) return
       detail.value = null
       status.value = 'error'
+      retryable.value = e.retryable !== false
       /* 관계 · 개체 카드에 등록 전 자산이 섞여 오면 404 가 난다(IDD 11절 ⑤) */
       error.value = e.status === 404 ? '볼 수 없는 자료입니다. 삭제되었거나 아직 등록이 끝나지 않았을 수 있습니다.' : e.message
     }
@@ -60,5 +63,5 @@ export function useFileDetail() {
     if (target.value) load(target.value.id)
   }
 
-  return { open, target, detail, status, error, openDetail, close, retry }
+  return { open, target, detail, status, error, retryable, openDetail, close, retry }
 }

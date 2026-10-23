@@ -10,6 +10,7 @@
       :subtopics="subtopics"
       :tags="tags"
       :file-types="fileTypes"
+      :size-buckets="sizeBuckets"
       :date-from="dateFrom"
       :date-to="dateTo"
       :visible-topic-chips="visibleTopicChips"
@@ -27,11 +28,13 @@
       @clear-subtopics="subtopics = []"
       @clear-tags="tags = []"
       @clear-file-types="fileTypes = []"
+      @clear-sizes="sizeBuckets = []"
       @clear-date-range="clearDateRange"
       @toggle-topic="(label) => (topics = toggleIn(topics, label))"
       @toggle-subtopic="(label) => (subtopics = toggleIn(subtopics, label))"
       @toggle-tag="(label) => (tags = toggleIn(tags, label))"
       @toggle-file-type="(label) => (fileTypes = toggleIn(fileTypes, label))"
+      @toggle-size="(key) => (sizeBuckets = toggleIn(sizeBuckets, key))"
       @apply-date-preset="applyDatePreset"
       @open-facet="openFacetModal"
       @update:date-from="(d) => (dateFrom = d)"
@@ -60,13 +63,14 @@
               <div class="flex items-center gap-3 min-w-0">
                 <h1 class="m-0 text-xl font-semibold text-text-primary tracking-tight shrink-0">파일 검색</h1>
                 <span class="w-px h-4 bg-border-default shrink-0" aria-hidden="true"></span>
-                <p class="m-0 text-sm text-text-tertiary truncate">수만 건의 자료를 조건별로 필터링합니다.</p>
+                <p class="m-0 text-sm text-text-tertiary truncate">파일명 · 키워드로 찾고 주제 · 태그 · 형식 · 기간으로 좁힙니다.</p>
               </div>
               <div class="relative w-full sm:w-[420px] max-w-full shrink-0">
                 <div class="absolute inset-0 rounded-xl shadow-elevation-1 pointer-events-none"></div>
                 <AInput
                   v-model="searchDraft"
                   search
+                  :maxlength="300"
                   placeholder="파일명, 키워드 검색"
                   class="relative [&_input]:h-10 [&_input]:text-md [&_input]:rounded-xl [&_input]:pl-11 [&_input]:pr-16"
                   @keydown.enter.prevent="commitSearch"
@@ -95,7 +99,7 @@
                 >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
-                    >⌘</kbd
+                    >{{ MOD_KEY }}</kbd
                   >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
@@ -134,9 +138,26 @@
 
           <div class="flex items-center justify-between gap-3 flex-wrap">
             <div class="text-md text-text-primary" aria-live="polite">
-              {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ totalLabel }}</span>
+              <template v-if="!listError">
+                {{ resultKeywordPrefix }}<span class="font-bold text-action-primary">{{ totalLabel }}</span>
+              </template>
             </div>
             <div class="flex items-center gap-2 shrink-0">
+              <!-- 관련도순 — 검색어가 있을 때만 뜻이 있다. 다른 열 머리글을 누르면 그 열 정렬로 바뀐다 -->
+              <button
+                v-if="searchTerms.length"
+                type="button"
+                :aria-pressed="sortKey === 'relevance'"
+                class="h-8 px-3 rounded-md border text-xs font-semibold cursor-pointer whitespace-nowrap"
+                :class="
+                  sortKey === 'relevance'
+                    ? 'bg-action-primary border-action-primary text-text-inverse'
+                    : 'bg-bg-surface border-border-default text-text-secondary hover:bg-bg-surface-hover hover:text-text-primary'
+                "
+                @click="sortByRelevance"
+              >
+                관련도순
+              </button>
               <div class="relative w-[190px]">
                 <ListFilter
                   class="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 text-icon-muted pointer-events-none"
@@ -145,6 +166,7 @@
                 />
                 <AInput
                   v-model="resultSearchDraft"
+                  :maxlength="300"
                   placeholder="결과 내 검색"
                   class="[&_input]:h-8 [&_input]:text-sm [&_input]:pl-8 [&_input]:pr-8 [&_input]:bg-slate-100 [&_input]:border-transparent hover:[&_input]:bg-slate-200"
                   @keydown.enter.prevent="commitResultSearch"
@@ -158,6 +180,20 @@
                   <X :size="12" :stroke-width="1.5" />
                 </button>
               </div>
+              <!-- 결과 내 검색 규칙(서버) — 낱말이 모두 든 파일만, 낱말은 앞부분부터 맞는다.
+                   화면 오른쪽 끝 가까이라 가운데 정렬이면 잘려서, 오른쪽 끝을 맞춰 왼쪽으로 펼치고 문장마다 줄을 바꾼다 -->
+              <ATooltip
+                :text="'띄어 쓴 낱말이 모두 든 파일만 남깁니다.\n낱말 앞부분부터 맞춥니다(다보 ○ · 보탑 ✕).'"
+                placement="bottom-end"
+              >
+                <button
+                  type="button"
+                  aria-label="결과 내 검색 규칙: 띄어 쓴 낱말이 모두 든 파일만 남기고, 낱말은 앞부분부터 맞춥니다"
+                  class="-ml-1 inline-flex items-center justify-center w-6 h-6 p-0 rounded-full bg-transparent border-none text-icon-muted cursor-help hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                >
+                  <Info :size="14" :stroke-width="1.8" aria-hidden="true" />
+                </button>
+              </ATooltip>
               <ASegmentedControl v-model="density" :options="DENSITY_OPTIONS" aria-label="목록 밀도" />
             </div>
           </div>
@@ -217,7 +253,7 @@
                   role="columnheader"
                   class="flex items-center py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] text-xs font-medium text-text-secondary"
                 >
-                  분류
+                  유형
                 </div>
                 <div
                   role="columnheader"
@@ -237,7 +273,7 @@
                     :class="sortKey === 'date' ? 'text-text-primary' : 'text-text-secondary'"
                     @click="toggleSort('date')"
                   >
-                    수정일
+                    등록일
                     <ArrowUp v-if="sortKey === 'date'" :size="12" :stroke-width="2" :class="sortDir === 'desc' ? 'rotate-180' : ''" />
                   </button>
                 </div>
@@ -274,7 +310,7 @@
                     <span class="sr-only">{{ item.name }} 선택</span>
                   </ACheckbox>
                 </div>
-                <!-- 오른쪽 여백을 한 단계 더 둔다 — 긴 파일명이 말줄임될 때 분류 열에 바짝 붙어 보이지 않도록 -->
+                <!-- 오른쪽 여백을 한 단계 더 둔다 — 긴 파일명이 말줄임될 때 유형 열에 바짝 붙어 보이지 않도록 -->
                 <div
                   role="cell"
                   class="py-[var(--table-cell-padding-y)] pl-[var(--table-cell-padding-x)] pr-8 flex items-center gap-2 min-w-0"
@@ -376,12 +412,38 @@
                 <div></div>
               </div>
             </div>
-            <div v-if="!listLoading && visibleRows.length === 0" class="p-6">
+            <!-- 목록 요청 실패 — 연결 실패 · 5xx · 시간 초과만 「다시 시도」를 보인다. 400 · 422 는 조건을 고치라는 안내다 -->
+            <div v-if="!listLoading && listError" class="p-6">
+              <AEmptyState :icon="CircleAlert" title="목록을 불러오지 못했습니다" :description="listError.message">
+                <button
+                  v-if="listError.retryable"
+                  class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                  @click="retryList"
+                >
+                  다시 시도
+                </button>
+                <AButton v-else-if="appliedConditions.length" variant="primary" class="!h-control-md" @click="clearAllConditions"
+                  >조건 모두 해제</AButton
+                >
+              </AEmptyState>
+            </div>
+            <div v-else-if="!listLoading && visibleRows.length === 0" class="p-6">
               <AEmptyState
                 :icon="SearchX"
                 title="조건에 해당하는 파일이 없습니다"
-                :description="`적용된 조건 ${appliedConditions.length}개가 서로 맞지 않을 수 있습니다. 조건을 줄여보세요.`"
+                :description="
+                  resultSearchValue
+                    ? '결과 내 검색은 띄어 쓴 낱말이 모두 든 파일만 남기고, 낱말 앞부분부터 맞춥니다. 낱말 앞부분으로 다시 찾아 보세요.'
+                    : `적용된 조건 ${appliedConditions.length}개가 서로 맞지 않을 수 있습니다. 조건을 줄여보세요.`
+                "
               >
+                <button
+                  v-if="resultSearchValue"
+                  class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                  @click="setResultSearch('')"
+                >
+                  결과 내 검색 지우기
+                </button>
                 <button
                   v-if="searchTerms.length"
                   class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
@@ -399,7 +461,7 @@
               <!-- 로딩 중엔 스켈레톤이 보이므로 문구는 스크린리더에만 알린다 -->
               <span v-if="listLoading" class="sr-only">검색 중입니다</span>
               <span v-else-if="loadingMore" class="sr-only">더 불러오는 중입니다</span>
-              <span v-else-if="hasMore">더 불러오는 중...</span>
+              <span v-else-if="hasMore">아래로 내리면 더 보입니다</span>
               <span v-else-if="visibleRows.length > 0">전체 결과를 불러왔습니다.</span>
             </div>
           </div>
@@ -415,6 +477,7 @@
     :icon="fileDetailIcon"
     :status="fileDetailStatus"
     :error-message="fileDetailError"
+    :retryable="fileDetailRetryable"
     @retry="retryFileDetail"
     @download-original="downloadOriginal"
     @download-relations="downloadRelations"
@@ -422,7 +485,26 @@
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
+    @tag-click="onTagClickDetail"
     @relation-click="onRelationClickDetail"
+  />
+
+  <!-- 파일 상세의 소속 개체 칩이 여는 개체 상세 — 연결 자료를 누르면 그 파일 상세가 위에 겹쳐 뜬다 -->
+  <EntityDetailModal
+    v-model:open="entityDetailOpen"
+    :target="entityDetailTarget"
+    :entity="entityDetail"
+    :status="entityDetailStatus"
+    :error-message="entityDetailError"
+    :retryable="entityDetailRetryable"
+    :modality-style="MODALITY_STYLE"
+    :downloading="entityDownloading"
+    :type-clickable="false"
+    :bundle-confirm="entityBundleConfirm"
+    @download="downloadEntity"
+    @answer-confirm="answerEntityBundleConfirm"
+    @asset-click="openFileDetail"
+    @retry="retryEntityDetail"
   />
 
   <!-- 패싯 전체 보기: 사이드바에 다 담을 수 없을 때 검색으로 고른다 -->
@@ -430,6 +512,7 @@
     :open="facetModal !== null"
     :title="facetModalTitle"
     :total="facetModalTotal"
+    :shown="facetModalShown"
     :rows="facetModalRows"
     v-model:query="facetQuery"
     @close="closeFacetModal"
@@ -454,7 +537,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { X, Download, SearchX, ArrowUp, ListFilter } from '@lucide/vue'
+import { X, Download, SearchX, ArrowUp, ListFilter, CircleAlert, Info } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
@@ -467,21 +550,29 @@ import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import FilterSidebar from '../../layout/FilterSidebar.vue'
 import FacetPickerDialog from '../../layout/FacetPickerDialog.vue'
 import FileDetailModal from './FileDetailModal.vue'
+import EntityDetailModal from '../MultimodalSearch/EntityDetailModal.vue'
+import { MODALITY_STYLE } from '../MultimodalSearch/multimodalSearch.api'
 import CommandPalette from '../../layout/CommandPalette.vue'
+import ATooltip from '../../components/ATooltip.vue'
 
 import { DENSITY_OPTIONS } from './fileSearch.api'
 import { useFileSearch } from './useFileSearch'
 import { useHideOnScroll } from '../../composables/useHideOnScroll'
 
+/* 단축키 표기 — 맥은 ⌘, 그 밖(Windows 등)은 Ctrl. 단축키 처리는 둘 다 받는다(metaKey || ctrlKey) */
+const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl'
+
 const {
   searchDraft,
   resultSearchDraft,
+  resultSearchValue,
   topics,
   subtopics,
   tags,
   dateFrom,
   dateTo,
   fileTypes,
+  sizeBuckets,
   selectedIds,
   sortKey,
   sortDir,
@@ -517,10 +608,13 @@ const {
   clearAllConditions,
   clearDateRange,
   toggleSort,
+  sortByRelevance,
   ariaSortFor,
   applyDatePreset,
   toggleRowSelect,
   loadMoreRows,
+  listError,
+  retryList,
   downloading,
   downloadOriginal,
   downloadRelations,
@@ -531,16 +625,30 @@ const {
   fileDetail,
   fileDetailStatus,
   fileDetailError,
+  fileDetailRetryable,
+  entityDetailOpen,
+  entityDetailTarget,
+  entityDetail,
+  entityDetailStatus,
+  entityDetailError,
+  entityDetailRetryable,
+  retryEntityDetail,
+  entityDownloading,
+  downloadEntity,
+  entityBundleConfirm,
+  answerEntityBundleConfirm,
   retryFileDetail,
   onBreadcrumbClickDetail,
   onTopicClickDetail,
   onMetaClickDetail,
   onRelationClickDetail,
+  onTagClickDetail,
   openFacetModal,
   closeFacetModal,
   confirmFacetModal,
   facetModalTitle,
   facetModalTotal,
+  facetModalShown,
   facetModalRows,
   toggleFacetValue,
   paletteOpen,

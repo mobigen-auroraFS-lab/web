@@ -1,3 +1,4 @@
+import { Film, Image as ImageIcon, FileText, AudioLines } from '@lucide/vue'
 import { apiFetch, downloadBundleByLink, downloadSelectionByForm, toQuery } from '../../api/client'
 
 /* 사이드바엔 갈래 묶음마다 상위 몇 개만 — 나머지는 '전체 보기' 창에서 고른다. 파일 검색과 같은 기준이다 */
@@ -14,6 +15,14 @@ export const PAGE_SIZE = 30
 /* API 모달리티 → 화면 표기. 순서는 카드·모달의 배지 순서다 */
 export const MODALITY_LABELS = { text: '문서', image: '이미지', video: '영상', audio: '음성' }
 export const MODALITY_ORDER = Object.values(MODALITY_LABELS)
+
+/* 모달리티별 배지 색·아이콘 — 파일 검색 목록의 확장자 배지 색과 맞춘다. 개체 카드 · 개체 상세 모달이 함께 쓴다 */
+export const MODALITY_STYLE = {
+  문서: { icon: FileText, bg: 'color-mix(in oklch, var(--color-viz-1) 12%, white)', text: 'var(--color-viz-1)' },
+  이미지: { icon: ImageIcon, bg: 'color-mix(in oklch, var(--color-viz-2) 12%, white)', text: 'var(--color-viz-2)' },
+  영상: { icon: Film, bg: 'color-mix(in oklch, var(--color-viz-4) 12%, white)', text: 'var(--color-viz-4)' },
+  음성: { icon: AudioLines, bg: 'color-mix(in oklch, var(--color-viz-6) 12%, white)', text: 'var(--color-viz-6)' }
+}
 const MODALITY_CODES = Object.fromEntries(Object.entries(MODALITY_LABELS).map(([code, label]) => [label, code]))
 
 /* 화면 표기(문서·이미지…) 목록을 API 값(text·image…)의 쉼표 한 줄로 바꾼다 */
@@ -25,16 +34,20 @@ const entityPath = (type, uid) => `/mm-meta/${encodeURIComponent(type)}/${encode
 /* ------------------------------------------------------------------- 호출 */
 
 /** IF-ENTITY-01 — areas · modalities 는 쉼표 한 줄이다(같은 이름 반복이 아니다). 여럿 고르면 모두 가진 개체만(AND) */
-export function fetchEntities({ q, refine, entityType, areas, modalities, cursor, limit = PAGE_SIZE }) {
+export function fetchEntities({ q, refine, entityType, areas, modalities, cursor, limit = PAGE_SIZE }, options) {
   return apiFetch(
-    `/mm-meta${toQuery({ q, refine, entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities), cursor, limit })}`
+    `/mm-meta${toQuery({ q, refine, entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities), cursor, limit })}`,
+    options
   )
 }
 
 /** IF-ENTITY-02 — q · refine 을 받지 않아 검색 중에도 건수는 전체 자료 기준이다.
     자료 유형 칩 건수는 "이미 고른 유형에 이 칩을 더 누르면 남는 개체 수"(AND)다 */
-export function fetchEntityFacets({ entityType, areas, modalities }) {
-  return apiFetch(`/mm-meta/facets${toQuery({ entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities) })}`)
+export function fetchEntityFacets({ entityType, areas, modalities }, options) {
+  return apiFetch(
+    `/mm-meta/facets${toQuery({ entity_type: entityType, areas: areas?.join(','), modalities: modalityParam(modalities) })}`,
+    options
+  )
 }
 
 /** IF-ENTITY-05 */
@@ -43,8 +56,8 @@ export function fetchEntityCard(type, uid) {
 }
 
 /** IF-ENTITY-06 — 카드의 구성 자산 전부 zip(묶음 링크 · 건수 · 용량 상한 없음) */
-export function downloadEntityBundle(type, uid) {
-  return downloadBundleByLink(`${entityPath(type, uid)}/bundle`)
+export function downloadEntityBundle(type, uid, options) {
+  return downloadBundleByLink(`${entityPath(type, uid)}/bundle`, options)
 }
 
 /** IF-ASSET-17 — 고른 자산들 zip(폼 제출) — 상세에서 보고 있는 자료 유형 탭만 받을 때 */
@@ -65,7 +78,10 @@ export function normalizeEntity(row) {
     areas: row.areas ?? [],
     modalities: (row.modalities ?? []).map((m) => MODALITY_LABELS[m]).filter(Boolean),
     confirmedCount: row.confirmed_count ?? 0,
-    matchReason: row.match_reason ?? ''
+    /* 검색으로 들어온 개체가 왜 맞았는지 — 서버의 match_reason(「글자 일치」 등)을 「일치:」에 이어 붙이면 말이 겹쳐서
+       by_text(글자) · by_semantic(뜻) 으로 화면 문구를 정한다. 둘 다 없으면 서버 문구를 그대로 쓴다 */
+    matchReason:
+      [row.by_text && '검색어가 들어 있음', row.by_semantic && '뜻이 비슷함'].filter(Boolean).join(' · ') || (row.match_reason ?? '')
   }
 }
 

@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useFileDetail } from '../../composables/useFileDetail'
+import { useEntityDetail } from '../../composables/useEntityDetail'
 import { downloadAsset } from '../FileSearch/fileSearch.api'
 import {
   PAGE_SIZE,
@@ -8,13 +9,17 @@ import {
   MODALITY_LABELS,
   fetchEntities,
   fetchEntityFacets,
-  fetchEntityCard,
-  downloadEntityBundle,
-  downloadEntityAssets,
-  normalizeEntity,
-  buildEntityDetail
+  normalizeEntity
 } from './multimodalSearch.api'
 
+const HASH_ROUTE = '#multimodal-search'
+/* 화면 표기(문서 · 이미지 …) → 주소에 적는 API 값(text · image …) */
+const MODALITY_CODE_OF = Object.fromEntries(Object.entries(MODALITY_LABELS).map(([code, label]) => [label, code]))
+
+/* 주소의 여러 값은 쉼표로 묶는다 */
+function splitParam(v) {
+  return v ? v.split(',').filter(Boolean) : []
+}
 function toggleIn(list, val) {
   return list.includes(val) ? list.filter((v) => v !== val) : [...list, val]
 }
@@ -39,6 +44,10 @@ export function useMultimodalSearch() {
   const areas = ref([])
   /* 반드시 포함할 자료 — 화면 표기(문서·이미지·영상·음성)로 들고 있다가 보낼 때 API 값으로 바꾼다 */
   const modalities = ref([])
+
+  /* 어떤 감시보다 먼저 주소의 조건을 읽는다 — 감시가 초기값 반영까지 '변경'으로 보고 다시 조회하면
+     새로고침 · 공유 링크마다 같은 목록을 두 번 받는다 */
+  applyUrlState()
 
   function commitSearch() {
     searchValue.value = searchDraft.value.trim()
@@ -79,7 +88,8 @@ export function useMultimodalSearch() {
   const nextCursor = ref(null)
   const listLoading = ref(false)
   const loadingMore = ref(false)
-  const listError = ref('')
+  /* 목록 요청 실패 — { message, retryable }. 다시 시도는 연결 실패 · 5xx · 시간 초과에만 보인다 */
+  const listError = ref(null)
 
   function conditionParams() {
     return {
@@ -94,13 +104,18 @@ export function useMultimodalSearch() {
   /* 조건이 빠르게 여러 번 바뀌면 늦게 도착한 옛 응답이 새 결과를 덮어쓸 수 있다 — 마지막 요청만 반영한다 */
   let listSeq = 0
 
+  /* 조건이 바뀌면 진행 중인 이전 목록 요청을 끊는다 */
+  let listController = null
+
   async function fetchList() {
     const seq = ++listSeq
+    listController?.abort()
+    const controller = (listController = new AbortController())
     listLoading.value = true
     loadingMore.value = false
-    listError.value = ''
+    listError.value = null
     try {
-      const body = await fetchEntities({ ...conditionParams(), limit: PAGE_SIZE })
+      const body = await fetchEntities({ ...conditionParams(), limit: PAGE_SIZE }, { signal: controller.signal })
       if (seq !== listSeq) return
       results.value = body.items.map(normalizeEntity)
       total.value = body.total
@@ -111,7 +126,7 @@ export function useMultimodalSearch() {
       results.value = []
       total.value = 0
       nextCursor.value = null
-      listError.value = e.message
+      listError.value = { message: e.message, retryable: e.retryable !== false }
     } finally {
       if (seq === listSeq) listLoading.value = false
     }
@@ -145,29 +160,76 @@ export function useMultimodalSearch() {
   /* 첫 집계가 오기 전에만 필터를 스켈레톤으로 둔다 — 이후엔 이전 칩을 둔 채 숫자만 갈아 끼운다 */
   const facetsLoaded = ref(false)
   const filtersLoading = computed(() => !facetsLoaded.value)
+  /* 칩 조회 실패 — 「0건」과 구별해 사이드바에 실패 안내와 다시 시도를 보인다 */
+  const facetsError = ref('')
   let facetSeq = 0
+  let facetController = null
 
   async function fetchFacets() {
     const seq = ++facetSeq
+    facetController?.abort()
+    const controller = (facetController = new AbortController())
     try {
-      const body = await fetchEntityFacets({ entityType: entityType.value, areas: areas.value, modalities: modalities.value })
+      const body = await fetchEntityFacets(
+        { entityType: entityType.value, areas: areas.value, modalities: modalities.value },
+        { signal: controller.signal }
+      )
       if (seq !== facetSeq) return
       facetTypes.value = body.types ?? []
       facetAreas.value = body.areas ?? []
       facetModalities.value = body.modalities ?? []
+      facetsError.value = ''
       facetsLoaded.value = true
-    } catch {
+    } catch (e) {
       /* 칩 건수는 부가 정보라, 실패해도 목록은 그대로 보여준다 */
-      if (seq === facetSeq) {
-        facetTypes.value = []
-        facetAreas.value = []
-        facetModalities.value = []
-        facetsLoaded.value = true
-      }
+      if (seq !== facetSeq) return
+      facetsError.value = e.message
+      facetsLoaded.value = true
     }
   }
 
   watch([searchValue, resultSearchValue, entityType, areas, modalities], fetchList, { immediate: true })
+
+  /* ----------------------------------------------------------- URL 동기화 */
+
+  /* 조건을 주소에 남긴다(#multimodal-search?q=…&type=…&area=a,b&mod=image,video) — 새로고침 · 주소 복사 ·
+     다른 화면에 갔다 돌아올 때 같은 조건 · 같은 결과가 나온다. 파일 검색(useFileSearch)과 같은 방식이다 */
+  function parseHashParams() {
+    if (!location.hash.startsWith(HASH_ROUTE)) return null
+    return new URLSearchParams(location.hash.slice(HASH_ROUTE.length).replace(/^\?/, ''))
+  }
+  function applyUrlState() {
+    const p = parseHashParams()
+    if (!p) return
+    searchValue.value = p.get('q') || ''
+    searchDraft.value = searchValue.value
+    resultSearchValue.value = p.get('within') || ''
+    resultSearchDraft.value = resultSearchValue.value
+    entityType.value = p.get('type') || ''
+    areas.value = splitParam(p.get('area'))
+    modalities.value = splitParam(p.get('mod'))
+      .map((code) => MODALITY_LABELS[code])
+      .filter(Boolean)
+  }
+  function buildHash() {
+    const p = new URLSearchParams()
+    if (searchValue.value) p.set('q', searchValue.value)
+    if (resultSearchValue.value) p.set('within', resultSearchValue.value)
+    if (entityType.value) p.set('type', entityType.value)
+    if (areas.value.length) p.set('area', areas.value.join(','))
+    if (modalities.value.length) p.set('mod', modalities.value.map((l) => MODALITY_CODE_OF[l]).join(','))
+    const qs = p.toString()
+    return qs ? `${HASH_ROUTE}?${qs}` : HASH_ROUTE
+  }
+  /* 글자 하나마다 히스토리가 쌓이지 않도록 replaceState 로 바꾼다 — 뒤로가기는 「이 화면을 떠난다」다 */
+  let urlWriteTimer = null
+  watch([searchValue, resultSearchValue, entityType, areas, modalities], () => {
+    clearTimeout(urlWriteTimer)
+    urlWriteTimer = setTimeout(() => {
+      const next = buildHash()
+      if (location.hash.startsWith(HASH_ROUTE) && location.hash !== next) history.replaceState(null, '', next)
+    }, 200)
+  })
   watch([entityType, areas, modalities], fetchFacets, { immediate: true })
 
   const typeChips = computed(() => facetTypes.value.map((t) => toChip(t.name, entityType.value === t.name, t.entities)))
@@ -179,7 +241,10 @@ export function useMultimodalSearch() {
      파일 검색과 같이 묶음마다 상위 몇 개만 보이고, 고른 칩은 순위와 상관없이 늘 앞에 붙든다 */
   const areaOptionsByGroup = computed(() => {
     const groups = new Map()
+    /* 고르지 않은 0건 갈래는 숨긴다 — 서버는 0건 축도 싣지만(IF-ENTITY-02) 늘 0건인 칩이 자리만 차지한다.
+       고른 칩은 0이어도 남겨야 풀 수 있다. 칩이 모두 숨으면 그 묶음 제목도 사라진다 */
     facetAreas.value.forEach((a) => {
+      if (a.entities === 0 && !areas.value.includes(a.name)) return
       if (!groups.has(a.skill)) groups.set(a.skill, [])
       groups.get(a.skill).push(a)
     })
@@ -271,69 +336,22 @@ export function useMultimodalSearch() {
 
   /* ---------------------------------------------------------- 개체 상세 모달 */
 
-  const entityDetailOpen = ref(false)
-  const entityDetailTarget = ref(null)
-  const entityDetail = ref(null)
-  const entityDetailStatus = ref('ready')
-  const entityDetailError = ref('')
-  let detailSeq = 0
-
-  async function loadEntityDetail(target) {
-    const seq = ++detailSeq
-    entityDetailStatus.value = 'loading'
-    entityDetailError.value = ''
-    try {
-      const card = await fetchEntityCard(target.type, target.uid)
-      if (seq !== detailSeq) return
-      entityDetail.value = buildEntityDetail(card)
-      entityDetailStatus.value = 'ready'
-    } catch (e) {
-      if (seq !== detailSeq) return
-      entityDetail.value = null
-      entityDetailStatus.value = 'error'
-      entityDetailError.value = e.message
-    }
-  }
-
-  /** target: 목록 카드(normalizeEntity 결과) — 응답을 기다리는 동안 이름·종류를 먼저 보여준다 */
-  function openEntityDetail(target) {
-    entityDetailTarget.value = target
-    entityDetail.value = null
-    entityDetailOpen.value = true
-    loadEntityDetail(target)
-  }
-  function closeEntityDetail() {
-    entityDetailOpen.value = false
-  }
-  function retryEntityDetail() {
-    if (entityDetailTarget.value) loadEntityDetail(entityDetailTarget.value)
-  }
-
-  /* 묶음 다운로드 — 연결 자료 전체는 카드 묶음, 보고 있는 자료 유형 탭만은 그 탭의 자산 id 로 고른 자산 묶음을 받는다 */
-  const downloading = ref(false)
-  async function downloadEntity({ key, assetIds }) {
-    const target = entityDetailTarget.value
-    if (!target || downloading.value) return
-    downloading.value = true
-    try {
-      if (key === 'all') {
-        const r = await downloadEntityBundle(target.type, target.uid)
-        showToast(
-          r.missing > 0
-            ? `${target.name} · ${r.count}건 다운로드를 시작했습니다. (${r.missing}건 제외)`
-            : `${target.name} · ${r.count}건 다운로드를 시작했습니다.`,
-          3000
-        )
-      } else {
-        const r = await downloadEntityAssets(assetIds, { onError: (message) => showToast(message, 4000) })
-        showToast(`${target.name} · ${r.count}건 다운로드를 시작했습니다.`, 3000)
-      }
-    } catch (e) {
-      showToast(e.message, 4000)
-    } finally {
-      downloading.value = false
-    }
-  }
+  /* 조회 · 묶음 받기는 파일 검색의 소속 개체 칩과 같은 로직이라 composables/useEntityDetail 이 맡는다 */
+  const {
+    open: entityDetailOpen,
+    target: entityDetailTarget,
+    detail: entityDetail,
+    status: entityDetailStatus,
+    error: entityDetailError,
+    retryable: entityDetailRetryable,
+    openDetail: openEntityDetail,
+    close: closeEntityDetail,
+    retry: retryEntityDetail,
+    downloading,
+    download: downloadEntity,
+    bundleConfirm: entityBundleConfirm,
+    answerBundleConfirm: answerEntityBundleConfirm
+  } = useEntityDetail({ showToast })
 
   /* ------------------------------------------------- 연결 자료 → 파일 상세 */
 
@@ -344,6 +362,7 @@ export function useMultimodalSearch() {
     detail: fileDetail,
     status: fileDetailStatus,
     error: fileDetailError,
+    retryable: fileDetailRetryable,
     openDetail: openFileDetail,
     close: closeFileDetail,
     retry: retryFileDetail
@@ -357,19 +376,22 @@ export function useMultimodalSearch() {
   }
 
   /* 분류 경로 · 주제 칩은 개체 검색에는 없는 조건이라, 그 분류로 거른 파일 검색 화면으로 보낸다 */
-  function goFileSearch(topic, subtopic) {
+  function goFileSearch(conditions) {
     const p = new URLSearchParams()
-    p.set('topic', topic)
-    if (subtopic) p.set('sub', subtopic)
+    Object.entries(conditions).forEach(([k, v]) => v && p.set(k, v))
     closeFileDetail()
     location.hash = `#file-search?${p}`
   }
   function onFileBreadcrumbClick(crumb) {
     const [topicCrumb, subtopicCrumb] = fileDetail.value?.breadcrumb ?? []
-    if (topicCrumb) goFileSearch(topicCrumb.label, crumb.level === 'subtopic' ? subtopicCrumb?.label : null)
+    if (topicCrumb) goFileSearch({ topic: topicCrumb.label, sub: crumb.level === 'subtopic' ? subtopicCrumb?.label : null })
   }
   function onFileTopicClick(topicChip) {
-    goFileSearch(topicChip.topic, topicChip.subtopic)
+    goFileSearch({ topic: topicChip.topic, sub: topicChip.subtopic })
+  }
+  /* 키워드 칩도 개체 검색에는 없는 조건이라 그 태그로 거른 파일 검색으로 보낸다 */
+  function onFileTagClick(tag) {
+    goFileSearch({ tag })
   }
 
   /* 파일 상세의 「이 데이터만」 — 연관 · 분류 묶음은 협의 전이라 모달에서 막혀 있다 */
@@ -441,6 +463,8 @@ export function useMultimodalSearch() {
     filtersLoading,
     loadingMore,
     listError,
+    facetsError,
+    retryFacets: fetchFacets,
     hasMore,
     loadMoreRows,
     retryList: fetchList,
@@ -469,6 +493,7 @@ export function useMultimodalSearch() {
     entityDetail,
     entityDetailStatus,
     entityDetailError,
+    entityDetailRetryable,
     openEntityDetail,
     retryEntityDetail,
     applyEntityType,
@@ -476,16 +501,22 @@ export function useMultimodalSearch() {
     fileDetail,
     fileDetailStatus,
     fileDetailError,
+    fileDetailRetryable,
     openFileDetail,
     retryFileDetail,
     onFileMetaClick,
     onFileBreadcrumbClick,
     onFileTopicClick,
+    onFileTagClick,
     downloadFileOriginal,
     downloadEntity,
+    entityBundleConfirm,
+    answerEntityBundleConfirm,
     downloading,
 
     toastMessage,
+
+    applyUrlState,
 
     paletteOpen,
     paletteItems,

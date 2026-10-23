@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useFileDetail } from '../../composables/useFileDetail'
+import { useEntityDetail } from '../../composables/useEntityDetail'
 import {
   SORTABLE,
   DATE_PRESETS,
@@ -20,6 +21,10 @@ import {
   DENSITY_STORAGE_KEY
 } from './fileSearch.api'
 
+/* 서버가 태그를 묶는 열쇠와 같은 정규화(NFKC · 공백 제거 · 소문자) */
+function tagKey(v) {
+  return String(v).normalize('NFKC').replace(/\s+/g, '').toLowerCase()
+}
 function toggleIn(list, val) {
   return list.includes(val) ? list.filter((v) => v !== val) : [...list, val]
 }
@@ -69,6 +74,8 @@ export function useFileSearch() {
   const dateFrom = ref(null)
   const dateTo = ref(null)
   const fileTypes = ref([])
+  /* 크기 구간(under1 · 1to10 · over10) — 여럿 고르면 「또는」이다(서버 size_bucket 반복 인자) */
+  const sizeBuckets = ref([])
   const selectedIds = ref([])
   const sortKey = ref('date')
   const sortDir = ref('desc')
@@ -79,10 +86,27 @@ export function useFileSearch() {
     detail: fileDetail,
     status: fileDetailStatus,
     error: fileDetailError,
+    retryable: fileDetailRetryable,
     openDetail: openFileDetail,
     close: closeFileDetail,
     retry: retryFileDetail
   } = useFileDetail()
+
+  /* 파일 상세의 소속 개체 칩이 여는 개체 상세 — 멀티모달 검색과 같은 모달 · 같은 로직이다 */
+  const {
+    open: entityDetailOpen,
+    target: entityDetailTarget,
+    detail: entityDetail,
+    status: entityDetailStatus,
+    error: entityDetailError,
+    retryable: entityDetailRetryable,
+    openDetail: openEntityDetail,
+    retry: retryEntityDetail,
+    downloading: entityDownloading,
+    download: downloadEntity,
+    bundleConfirm: entityBundleConfirm,
+    answerBundleConfirm: answerEntityBundleConfirm
+  } = useEntityDetail({ showToast })
   const density = ref(readStoredDensity())
 
   const facetModal = ref(null)
@@ -95,13 +119,28 @@ export function useFileSearch() {
 
   /* Enter로만 커밋한다 — 타이핑 중엔 서버 조회/URL 어느 것도 움직이지 않는다 */
   function commitSearch() {
+    const prev = searchValue.value
     searchValue.value = searchDraft.value.trim()
+    syncSortToSearch(prev)
   }
   /* 칩 제거·지우기 버튼은 타이핑이 아니라 한 번의 명확한 클릭이므로 즉시 반영하고,
      입력창 내용도 함께 맞춰 커밋된 값과 어긋나지 않게 한다 */
   function setSearch(v) {
+    const prev = searchValue.value
     searchDraft.value = v
     searchValue.value = v
+    syncSortToSearch(prev)
+  }
+  /* 검색어가 생기면 관련도순, 없어지면 등록일순으로 — 관련도는 검색어가 있어야 뜻이 있다(서버 기본값도 relevance).
+     검색어를 바꾸는 쪽에서 같은 틱에 부르므로 조회는 한 번만 일어난다 */
+  function syncSortToSearch(prev) {
+    if (searchValue.value && !prev) {
+      sortKey.value = 'relevance'
+      sortDir.value = 'desc'
+    } else if (!searchValue.value && sortKey.value === 'relevance') {
+      sortKey.value = 'date'
+      sortDir.value = 'desc'
+    }
   }
   function removeSearchTerm(term) {
     setSearch(searchTerms.value.filter((t) => t !== term).join(' '))
@@ -140,13 +179,14 @@ export function useFileSearch() {
   const facetAxes = ref({})
   const listLoading = ref(false)
   const loadingMore = ref(false)
+  /* 목록 요청 실패 — { message, retryable }. 실패하면 이전 결과를 지워 새 조건의 결과처럼 보이지 않게 한다 */
+  const listError = ref(null)
   /* 필터 칩은 첫 응답이 오기 전에만 스켈레톤으로 둔다 — 이후 조건이 바뀔 때마다 칩을 지우면
      고른 칩이 사라졌다 나타나 깜빡이므로, 그때는 이전 칩을 둔 채 숫자만 갈아 끼운다 */
   const facetsLoaded = ref(false)
   const filtersLoading = computed(() => listLoading.value && !facetsLoaded.value)
 
-  /* 같은 이름을 반복해 보내는 배열 규칙은 toQuery 가 처리한다. 크기(size_bucket)는
-     서버가 아직 501 이라 보내지 않는다 */
+  /* 같은 이름을 반복해 보내는 배열 규칙은 toQuery 가 처리한다 */
   function conditionParams() {
     return {
       q: searchValue.value,
@@ -155,24 +195,35 @@ export function useFileSearch() {
       subtopic: subtopics.value,
       tag: tags.value,
       file_ext: fileTypes.value.map((e) => e.toLowerCase()),
+      size_bucket: sizeBuckets.value,
       created_from: toISODate(dateFrom.value),
       created_to: toISODate(dateTo.value)
     }
   }
-  const sortParam = computed(() => `${sortKey.value === 'date' ? 'updated' : sortKey.value}_${sortDir.value}`)
+  /* 날짜 정렬은 등록일(created)이다 — 목록 날짜 · 기간 필터와 같은 기준이고 안정 정렬이라 이어 받기에서 행이 빠지지 않는다(수정일 정렬은 sort_unstable) */
+  const sortParam = computed(() => {
+    if (sortKey.value === 'relevance') return 'relevance'
+    return `${sortKey.value === 'date' ? 'created' : sortKey.value}_${sortDir.value}`
+  })
 
   /* 조건이 빠르게 여러 번 바뀌면 늦게 도착한 옛 응답이 새 결과를 덮어쓸 수 있다 —
      요청마다 번호를 매겨 마지막 요청의 응답만 반영한다 */
   let listSeq = 0
 
+  /* 조건이 바뀌면 진행 중인 이전 목록 · 칩 요청을 끊는다 — 무거운 칩 집계가 서버에서 겹치지 않게 한다 */
+  let listController = null
+
   async function fetchList() {
     const seq = ++listSeq
+    listController?.abort()
+    const controller = (listController = new AbortController())
     listLoading.value = true
     loadingMore.value = false
+    listError.value = null
     const params = conditionParams()
     const [page, extra] = await Promise.allSettled([
-      searchFiles({ ...params, sort: sortParam.value, limit: PAGE_SIZE }),
-      fetchFacetExtra(params)
+      searchFiles({ ...params, sort: sortParam.value, limit: PAGE_SIZE }, { signal: controller.signal }),
+      fetchFacetExtra(params, { signal: controller.signal })
     ])
     if (seq !== listSeq) return
     listLoading.value = false
@@ -187,7 +238,13 @@ export function useFileSearch() {
       depth.value = body.depth ?? Infinity
       facets.value = body.facets ?? {}
     } else {
-      showToast(page.reason.message, 4000)
+      /* 이전 행 · 건수 · 커서를 그대로 두면 바뀐 머리말과 옛 결과가 함께 보인다 — 비우고 목록 자리에 오류를 보인다 */
+      items.value = []
+      total.value = 0
+      totalCapped.value = false
+      nextCursor.value = null
+      depth.value = Infinity
+      listError.value = { message: page.reason.message, retryable: page.reason.retryable !== false }
     }
     /* 형식·크기·기간 칩 건수는 부가 정보라, 실패해도 목록은 그대로 보여준다 */
     facetAxes.value = extra.status === 'fulfilled' ? (extra.value.axes ?? {}) : {}
@@ -211,7 +268,7 @@ export function useFileSearch() {
     try {
       const body = await searchFiles(params)
       if (seq !== listSeq) return
-      /* 기본 정렬(수정일)은 값이 변하는 정렬이라 쪽 경계에서 같은 행이 다시 올 수 있다 */
+      /* 정렬값이 같은 행이 쪽 경계에서 다시 올 수 있어 이미 받은 행은 거른다 */
       const seen = new Set(items.value.map((r) => r.id))
       items.value = [...items.value, ...body.items.map(normalizeItem).filter((r) => !seen.has(r.id))]
       nextCursor.value = body.next_cursor
@@ -228,6 +285,10 @@ export function useFileSearch() {
 
   const topicRows = ref([])
   const tagRows = ref([])
+  /* /tags 의 total 은 자르기 전 같은 조건의 태그 종류 수다 — rows 는 최대 TAG_LIST_LIMIT 개라 total 이 더 클 수 있다(IDD IF-CAT-02) */
+  const tagTotal = ref(0)
+  /* 「전체 보기」 창 검색어로 서버에서 찾은 태그 — 받은 500개 안에서만 거르면 501번째 이후 태그를 못 찾는다. 검색어가 없으면 null */
+  const tagSearch = ref(null)
 
   fetchTopics()
     .then((body) => (topicRows.value = body.topics ?? []))
@@ -256,17 +317,23 @@ export function useFileSearch() {
       const seq = ++tagSeq
       if (!subtopics.value.length) {
         tagRows.value = []
+        tagTotal.value = 0
         return
       }
       fetchTags({ topic: topics.value, subtopic: subtopics.value, limit: TAG_LIST_LIMIT })
         .then((body) => {
-          if (seq === tagSeq) tagRows.value = body.rows ?? []
+          if (seq !== tagSeq) return
+          tagRows.value = body.rows ?? []
+          tagTotal.value = body.total ?? tagRows.value.length
         })
         .catch(() => {
-          if (seq === tagSeq) tagRows.value = []
+          if (seq !== tagSeq) return
+          tagRows.value = []
+          tagTotal.value = 0
         })
     },
-    { deep: true }
+    /* 새로고침 · 공유 링크로 하위주제가 걸린 채 열려도 태그 목록을 받는다 — 바뀔 때만 부르면 「전체 보기」가 빈다 */
+    { deep: true, immediate: true }
   )
 
   /* 상위 조건을 풀면 그 아래 선택도 의미가 없어진다 — 잠금 구조를 그대로 따른다.
@@ -313,7 +380,16 @@ export function useFileSearch() {
   const subtopicChips = computed(() => facetChips(facets.value.subtopic, subtopics.value))
   const showMoreSubtopics = computed(() => subtopicOptions.value.size > subtopicChips.value.length)
 
-  const visibleTagChips = computed(() => facetChips(facets.value.tag, tags.value))
+  /* 태그 칩에는 원문 표기(label)를 보인다 — key 는 서버가 묶어 세는 정규화 키(공백 제거 · 소문자)라 「ai목소리」처럼 보인다.
+     고른 값과 칩은 같은 정규화로 맞춰, 「전체 보기」에서 고른 원문과 칩이 같은 태그로 두 번 뜨지 않게 한다(W3) */
+  const visibleTagChips = computed(() => {
+    const entries = (facets.value.tag ?? []).map((e) => ({ label: e.label ?? e.key, norm: tagKey(e.label ?? e.key), count: e.count }))
+    const countOf = new Map(entries.map((e) => [e.norm, e.count]))
+    const pickedNorms = new Set(tags.value.map(tagKey))
+    const picked = tags.value.map((v) => toChip(v, true, countOf.get(tagKey(v)) ?? null))
+    const rest = entries.filter((e) => !pickedNorms.has(e.norm)).map((e) => toChip(e.label, false, e.count))
+    return [...picked, ...rest].slice(0, Math.max(FACET_VISIBLE_COUNT, picked.length))
+  })
   const showMoreTags = computed(() => tagOptions.value.size > visibleTagChips.value.length)
 
   /* 형식 칩은 서버가 소문자 확장자로 준다 — 화면·URL 은 지금처럼 대문자로 쓴다 */
@@ -324,15 +400,12 @@ export function useFileSearch() {
     return [...missing, ...entries.map((e) => toChip(e.key, fileTypes.value.includes(e.key), e.count))]
   })
 
-  /* 크기로 거르기는 서버가 아직 지원하지 않는다(size_bucket 501) — 건수만 보여주고 누를 수 없게 둔다 */
+  /* 크기 칩 숫자는 크기 조건만 뺀 채 센 「누르면 나오는 수」라, 하나를 고른 채 다른 구간으로 갈아탈 수 있다(전달사항 1-1) */
   const sizeRangeChips = computed(() =>
-    (facetAxes.value.file_size ?? []).map((e) => ({
-      label: SIZE_BUCKET_LABELS[e.key] ?? e.key,
-      value: e.key,
-      count: e.count,
-      active: false,
-      disabled: true
-    }))
+    (facetAxes.value.file_size ?? []).map((e) => {
+      const active = sizeBuckets.value.includes(e.key)
+      return { label: SIZE_BUCKET_LABELS[e.key] ?? e.key, value: e.key, count: e.count, active, disabled: e.count === 0 && !active }
+    })
   )
 
   const dateRangeLabel = computed(() => {
@@ -351,6 +424,10 @@ export function useFileSearch() {
     ...subtopics.value.map((t) => ({ label: `하위주제: ${t}`, remove: () => (subtopics.value = subtopics.value.filter((x) => x !== t)) })),
     ...tags.value.map((t) => ({ label: `태그: ${t}`, remove: () => (tags.value = tags.value.filter((x) => x !== t)) })),
     ...fileTypes.value.map((t) => ({ label: `형식: ${t}`, remove: () => (fileTypes.value = fileTypes.value.filter((x) => x !== t)) })),
+    ...sizeBuckets.value.map((k) => ({
+      label: `크기: ${SIZE_BUCKET_LABELS[k] ?? k}`,
+      remove: () => (sizeBuckets.value = sizeBuckets.value.filter((x) => x !== k))
+    })),
     ...(dateFrom.value || dateTo.value
       ? [
           {
@@ -365,14 +442,17 @@ export function useFileSearch() {
   ])
 
   function clearAllConditions() {
+    const prev = searchValue.value
     searchDraft.value = ''
     searchValue.value = ''
+    syncSortToSearch(prev)
     resultSearchDraft.value = ''
     resultSearchValue.value = ''
     topics.value = []
     subtopics.value = []
     tags.value = []
     fileTypes.value = []
+    sizeBuckets.value = []
     dateFrom.value = null
     dateTo.value = null
   }
@@ -383,6 +463,10 @@ export function useFileSearch() {
 
   /* ------------------------------------------------------------- sorting */
 
+  function sortByRelevance() {
+    sortKey.value = 'relevance'
+    sortDir.value = 'desc'
+  }
   function toggleSort(key) {
     if (sortKey.value === key) {
       sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
@@ -494,8 +578,16 @@ export function useFileSearch() {
     addTopicFilter(topicChip.topic, topicChip.subtopic)
     closeFileDetail()
   }
+  /* 소속 개체 칩 — 같은 이름의 태그로 파일 검색을 걸면 칩 숫자(개체에 묶인 파일 수)와 결과가 달라서, 개체 상세를 연다.
+     카드의 연결 자료 수가 칩 숫자와 같다. 멀티모달 검색과 같이 파일 상세는 닫고 개체 상세를 연다 */
   function onMetaClickDetail(meta) {
-    if (!tags.value.includes(meta.label)) tags.value = [...tags.value, meta.label]
+    const [type, ...rest] = meta.id.split(':')
+    closeFileDetail()
+    openEntityDetail({ id: meta.id.replace(':', '/'), type, uid: rest.join(':'), name: meta.label })
+  }
+  /* 상세의 키워드 칩 — 그 태그로 목록을 거른다(목록 태그와 같은 출처라 이 파일도 나온다) */
+  function onTagClickDetail(tag) {
+    if (!tags.value.some((t) => tagKey(t) === tagKey(tag))) tags.value = [...tags.value, tag]
     closeFileDetail()
   }
   function onRelationClickDetail(relation) {
@@ -513,34 +605,81 @@ export function useFileSearch() {
 
   function openFacetModal(key) {
     facetQuery.value = ''
+    tagSearch.value = null
     facetDraft.value = [...FACET_CONFIG[key].selected.value]
     facetModal.value = key
   }
   function closeFacetModal() {
     facetModal.value = null
+    tagSearch.value = null
   }
   function confirmFacetModal() {
     FACET_CONFIG[facetModal.value].selected.value = facetDraft.value
     closeFacetModal()
   }
 
+  /* 태그 창의 검색은 서버가 한다(/tags?q= · 부분 일치) — 받은 TAG_LIST_LIMIT 개 밖의 태그도 닿는다.
+     타이핑마다 부르지 않도록 잠시 멈춘 뒤 부르고, 늦게 온 옛 응답은 버린다 */
+  let tagSearchSeq = 0
+  let tagSearchTimer = null
+  watch(facetQuery, (value) => {
+    clearTimeout(tagSearchTimer)
+    const q = value.trim()
+    const seq = ++tagSearchSeq
+    if (facetModal.value !== 'tag' || !q) {
+      tagSearch.value = null
+      return
+    }
+    tagSearchTimer = setTimeout(() => {
+      fetchTags({ topic: topics.value, subtopic: subtopics.value, q, limit: TAG_LIST_LIMIT })
+        .then((body) => {
+          if (seq === tagSearchSeq) tagSearch.value = { rows: body.rows ?? [], total: body.total ?? 0 }
+        })
+        .catch(() => {
+          if (seq === tagSearchSeq) tagSearch.value = { rows: [], total: 0 }
+        })
+    }, 250)
+  })
+
   const facetModalTitle = computed(() => (facetModal.value ? FACET_CONFIG[facetModal.value].title : ''))
-  const facetModalTotal = computed(() => (facetModal.value ? FACET_CONFIG[facetModal.value].options().size : 0))
+
+  /* 태그는 서버가 센 총계를, 주제 · 하위주제는 받은 목록 수를 쓴다 */
+  const facetModalTotal = computed(() => {
+    if (!facetModal.value) return 0
+    if (facetModal.value === 'tag') return tagSearch.value ? tagSearch.value.total : tagTotal.value
+    return FACET_CONFIG[facetModal.value].options().size
+  })
+  /* 총계가 받은 목록보다 크면 「전체 N개 중 상위 M개」로 밝히기 위한 받은 수 — 넘치지 않으면 null */
+  const facetModalShown = computed(() => {
+    if (facetModal.value !== 'tag') return null
+    const shown = tagSearch.value ? tagSearch.value.rows.length : tagRows.value.length
+    return facetModalTotal.value > shown ? shown : null
+  })
 
   /* 모달은 가나다순 — 체크하는 동안 목록이 눈앞에서 재정렬되면 안 된다 */
   const facetModalRows = computed(() => {
     if (!facetModal.value) return []
-    const options = FACET_CONFIG[facetModal.value].options()
     const picked = facetDraft.value
-    const q = facetQuery.value.trim().toLowerCase()
+    /* 태그 검색 중이면 서버가 이미 거른 결과라 다시 거르지 않는다 */
+    const searched = facetModal.value === 'tag' && tagSearch.value
+    const options = searched ? new Map(tagSearch.value.rows.map((r) => [r.tag, r.count])) : FACET_CONFIG[facetModal.value].options()
+    const q = searched ? '' : facetQuery.value.trim().toLowerCase()
     return [...options.keys()]
       .filter((v) => !q || v.toLowerCase().includes(q))
       .sort((a, b) => a.localeCompare(b, 'ko'))
-      .map((v) => ({ label: v, active: picked.includes(v), count: options.get(v) ?? 0 }))
+      .map((v) => ({ label: v, active: isPicked(picked, v), count: options.get(v) ?? 0 }))
   })
 
+  /* 태그는 표기가 달라도(띄어쓰기 · 대소문자) 같은 태그다 — 주제 · 하위주제는 그대로 비교한다 */
+  function isPicked(picked, v) {
+    if (facetModal.value !== 'tag') return picked.includes(v)
+    return picked.some((p) => tagKey(p) === tagKey(v))
+  }
   function toggleFacetValue(label) {
-    facetDraft.value = toggleIn(facetDraft.value, label)
+    facetDraft.value =
+      facetModal.value === 'tag' && isPicked(facetDraft.value, label)
+        ? facetDraft.value.filter((p) => tagKey(p) !== tagKey(label))
+        : toggleIn(facetDraft.value, label)
   }
 
   /* --------------------------------------------------------- command palette */
@@ -594,9 +733,12 @@ export function useFileSearch() {
     if (subtopics.value.length) p.set('sub', subtopics.value.join(','))
     if (tags.value.length) p.set('tag', tags.value.join(','))
     if (fileTypes.value.length) p.set('type', fileTypes.value.join(','))
+    if (sizeBuckets.value.length) p.set('size', sizeBuckets.value.join(','))
     if (dateFrom.value) p.set('from', toISODate(dateFrom.value))
     if (dateTo.value) p.set('to', toISODate(dateTo.value))
-    if (sortKey.value !== 'date' || sortDir.value !== 'desc') p.set('sort', `${sortKey.value}:${sortDir.value}`)
+    /* 기본 정렬(검색어가 있으면 관련도, 없으면 등록일 최신순)은 주소에 적지 않는다 */
+    const isDefaultSort = q ? sortKey.value === 'relevance' : sortKey.value === 'date' && sortDir.value === 'desc'
+    if (!isDefaultSort) p.set('sort', sortKey.value === 'relevance' ? 'relevance' : `${sortKey.value}:${sortDir.value}`)
     const qs = p.toString()
     return qs ? `${HASH_ROUTE}?${qs}` : HASH_ROUTE
   }
@@ -623,17 +765,24 @@ export function useFileSearch() {
     subtopics.value = splitParam(p.get('sub'))
     tags.value = splitParam(p.get('tag'))
     fileTypes.value = splitParam(p.get('type'))
+    sizeBuckets.value = splitParam(p.get('size')).filter((k) => SIZE_BUCKET_LABELS[k])
     dateFrom.value = parseISODate(p.get('from'))
     dateTo.value = parseISODate(p.get('to'))
     const [k, d] = (p.get('sort') || '').split(':')
-    sortKey.value = SORTABLE[k] ? k : 'date'
-    sortDir.value = d === 'asc' || d === 'desc' ? d : 'desc'
+    if (SORTABLE[k]) {
+      sortKey.value = k
+      sortDir.value = d === 'asc' || d === 'desc' ? d : 'desc'
+    } else {
+      /* 정렬이 없거나 relevance 면 검색어 유무로 정한다 — 검색어 없는 관련도순은 뜻이 없다 */
+      sortKey.value = searchValue.value ? 'relevance' : 'date'
+      sortDir.value = 'desc'
+    }
   }
 
   /* 조건이 하나라도 바뀌면 처음부터 다시 받는다 — 옛 커서는 조건이 바뀌면 400 이다.
      같은 틱 안의 여러 변경(URL 적용 · 모두 해제)은 한 번의 조회로 묶인다 */
   watch(
-    [searchValue, resultSearchValue, topics, subtopics, tags, fileTypes, dateFrom, dateTo, sortKey, sortDir],
+    [searchValue, resultSearchValue, topics, subtopics, tags, fileTypes, sizeBuckets, dateFrom, dateTo, sortKey, sortDir],
     () => {
       /* 받지 않은 행은 새 결과에 있는지 알 수 없으므로 선택을 비운다 */
       selectedIds.value = []
@@ -663,12 +812,14 @@ export function useFileSearch() {
   return {
     searchDraft,
     resultSearchDraft,
+    resultSearchValue,
     topics,
     subtopics,
     tags,
     dateFrom,
     dateTo,
     fileTypes,
+    sizeBuckets,
     selectedIds,
     sortKey,
     sortDir,
@@ -709,11 +860,14 @@ export function useFileSearch() {
     clearDateRange,
 
     toggleSort,
+    sortByRelevance,
     ariaSortFor,
     applyDatePreset,
 
     toggleRowSelect,
     loadMoreRows,
+    listError,
+    retryList: fetchList,
     downloading,
     downloadOriginal,
     downloadRelations,
@@ -725,17 +879,31 @@ export function useFileSearch() {
     fileDetail,
     fileDetailStatus,
     fileDetailError,
+    fileDetailRetryable,
+    entityDetailOpen,
+    entityDetailTarget,
+    entityDetail,
+    entityDetailStatus,
+    entityDetailError,
+    entityDetailRetryable,
+    retryEntityDetail,
+    entityDownloading,
+    downloadEntity,
+    entityBundleConfirm,
+    answerEntityBundleConfirm,
     retryFileDetail,
     onBreadcrumbClickDetail,
     onTopicClickDetail,
     onMetaClickDetail,
     onRelationClickDetail,
+    onTagClickDetail,
 
     openFacetModal,
     closeFacetModal,
     confirmFacetModal,
     facetModalTitle,
     facetModalTotal,
+    facetModalShown,
     facetModalRows,
     toggleFacetValue,
 

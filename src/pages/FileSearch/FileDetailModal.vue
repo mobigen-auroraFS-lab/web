@@ -178,11 +178,21 @@
               <CircleAlert class="text-status-danger-text" :size="28" :stroke-width="1.5" />
               <p class="m-0 text-sm font-medium text-text-primary">{{ errorMessage || '파일 정보를 불러오지 못했습니다.' }}</p>
               <button
+                v-if="retryable"
                 type="button"
                 class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
                 @click="$emit('retry')"
               >
                 다시 시도
+              </button>
+              <!-- 404 · 422 처럼 다시 보내도 같은 실패는 닫기만 둔다 -->
+              <button
+                v-else
+                type="button"
+                class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                @click="requestClose"
+              >
+                닫기
               </button>
             </div>
 
@@ -202,7 +212,7 @@
                     <p class="m-0 text-base text-text-primary leading-relaxed">{{ file.extractedInfo.summary }}</p>
                   </section>
 
-                  <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-2 min-w-0">
+                  <section v-if="file.topics?.length || file.multimodalMeta?.length || file.tags?.length" class="flex flex-col gap-2 min-w-0">
                     <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">키워드·분류 라벨</h3>
                     <div class="flex flex-wrap gap-1.5">
                       <button
@@ -223,8 +233,9 @@
                           t.relatedCount.toLocaleString()
                         }}</span>
                       </button>
+                      <!-- 멀티모달 목록에 보이는 개체(묶인 파일이 충분한 것)만 앞에 둔다 — 나머지는 아래로 접는다 -->
                       <button
-                        v-for="m in file.multimodalMeta"
+                        v-for="m in visibleMeta"
                         :key="m.id"
                         type="button"
                         class="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border border-border-default bg-bg-surface text-sm cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
@@ -234,6 +245,28 @@
                         <span class="text-2xs text-text-tertiary bg-slate-100 rounded-full px-1.5 py-0.5 [font-feature-settings:'tnum']">{{
                           m.count.toLocaleString()
                         }}</span>
+                      </button>
+                      <button
+                        v-if="unlistedMeta.length"
+                        type="button"
+                        class="inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-dashed border-border-default bg-transparent text-xs font-medium text-text-tertiary cursor-pointer hover:text-text-primary hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        :aria-expanded="showUnlistedMeta"
+                        @click="showUnlistedMeta = !showUnlistedMeta"
+                      >
+                        그 밖의 개체 {{ unlistedMeta.length }}
+                        <ChevronDown :size="12" :stroke-width="2" :class="showUnlistedMeta ? 'rotate-180' : ''" />
+                      </button>
+                    </div>
+                    <!-- 키워드(태그) — 분류 · 개체 칩과 줄을 나눈다. 누르면 그 태그로 파일 검색을 건다 -->
+                    <div v-if="file.tags?.length" class="flex flex-wrap gap-1.5">
+                      <button
+                        v-for="tag in file.tags"
+                        :key="tag"
+                        type="button"
+                        class="inline-flex items-center h-7 px-2.5 rounded-full bg-slate-100 border-none text-sm text-text-secondary cursor-pointer hover:bg-slate-200 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        @click="$emit('tag-click', tag)"
+                      >
+                        #{{ tag }}
                       </button>
                     </div>
                   </section>
@@ -328,6 +361,13 @@
                         <span class="text-sm font-semibold text-text-primary truncate">{{ rel.name }}</span>
                       </span>
                       <span v-if="rel.reason" class="w-full text-xs text-text-tertiary truncate">{{ rel.reason }}</span>
+                      <!-- 강한 관계(strong)에만 「연관」 표시 — 서버가 강한 것부터 정렬해 주므로 위에 모인다.
+                           약한 관계(참고)는 표시 없이 둔다 — 지금 데이터는 전부 약한 관계라 모두 달면 소음이다 -->
+                      <span
+                        v-if="rel.tier === 'strong'"
+                        class="inline-flex items-center h-5 px-1.5 rounded-sm bg-primary-50 text-primary-700 text-2xs font-semibold"
+                        >연관</span
+                      >
                     </button>
                   </div>
 
@@ -341,6 +381,17 @@
                     <ChevronDown :size="14" :stroke-width="2" />
                   </button>
                 </template>
+
+                <!-- 미리보기는 8건까지라 전체는 파일 검색에서 본다 — 숫자는 누르면 나오는 결과 수(이 파일 포함)와 같다 -->
+                <button
+                  v-if="activeTabKey === 'sameTopic' && sameTopicSearchTopic"
+                  type="button"
+                  class="w-full inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-bg-surface border border-border-default text-sm font-semibold text-text-secondary cursor-pointer hover:bg-bg-surface-hover hover:border-border-strong hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  @click="$emit('topic-click', sameTopicSearchTopic)"
+                >
+                  「{{ sameTopicSearchTopic.label }}」 전체 {{ sameTopicSearchTopic.relatedCount.toLocaleString() }}건 파일 검색에서 보기
+                  <ArrowUpRight :size="14" :stroke-width="1.8" />
+                </button>
               </section>
             </div>
           </div>
@@ -375,11 +426,13 @@
  * @typedef {Object} FileDetailMeta
  * @property {string} id
  * @property {string} label          인물·작품·기관 등 메타 이름
- * @property {number} count          확인된 관련 파일 수
+ * @property {number} count          개체에 묶인 파일 수(= 개체 상세의 연결 자료 수)
+ * @property {boolean} listed        멀티모달 목록에 보이는 개체인지 — 거짓이면 「그 밖의 개체」로 접는다
  *
  * @typedef {Object} FileDetailRelation
  * @property {string} id
  * @property {string} typeBadge      콘텐츠 유형 (예: 영상, 이미지, 문서)
+ * @property {'strong'|'weak'|null} [tier]  관계 강도 — strong 이면 「연관」 표시
  * @property {{ bg: string, text: string }} [typeBadgeStyle]  없으면 중립 색으로 표시
  * @property {Object|Function} [icon]  목록의 확장자 아이콘과 동일한 컴포넌트 — 없으면 아이콘 생략
  * @property {string} name           파일명
@@ -399,8 +452,9 @@
  * @property {{ summary: string }} extractedInfo
  * @property {FileDetailBasicInfoItem[]} basicInfo  '상세 정보'의 확장 메타로 표시된다
  * @property {FileDetailTopic[]} topics
+ * @property {string[]} tags   키워드(태그)
  * @property {FileDetailMeta[]} multimodalMeta
- * @property {{ related: FileDetailRelation[], sameTopic: FileDetailRelation[] }} relations
+ * @property {{ related: FileDetailRelation[], sameTopic: FileDetailRelation[], sameTopicCount: number }} relations
  */
 
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
@@ -414,6 +468,8 @@ const props = defineProps({
   /** 'ready' | 'loading' | 'error' — file 이 null 인데 ready 면 자동으로 empty 상태로 표시된다 */
   status: { type: String, default: 'ready' },
   errorMessage: { type: String, default: '' },
+  /* 오류가 다시 보내 볼 만한 것인지 — 거짓이면 「다시 시도」 대신 닫기를 보인다 */
+  retryable: { type: Boolean, default: true },
   /** 요약 배지 옆에 보여줄 아이콘 컴포넌트 (선택) */
   icon: { type: [Object, Function], default: null }
 })
@@ -426,6 +482,7 @@ const emit = defineEmits([
   'breadcrumb-click',
   'topic-click',
   'meta-click',
+  'tag-click',
   'relation-click',
   'retry'
 ])
@@ -519,14 +576,28 @@ const breadcrumbPathLabel = computed(() => (props.file?.breadcrumb ?? []).map((c
 
 /* --------------------------------------------------------------- 상세 정보 */
 
-/* 'format' 은 배지·'파일 형식' 행, 'file_size' 는 헤더 메타 줄로 이미 나가므로 확장 메타에서는 뺀다 */
-const extendedMeta = computed(() => (props.file?.basicInfo ?? []).filter((i) => i.key !== 'format' && i.key !== 'file_size'))
+/* 소속 개체 칩 — listed 가 거짓인 개체(묶인 파일 3개 미만)는 멀티모달 목록에 없어 「그 밖의 개체」로 접는다.
+   임계값은 서버가 정하므로 웹이 숫자를 들고 있지 않다(IDD IF-ASSET-10) */
+const listedMeta = computed(() => (props.file?.multimodalMeta ?? []).filter((m) => m.listed))
+const unlistedMeta = computed(() => (props.file?.multimodalMeta ?? []).filter((m) => !m.listed))
+const showUnlistedMeta = ref(false)
+const visibleMeta = computed(() => (showUnlistedMeta.value ? [...listedMeta.value, ...unlistedMeta.value] : listedMeta.value))
+watch(
+  () => props.file?.id,
+  () => {
+    showUnlistedMeta.value = false
+  }
+)
+
+/* 보일 키 · 이름 · 단위는 buildFileDetail(detailInfo)이 이미 골라 둔다 */
+const extendedMeta = computed(() => props.file?.basicInfo ?? [])
 
 /* --------------------------------------------------------- 관계 정보 탭 */
 
 const relationTabsMeta = computed(() => {
   const related = props.file?.relations?.related?.length ?? 0
-  const sameTopic = props.file?.relations?.sameTopic?.length ?? 0
+  /* 서버가 미리보기를 8건까지만 주므로 탭 숫자는 받은 행 수가 아니라 그 분류의 전체 수(이 파일 제외)다 */
+  const sameTopic = props.file?.relations?.sameTopicCount ?? props.file?.relations?.sameTopic?.length ?? 0
   return [
     { key: 'related', label: '연관 데이터', count: related },
     { key: 'sameTopic', label: '같은 분류 파일', count: sameTopic }
@@ -550,6 +621,12 @@ watch(
 const activeTabKey = computed(() => relationTabsMeta.value.find((t) => t.label === activeTabLabel.value)?.key ?? 'related')
 watch(activeTabKey, () => {
   relationVisibleCount.value = RELATION_PAGE_SIZE
+})
+
+/* 「이 분류 전체 보기」가 거는 조건 — 주제 칩을 누를 때와 같다. 분류가 없거나 건수를 모르면 감춘다 */
+const sameTopicSearchTopic = computed(() => {
+  const t = props.file?.topics?.[0]
+  return t && t.relatedCount > 0 ? t : null
 })
 
 const activeRelationList = computed(() => props.file?.relations?.[activeTabKey.value] ?? [])

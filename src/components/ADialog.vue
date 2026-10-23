@@ -8,7 +8,8 @@
         aria-modal="true"
       >
         <div v-if="title" class="text-lg font-semibold text-text-primary">{{ title }}</div>
-        <div v-if="description" class="text-sm text-text-tertiary -mt-[18px]">{{ description }}</div>
+        <!-- 설명의 \n 은 줄바꿈으로 그린다(HTML 이 아니라 글자라서 <br> 는 쓸 수 없다) -->
+        <div v-if="description" class="text-sm text-text-tertiary -mt-[18px] whitespace-pre-line">{{ description }}</div>
         <div class="flex flex-col gap-4">
           <slot />
         </div>

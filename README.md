@@ -29,7 +29,7 @@ src/
   components/          # 재사용 UI 컴포넌트 (AButton, AInput 등)
   layout/              # 화면 공통 레이아웃 (헤더, 기본 레이아웃 틀). 재사용 컴포넌트와
                         # 달리 이 앱 자체의 뼈대라 components/와 분리
-  composables/         # 두 화면 이상이 함께 쓰는 로직 (useFileDetail · useHideOnScroll)
+  composables/         # 두 화면 이상이 함께 쓰는 로직 (useFileDetail · useEntityDetail · useHideOnScroll)
   DesignGuide/
     DesignGuide.vue      # 디자인 시스템 컴포넌트 카탈로그 (#design-guide). 요구사항
                           # 화면이 아니라 pages/ 바깥에 둠
@@ -94,7 +94,7 @@ npm install
    붙이면 해당 화면(`src/pages/MultimodalSearch/MultimodalSearch.vue`)으로
    전환됩니다.
 4. 주소 뒤에 `#design-guide` 를 붙이면(`http://localhost:5173/#design-guide`) 디자인 시스템
-   컴포넌트 카탈로그(`src/DesignGuide/DesignGuide.vue`)로 전환됩니다.
+   컴포넌트 카탈로그(`src/DesignGuide/DesignGuide.vue`)로 전환됩니다. 개발 서버(`npm run dev`)에서만 열리고, 운영 빌드에서는 메뉴와 화면이 모두 빠집니다.
 
 ## 커밋 컨벤션
 
@@ -133,10 +133,10 @@ npm install
   묶음(zip: 선택 · 연관 데이터 · 분류 · 개체)은 묶음 링크라서 큰 파일도 메모리에 모으지 않습니다.
   연관 데이터 · 분류 묶음은 기능은 연결돼 있지만 협의 전이라 상세 모달에 "미결"로 비활성 표시합니다.
   상세 모달의 추출 텍스트는 원문 창구가 없어 뺐고,
-  크기 필터는 서버가 아직 거르기를 지원하지 않아(501) 건수만 보여줍니다.
+  검색어가 있으면 관련도순, 없으면 등록일 최신순이 기본 정렬이고, 조건 · 정렬은 주소(`#file-search?…`)에 남습니다.
 - `src/pages/MultimodalSearch/`는 개체 API(IDD IF-ENTITY-01 · 02 · 05)에 연동돼 있습니다. 결과 단위는
   인물 · 장소 · 작품 같은 개체이고, 종류(하나) · 갈래(여럿, AND) · 반드시 포함할 자료(문서·이미지·영상·음성, 여럿이면 AND)로 좁힙니다.
-  등록일 필터는 개체에 날짜가 없어 두지 않았습니다.
+  등록일 필터는 개체에 날짜가 없어 두지 않았습니다. 조건은 주소(`#multimodal-search?…`)에 남습니다.
 - 화면 간 라우팅 라이브러리(Vue Router 등)는 아직 도입되어 있지 않습니다. 대신
   `src/router.js`의 경량 자체 라우터가 URL 해시 변화를 반응형으로 추적하고,
   `src/App.vue`가 그 값에 따라 화면을 전환합니다 — 새로고침 없이 주소창 해시만

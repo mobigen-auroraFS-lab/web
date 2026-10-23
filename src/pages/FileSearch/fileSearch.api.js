@@ -63,11 +63,13 @@ function presentation(ext, modality) {
 }
 
 /* 목록의 크기 0 은 '모름'이다(서버가 NULL 을 0 으로 채운다 · IDD 11절 ⑫) */
-function formatBytes(bytes) {
+export function formatBytes(bytes) {
   if (!bytes) return '—'
   if (bytes < 1024) return `${bytes}B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`
   const mb = bytes / (1024 * 1024)
+  /* 묶음(zip)은 수 GB 가 될 수 있다 */
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`
   return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)}MB`
 }
 
@@ -89,7 +91,7 @@ export function normalizeItem(row) {
     subtopics: row.subtopics ?? [],
     tags: row.tags ?? [],
     summary: row.summary ?? '',
-    date: utcDate(row.updated_at),
+    date: utcDate(row.created_at),
     sizeLabel: formatBytes(row.file_size)
   }
 }
@@ -97,12 +99,13 @@ export function normalizeItem(row) {
 /* ----------------------------------------------------------------- 호출 */
 
 /** IF-ASSET-09 */
-export function searchFiles(params) {
-  return apiFetch(`/file-search${toQuery(params)}`)
+/* options.signal — 조건이 바뀌면 화면이 이전 요청을 끊는다 */
+export function searchFiles(params, options) {
+  return apiFetch(`/file-search${toQuery(params)}`, options)
 }
 /** IF-ASSET-14 — 형식 · 크기 · 기간 칩 건수 */
-export function fetchFacetExtra(params) {
-  return apiFetch(`/file-search/facet-extra${toQuery(params)}`)
+export function fetchFacetExtra(params, options) {
+  return apiFetch(`/file-search/facet-extra${toQuery(params)}`, options)
 }
 /** IF-ASSET-07 */
 export function fetchTopics() {
@@ -127,16 +130,45 @@ export function fetchRelationKinds() {
 
 /* ------------------------------------------------------ 파일 상세 모달 매핑 */
 
-function metaValue(v) {
-  if (v === null || v === undefined) return null
-  if (Array.isArray(v)) return v.join(', ')
-  if (typeof v === 'object') return JSON.stringify(v)
-  return v
+/* ------------------------------------------------- 상세 정보(core_meta) 표시 */
+
+const LANGUAGE_NAMES = { ko: '한국어', en: '영어', ja: '일본어', zh: '중국어' }
+
+function formatDuration(seconds) {
+  const total = Math.round(seconds)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  if (h) return `${h}시간 ${m}분 ${sec}초`
+  if (m) return `${m}분 ${sec}초`
+  return `${sec}초`
+}
+/* 소수 끝의 0 을 떼고 보인다(29.970 → 29.97, 44.1 → 44.1) */
+const trimNumber = (n, digits) => String(Number(Number(n).toFixed(digits)))
+
+/* 「상세 정보」는 보일 키만 골라 한글 이름 · 단위를 붙인다 — core_meta 를 키 = 값 그대로 보이면 영문 키 · 토큰 수 ·
+   색 코드가 나열된다. 목록에 없는 키는 보이지 않는다(새 키가 생기면 백엔드가 알린다 · 전달사항 부록 A).
+   file_format(「파일 형식」과 겹침) · encoding · num_tokens · dominant_colors 는 뺀다 */
+function detailInfo(core = {}) {
+  const rows = []
+  const add = (key, label, value) => rows.push({ key, label, value })
+  if (core.width != null && core.height != null) add('resolution', '해상도', `${core.width.toLocaleString()} × ${core.height.toLocaleString()} px`)
+  if (core.duration != null) add('duration', '재생 시간', formatDuration(core.duration))
+  if (core.frame_rate != null) add('frame_rate', '프레임 속도', `${trimNumber(core.frame_rate, 2)}fps`)
+  if (core.sample_rate != null) add('sample_rate', '샘플링 주파수', `${trimNumber(core.sample_rate / 1000, 1)}kHz`)
+  if (core.channels != null) add('channels', '채널', core.channels === 1 ? '모노' : core.channels === 2 ? '스테레오' : `${core.channels}채널`)
+  if (core.color_mode) add('color_mode', '색 모드', core.color_mode)
+  if (core.length != null) add('length', '글자 수', `${core.length.toLocaleString()}자`)
+  if (core.num_sentences != null) add('num_sentences', '문장 수', `${core.num_sentences.toLocaleString()}문장`)
+  if (core.language) add('language', '언어', LANGUAGE_NAMES[core.language] ?? core.language)
+  return rows
 }
 
-function relationCard({ asset_id, file_name, modality }, reason) {
+/* tier — 관계 강도(IDD IF-ASSET-01 relations): strong(연관 · 확인된 강한 관계) · weak(참고 · 자동으로 묶인 약한 관계).
+   같은 분류 파일은 관계가 아니라 tier 가 없다 */
+function relationCard({ asset_id, file_name, modality, tier = null }, reason) {
   const p = presentation(extOf(file_name), modality)
-  return { id: asset_id, name: file_name, ext: extOf(file_name), typeBadge: p.category, typeBadgeStyle: p.extStyle, icon: p.icon, reason }
+  return { id: asset_id, name: file_name, ext: extOf(file_name), typeBadge: p.category, typeBadgeStyle: p.extStyle, icon: p.icon, reason, tier }
 }
 
 /**
@@ -151,7 +183,11 @@ export function buildFileDetail(detail, mmMeta, kindNames) {
   const topic = detail.topics?.[0]
   const groups = detail.same_topic_groups ?? []
   const topicGroup = topic && groups.find((g) => g.topic_ko === topic.topic_ko)
-  const subtopicGroup = topicGroup?.subtopics.find((s) => s.subtopic_ko === topic.subtopic_ko)
+  /* 하위주제가 없는 파일은 서버가 ''(또는 null)로 묶는다 — 그 묶음만 같은 분류다. 다른 하위주제 파일은 섞지 않는다 */
+  const subtopicGroup = topicGroup?.subtopics.find((s) => (s.subtopic_ko || '') === (topic.subtopic_ko || ''))
+  /* asset_count 는 이 파일을 뺀 수다(IDD IF-ASSET-01) — 주제 · 하위주제로 파일 검색을 걸면 이 파일도 나오므로 결과 수는 +1 이다.
+     주제 칩은 누르면 거는 조건(하위주제가 있으면 주제+하위주제, 없으면 주제만) 그대로 센다 */
+  const chipGroup = topic?.subtopic_ko ? subtopicGroup : topicGroup
 
   const sizeLabel = formatBytes(detail.file_size)
 
@@ -169,27 +205,36 @@ export function buildFileDetail(detail, mmMeta, kindNames) {
       : [],
     /* 등급이 모자라면 summary 키 자체가 빠진다(IDD 공통규약 ext_meta 키 omit) */
     extractedInfo: { summary: detail.ext_meta?.summary || '요약 정보가 없습니다.' },
-    basicInfo: Object.entries(detail.core_meta ?? {}).map(([key, value]) => ({ key, label: key, value: metaValue(value) })),
+    basicInfo: detailInfo(detail.core_meta ?? {}),
     topics: topic
       ? [
           {
             id: `${topic.topic_ko}>${topic.subtopic_ko ?? ''}`,
             label: topic.subtopic_ko ? `${topic.topic_ko} · ${topic.subtopic_ko}` : topic.topic_ko,
-            relatedCount: subtopicGroup?.asset_count ?? topicGroup?.asset_count ?? 0,
+            relatedCount: chipGroup ? chipGroup.asset_count + 1 : 0,
             topic: topic.topic_ko,
             subtopic: topic.subtopic_ko
           }
         ]
       : [],
-    multimodalMeta: (mmMeta?.items ?? []).map((m) => ({ id: `${m.entity_type}:${m.entity_uid}`, label: m.name, count: m.bundle_size })),
+    /* 키워드(태그) — 목록 행의 태그와 같은 값(ext_meta.keywords)이라 이 태그로 걸면 이 파일도 결과에 나온다 */
+    tags: detail.tags ?? [],
+    multimodalMeta: (mmMeta?.items ?? []).map((m) => ({
+      id: `${m.entity_type}:${m.entity_uid}`,
+      label: m.name,
+      count: m.bundle_size,
+      /* 서버가 알려 주는 값 — 없으면(구 서버) 보이는 것으로 본다 */
+      listed: m.listed !== false
+    })),
     relations: {
       /* 순서는 서버가 정한 등급 → 신뢰도 → 식별자 그대로 둔다 — 다시 정렬하면 사람이 확인한 관계가 밀린다 */
       related: (detail.relations ?? []).map((r) => relationCard(r, r.kind_codes.map((code) => kindNames[code] ?? code).join(' · '))),
-      sameTopic: groups.flatMap((g) =>
-        g.subtopics.flatMap((s) =>
-          s.assets.filter((a) => a.asset_id !== detail.asset_id).map((a) => relationCard(a, `${g.topic_ko} · ${s.subtopic_ko || '기타'}`))
-        )
-      )
+      /* 같은 분류 파일 — 이 파일이 속한 분류(하위주제 없음 포함) 묶음만, 이 파일은 뺀다. 서버가 미리보기를 8건까지만 주므로
+         탭 숫자는 받은 행 수가 아니라 그 묶음의 asset_count 다 */
+      sameTopic: (subtopicGroup?.assets ?? [])
+        .filter((a) => a.asset_id !== detail.asset_id)
+        .map((a) => relationCard(a, `${topic.topic_ko} · ${topic.subtopic_ko || '하위주제 없음'}`)),
+      sameTopicCount: subtopicGroup?.asset_count ?? 0
     }
   }
 }
