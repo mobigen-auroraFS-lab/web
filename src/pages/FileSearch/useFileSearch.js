@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useFileDetail } from '../../composables/useFileDetail'
+import { useEntityDetail } from '../../composables/useEntityDetail'
 import {
   SORTABLE,
   DATE_PRESETS,
@@ -83,6 +84,19 @@ export function useFileSearch() {
     close: closeFileDetail,
     retry: retryFileDetail
   } = useFileDetail()
+
+  /* 파일 상세의 소속 개체 칩이 여는 개체 상세 — 멀티모달 검색과 같은 모달 · 같은 로직이다 */
+  const {
+    open: entityDetailOpen,
+    target: entityDetailTarget,
+    detail: entityDetail,
+    status: entityDetailStatus,
+    error: entityDetailError,
+    openDetail: openEntityDetail,
+    retry: retryEntityDetail,
+    downloading: entityDownloading,
+    download: downloadEntity
+  } = useEntityDetail({ showToast })
   const density = ref(readStoredDensity())
 
   const facetModal = ref(null)
@@ -159,7 +173,8 @@ export function useFileSearch() {
       created_to: toISODate(dateTo.value)
     }
   }
-  const sortParam = computed(() => `${sortKey.value === 'date' ? 'updated' : sortKey.value}_${sortDir.value}`)
+  /* 날짜 정렬은 등록일(created)이다 — 목록 날짜 · 기간 필터와 같은 기준이고 안정 정렬이라 이어 받기에서 행이 빠지지 않는다(수정일 정렬은 sort_unstable) */
+  const sortParam = computed(() => `${sortKey.value === 'date' ? 'created' : sortKey.value}_${sortDir.value}`)
 
   /* 조건이 빠르게 여러 번 바뀌면 늦게 도착한 옛 응답이 새 결과를 덮어쓸 수 있다 —
      요청마다 번호를 매겨 마지막 요청의 응답만 반영한다 */
@@ -211,7 +226,7 @@ export function useFileSearch() {
     try {
       const body = await searchFiles(params)
       if (seq !== listSeq) return
-      /* 기본 정렬(수정일)은 값이 변하는 정렬이라 쪽 경계에서 같은 행이 다시 올 수 있다 */
+      /* 정렬값이 같은 행이 쪽 경계에서 다시 올 수 있어 이미 받은 행은 거른다 */
       const seen = new Set(items.value.map((r) => r.id))
       items.value = [...items.value, ...body.items.map(normalizeItem).filter((r) => !seen.has(r.id))]
       nextCursor.value = body.next_cursor
@@ -228,6 +243,10 @@ export function useFileSearch() {
 
   const topicRows = ref([])
   const tagRows = ref([])
+  /* /tags 의 total 은 자르기 전 같은 조건의 태그 종류 수다 — rows 는 최대 TAG_LIST_LIMIT 개라 total 이 더 클 수 있다(IDD IF-CAT-02) */
+  const tagTotal = ref(0)
+  /* 「전체 보기」 창 검색어로 서버에서 찾은 태그 — 받은 500개 안에서만 거르면 501번째 이후 태그를 못 찾는다. 검색어가 없으면 null */
+  const tagSearch = ref(null)
 
   fetchTopics()
     .then((body) => (topicRows.value = body.topics ?? []))
@@ -256,14 +275,19 @@ export function useFileSearch() {
       const seq = ++tagSeq
       if (!subtopics.value.length) {
         tagRows.value = []
+        tagTotal.value = 0
         return
       }
       fetchTags({ topic: topics.value, subtopic: subtopics.value, limit: TAG_LIST_LIMIT })
         .then((body) => {
-          if (seq === tagSeq) tagRows.value = body.rows ?? []
+          if (seq !== tagSeq) return
+          tagRows.value = body.rows ?? []
+          tagTotal.value = body.total ?? tagRows.value.length
         })
         .catch(() => {
-          if (seq === tagSeq) tagRows.value = []
+          if (seq !== tagSeq) return
+          tagRows.value = []
+          tagTotal.value = 0
         })
     },
     { deep: true }
@@ -494,9 +518,12 @@ export function useFileSearch() {
     addTopicFilter(topicChip.topic, topicChip.subtopic)
     closeFileDetail()
   }
+  /* 소속 개체 칩 — 같은 이름의 태그로 파일 검색을 걸면 칩 숫자(개체에 묶인 파일 수)와 결과가 달라서, 개체 상세를 연다.
+     카드의 연결 자료 수가 칩 숫자와 같다. 멀티모달 검색과 같이 파일 상세는 닫고 개체 상세를 연다 */
   function onMetaClickDetail(meta) {
-    if (!tags.value.includes(meta.label)) tags.value = [...tags.value, meta.label]
+    const [type, ...rest] = meta.id.split(':')
     closeFileDetail()
+    openEntityDetail({ id: meta.id.replace(':', '/'), type, uid: rest.join(':'), name: meta.label })
   }
   function onRelationClickDetail(relation) {
     openFileDetail({ id: relation.id, name: relation.name, ext: relation.ext })
@@ -513,26 +540,65 @@ export function useFileSearch() {
 
   function openFacetModal(key) {
     facetQuery.value = ''
+    tagSearch.value = null
     facetDraft.value = [...FACET_CONFIG[key].selected.value]
     facetModal.value = key
   }
   function closeFacetModal() {
     facetModal.value = null
+    tagSearch.value = null
   }
   function confirmFacetModal() {
     FACET_CONFIG[facetModal.value].selected.value = facetDraft.value
     closeFacetModal()
   }
 
+  /* 태그 창의 검색은 서버가 한다(/tags?q= · 부분 일치) — 받은 TAG_LIST_LIMIT 개 밖의 태그도 닿는다.
+     타이핑마다 부르지 않도록 잠시 멈춘 뒤 부르고, 늦게 온 옛 응답은 버린다 */
+  let tagSearchSeq = 0
+  let tagSearchTimer = null
+  watch(facetQuery, (value) => {
+    clearTimeout(tagSearchTimer)
+    const q = value.trim()
+    const seq = ++tagSearchSeq
+    if (facetModal.value !== 'tag' || !q) {
+      tagSearch.value = null
+      return
+    }
+    tagSearchTimer = setTimeout(() => {
+      fetchTags({ topic: topics.value, subtopic: subtopics.value, q, limit: TAG_LIST_LIMIT })
+        .then((body) => {
+          if (seq === tagSearchSeq) tagSearch.value = { rows: body.rows ?? [], total: body.total ?? 0 }
+        })
+        .catch(() => {
+          if (seq === tagSearchSeq) tagSearch.value = { rows: [], total: 0 }
+        })
+    }, 250)
+  })
+
   const facetModalTitle = computed(() => (facetModal.value ? FACET_CONFIG[facetModal.value].title : ''))
-  const facetModalTotal = computed(() => (facetModal.value ? FACET_CONFIG[facetModal.value].options().size : 0))
+
+  /* 태그는 서버가 센 총계를, 주제 · 하위주제는 받은 목록 수를 쓴다 */
+  const facetModalTotal = computed(() => {
+    if (!facetModal.value) return 0
+    if (facetModal.value === 'tag') return tagSearch.value ? tagSearch.value.total : tagTotal.value
+    return FACET_CONFIG[facetModal.value].options().size
+  })
+  /* 총계가 받은 목록보다 크면 「전체 N개 중 상위 M개」로 밝히기 위한 받은 수 — 넘치지 않으면 null */
+  const facetModalShown = computed(() => {
+    if (facetModal.value !== 'tag') return null
+    const shown = tagSearch.value ? tagSearch.value.rows.length : tagRows.value.length
+    return facetModalTotal.value > shown ? shown : null
+  })
 
   /* 모달은 가나다순 — 체크하는 동안 목록이 눈앞에서 재정렬되면 안 된다 */
   const facetModalRows = computed(() => {
     if (!facetModal.value) return []
-    const options = FACET_CONFIG[facetModal.value].options()
     const picked = facetDraft.value
-    const q = facetQuery.value.trim().toLowerCase()
+    /* 태그 검색 중이면 서버가 이미 거른 결과라 다시 거르지 않는다 */
+    const searched = facetModal.value === 'tag' && tagSearch.value
+    const options = searched ? new Map(tagSearch.value.rows.map((r) => [r.tag, r.count])) : FACET_CONFIG[facetModal.value].options()
+    const q = searched ? '' : facetQuery.value.trim().toLowerCase()
     return [...options.keys()]
       .filter((v) => !q || v.toLowerCase().includes(q))
       .sort((a, b) => a.localeCompare(b, 'ko'))
@@ -725,6 +791,14 @@ export function useFileSearch() {
     fileDetail,
     fileDetailStatus,
     fileDetailError,
+    entityDetailOpen,
+    entityDetailTarget,
+    entityDetail,
+    entityDetailStatus,
+    entityDetailError,
+    retryEntityDetail,
+    entityDownloading,
+    downloadEntity,
     retryFileDetail,
     onBreadcrumbClickDetail,
     onTopicClickDetail,
@@ -736,6 +810,7 @@ export function useFileSearch() {
     confirmFacetModal,
     facetModalTitle,
     facetModalTotal,
+    facetModalShown,
     facetModalRows,
     toggleFacetValue,
 

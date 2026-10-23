@@ -1,3 +1,4 @@
+import { Film, Image as ImageIcon, FileText, AudioLines } from '@lucide/vue'
 import { apiFetch, downloadBundleByLink, downloadSelectionByForm, toQuery } from '../../api/client'
 
 /* 사이드바엔 갈래 묶음마다 상위 몇 개만 — 나머지는 '전체 보기' 창에서 고른다. 파일 검색과 같은 기준이다 */
@@ -14,6 +15,14 @@ export const PAGE_SIZE = 30
 /* API 모달리티 → 화면 표기. 순서는 카드·모달의 배지 순서다 */
 export const MODALITY_LABELS = { text: '문서', image: '이미지', video: '영상', audio: '음성' }
 export const MODALITY_ORDER = Object.values(MODALITY_LABELS)
+
+/* 모달리티별 배지 색·아이콘 — 파일 검색 목록의 확장자 배지 색과 맞춘다. 개체 카드 · 개체 상세 모달이 함께 쓴다 */
+export const MODALITY_STYLE = {
+  문서: { icon: FileText, bg: 'color-mix(in oklch, var(--color-viz-1) 12%, white)', text: 'var(--color-viz-1)' },
+  이미지: { icon: ImageIcon, bg: 'color-mix(in oklch, var(--color-viz-2) 12%, white)', text: 'var(--color-viz-2)' },
+  영상: { icon: Film, bg: 'color-mix(in oklch, var(--color-viz-4) 12%, white)', text: 'var(--color-viz-4)' },
+  음성: { icon: AudioLines, bg: 'color-mix(in oklch, var(--color-viz-6) 12%, white)', text: 'var(--color-viz-6)' }
+}
 const MODALITY_CODES = Object.fromEntries(Object.entries(MODALITY_LABELS).map(([code, label]) => [label, code]))
 
 /* 화면 표기(문서·이미지…) 목록을 API 값(text·image…)의 쉼표 한 줄로 바꾼다 */

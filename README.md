@@ -29,7 +29,7 @@ src/
   components/          # 재사용 UI 컴포넌트 (AButton, AInput 등)
   layout/              # 화면 공통 레이아웃 (헤더, 기본 레이아웃 틀). 재사용 컴포넌트와
                         # 달리 이 앱 자체의 뼈대라 components/와 분리
-  composables/         # 두 화면 이상이 함께 쓰는 로직 (useFileDetail · useHideOnScroll)
+  composables/         # 두 화면 이상이 함께 쓰는 로직 (useFileDetail · useEntityDetail · useHideOnScroll)
   DesignGuide/
     DesignGuide.vue      # 디자인 시스템 컴포넌트 카탈로그 (#design-guide). 요구사항
                           # 화면이 아니라 pages/ 바깥에 둠

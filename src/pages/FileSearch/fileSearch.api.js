@@ -89,7 +89,7 @@ export function normalizeItem(row) {
     subtopics: row.subtopics ?? [],
     tags: row.tags ?? [],
     summary: row.summary ?? '',
-    date: utcDate(row.updated_at),
+    date: utcDate(row.created_at),
     sizeLabel: formatBytes(row.file_size)
   }
 }
@@ -151,7 +151,11 @@ export function buildFileDetail(detail, mmMeta, kindNames) {
   const topic = detail.topics?.[0]
   const groups = detail.same_topic_groups ?? []
   const topicGroup = topic && groups.find((g) => g.topic_ko === topic.topic_ko)
-  const subtopicGroup = topicGroup?.subtopics.find((s) => s.subtopic_ko === topic.subtopic_ko)
+  /* 하위주제가 없는 파일은 서버가 ''(또는 null)로 묶는다 — 그 묶음만 같은 분류다. 다른 하위주제 파일은 섞지 않는다 */
+  const subtopicGroup = topicGroup?.subtopics.find((s) => (s.subtopic_ko || '') === (topic.subtopic_ko || ''))
+  /* asset_count 는 이 파일을 뺀 수다(IDD IF-ASSET-01) — 주제 · 하위주제로 파일 검색을 걸면 이 파일도 나오므로 결과 수는 +1 이다.
+     주제 칩은 누르면 거는 조건(하위주제가 있으면 주제+하위주제, 없으면 주제만) 그대로 센다 */
+  const chipGroup = topic?.subtopic_ko ? subtopicGroup : topicGroup
 
   const sizeLabel = formatBytes(detail.file_size)
 
@@ -175,21 +179,28 @@ export function buildFileDetail(detail, mmMeta, kindNames) {
           {
             id: `${topic.topic_ko}>${topic.subtopic_ko ?? ''}`,
             label: topic.subtopic_ko ? `${topic.topic_ko} · ${topic.subtopic_ko}` : topic.topic_ko,
-            relatedCount: subtopicGroup?.asset_count ?? topicGroup?.asset_count ?? 0,
+            relatedCount: chipGroup ? chipGroup.asset_count + 1 : 0,
             topic: topic.topic_ko,
             subtopic: topic.subtopic_ko
           }
         ]
       : [],
-    multimodalMeta: (mmMeta?.items ?? []).map((m) => ({ id: `${m.entity_type}:${m.entity_uid}`, label: m.name, count: m.bundle_size })),
+    multimodalMeta: (mmMeta?.items ?? []).map((m) => ({
+      id: `${m.entity_type}:${m.entity_uid}`,
+      label: m.name,
+      count: m.bundle_size,
+      /* 서버가 알려 주는 값 — 없으면(구 서버) 보이는 것으로 본다 */
+      listed: m.listed !== false
+    })),
     relations: {
       /* 순서는 서버가 정한 등급 → 신뢰도 → 식별자 그대로 둔다 — 다시 정렬하면 사람이 확인한 관계가 밀린다 */
       related: (detail.relations ?? []).map((r) => relationCard(r, r.kind_codes.map((code) => kindNames[code] ?? code).join(' · '))),
-      sameTopic: groups.flatMap((g) =>
-        g.subtopics.flatMap((s) =>
-          s.assets.filter((a) => a.asset_id !== detail.asset_id).map((a) => relationCard(a, `${g.topic_ko} · ${s.subtopic_ko || '기타'}`))
-        )
-      )
+      /* 같은 분류 파일 — 이 파일이 속한 분류(하위주제 없음 포함) 묶음만, 이 파일은 뺀다. 서버가 미리보기를 8건까지만 주므로
+         탭 숫자는 받은 행 수가 아니라 그 묶음의 asset_count 다 */
+      sameTopic: (subtopicGroup?.assets ?? [])
+        .filter((a) => a.asset_id !== detail.asset_id)
+        .map((a) => relationCard(a, `${topic.topic_ko} · ${topic.subtopic_ko || '하위주제 없음'}`)),
+      sameTopicCount: subtopicGroup?.asset_count ?? 0
     }
   }
 }

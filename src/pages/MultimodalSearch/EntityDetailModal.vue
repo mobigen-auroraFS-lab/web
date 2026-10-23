@@ -19,17 +19,20 @@
           <header class="flex items-center gap-4 px-4 sm:px-6 py-5 border-b border-border-default shrink-0">
             <div class="flex-1 min-w-0 flex flex-col gap-1.5">
               <nav aria-label="분류 경로" class="flex items-center gap-1 text-sm">
+                <!-- 종류를 누르면 그 종류로 목록을 좁히는 화면(멀티모달 검색)에서만 버튼이다 — 파일 검색에서는 이름표다 -->
                 <button
+                  v-if="typeClickable"
                   type="button"
                   class="bg-transparent border-none p-0 text-text-tertiary font-medium cursor-pointer hover:underline hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring rounded-sm"
                   @click="$emit('type-click')"
                 >
                   {{ target.type }}
                 </button>
+                <span v-else class="text-text-tertiary font-medium">{{ target.type }}</span>
               </nav>
               <h2 :id="titleId" class="m-0 text-2xl font-bold text-text-primary truncate">{{ target.name }}</h2>
               <p v-if="entity" class="m-0 text-sm text-text-tertiary [font-feature-settings:'tnum']">
-                확인된 {{ entity.confirmedCount.toLocaleString() }}건
+                연결된 {{ entity.confirmedCount.toLocaleString() }}건
               </p>
             </div>
 
@@ -172,15 +175,23 @@
 
               <!-- 연결 자료 — 모달리티 탭으로 나눠 본다. 탭과 목록은 간격 없이 붙여 목록이 탭에 딸린 내용으로 읽히게 한다 -->
               <section class="flex flex-col gap-2 min-w-0">
-                <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">연결 자료</h3>
+                <h3 class="m-0 flex items-center text-xs font-semibold text-text-tertiary tracking-wide">
+                  연결 자료
+                  <!-- 모두 확인 전이면 제목 옆 도움말 아이콘으로 한 번만 알린다 — 행마다 「확인 전」을 달지 않는다 -->
+                  <ATooltip v-if="allUnconfirmed" text="자동으로 연결된 자료입니다. (사람 확인 전)" placement="right">
+                    <button
+                      type="button"
+                      aria-label="자동으로 연결된 자료입니다. (사람 확인 전)"
+                      class="inline-flex items-center justify-center w-5 h-5 p-0 rounded-full bg-transparent border-none text-icon-muted cursor-help hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    >
+                      <Info :size="13" :stroke-width="1.8" aria-hidden="true" />
+                    </button>
+                  </ATooltip>
+                </h3>
                 <div class="min-w-0">
                   <ALineTabs :key="entity.id" v-model="activeTab" :tabs="tabs" />
                   <ul class="m-0 p-0 list-none">
-                    <li
-                      v-for="a in visibleAssets"
-                      :key="a.id"
-                      class="-mx-3 border-b border-slate-100"
-                    >
+                    <li v-for="a in visibleAssets" :key="a.id" class="-mx-3 border-b border-slate-100">
                       <!-- 행 전체가 파일 상세를 여는 버튼이다 — 키보드로는 행마다 한 번 멈춘다 -->
                       <button
                         type="button"
@@ -205,10 +216,10 @@
                             >
                           </div>
                         </div>
-                        <!-- 소속 상태 — 확인 전은 자동 연결이라 틀릴 수 있음을 알린다 -->
+                        <!-- 사람이 확인한 소속(확인됨)에만 배지를 단다 — 지금 데이터는 거의 모두 확인 전이라 전부에 달면 소음이다 -->
                         <span
-                          class="shrink-0 inline-flex items-center h-5 px-1.5 rounded-sm text-2xs font-semibold"
-                          :class="a.status === '확인됨' ? 'bg-primary-50 text-primary-700' : 'bg-slate-100 text-text-tertiary'"
+                          v-if="a.status === '확인됨'"
+                          class="shrink-0 inline-flex items-center h-5 px-1.5 rounded-sm text-2xs font-semibold bg-primary-50 text-primary-700"
                           >{{ a.status }}</span
                         >
                       </button>
@@ -231,8 +242,9 @@
  * 파일 전용 항목(용량·추출 텍스트) 대신 대표 설명·자료 성격·연결 자료 묶음 다운로드를 둔다.
  */
 import { ref, computed, watch, nextTick, useId, onMounted, onBeforeUnmount } from 'vue'
-import { X, ChevronDown, Download, CircleAlert } from '@lucide/vue'
+import { X, ChevronDown, Download, CircleAlert, Info } from '@lucide/vue'
 import ALineTabs from '../../components/ALineTabs.vue'
+import ATooltip from '../../components/ATooltip.vue'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -245,6 +257,8 @@ const props = defineProps({
   errorMessage: { type: String, default: '' },
   /* 모달리티별 { icon, bg, text } — 목록 카드와 같은 색을 쓰도록 화면에서 넘겨받는다 */
   modalityStyle: { type: Object, required: true },
+  /* 종류 경로를 눌러 목록을 좁힐 수 있는 화면인지 */
+  typeClickable: { type: Boolean, default: true },
   /* 묶음을 받는 중이면 메뉴를 막는다 */
   downloading: { type: Boolean, default: false }
 })
@@ -316,6 +330,8 @@ const visibleAssets = computed(() => {
   const assets = props.entity?.assets ?? []
   return activeTab.value === ALL ? assets : assets.filter((a) => a.modality === activeTab.value)
 })
+
+const allUnconfirmed = computed(() => !!props.entity?.assets.length && props.entity.assets.every((a) => a.status !== '확인됨'))
 
 const maxModalityCount = computed(() => Math.max(1, ...Object.values(props.entity?.modalityCounts ?? {})))
 

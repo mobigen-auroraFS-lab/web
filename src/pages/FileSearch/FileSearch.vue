@@ -237,7 +237,7 @@
                     :class="sortKey === 'date' ? 'text-text-primary' : 'text-text-secondary'"
                     @click="toggleSort('date')"
                   >
-                    수정일
+                    등록일
                     <ArrowUp v-if="sortKey === 'date'" :size="12" :stroke-width="2" :class="sortDir === 'desc' ? 'rotate-180' : ''" />
                   </button>
                 </div>
@@ -425,11 +425,27 @@
     @relation-click="onRelationClickDetail"
   />
 
+  <!-- 파일 상세의 소속 개체 칩이 여는 개체 상세 — 연결 자료를 누르면 그 파일 상세가 위에 겹쳐 뜬다 -->
+  <EntityDetailModal
+    v-model:open="entityDetailOpen"
+    :target="entityDetailTarget"
+    :entity="entityDetail"
+    :status="entityDetailStatus"
+    :error-message="entityDetailError"
+    :modality-style="MODALITY_STYLE"
+    :downloading="entityDownloading"
+    :type-clickable="false"
+    @download="downloadEntity"
+    @asset-click="openFileDetail"
+    @retry="retryEntityDetail"
+  />
+
   <!-- 패싯 전체 보기: 사이드바에 다 담을 수 없을 때 검색으로 고른다 -->
   <FacetPickerDialog
     :open="facetModal !== null"
     :title="facetModalTitle"
     :total="facetModalTotal"
+    :shown="facetModalShown"
     :rows="facetModalRows"
     v-model:query="facetQuery"
     @close="closeFacetModal"
@@ -467,6 +483,8 @@ import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import FilterSidebar from '../../layout/FilterSidebar.vue'
 import FacetPickerDialog from '../../layout/FacetPickerDialog.vue'
 import FileDetailModal from './FileDetailModal.vue'
+import EntityDetailModal from '../MultimodalSearch/EntityDetailModal.vue'
+import { MODALITY_STYLE } from '../MultimodalSearch/multimodalSearch.api'
 import CommandPalette from '../../layout/CommandPalette.vue'
 
 import { DENSITY_OPTIONS } from './fileSearch.api'
@@ -531,6 +549,14 @@ const {
   fileDetail,
   fileDetailStatus,
   fileDetailError,
+  entityDetailOpen,
+  entityDetailTarget,
+  entityDetail,
+  entityDetailStatus,
+  entityDetailError,
+  retryEntityDetail,
+  entityDownloading,
+  downloadEntity,
   retryFileDetail,
   onBreadcrumbClickDetail,
   onTopicClickDetail,
@@ -541,6 +567,7 @@ const {
   confirmFacetModal,
   facetModalTitle,
   facetModalTotal,
+  facetModalShown,
   facetModalRows,
   toggleFacetValue,
   paletteOpen,

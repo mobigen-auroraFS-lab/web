@@ -351,9 +351,9 @@
                       {{ entity.type }}<template v-if="entity.areas.length"> · {{ entity.areas.join(' · ') }}</template>
                     </p>
                   </div>
-                  <!-- '확인된 N건' — 완전성을 약속하지 않는 표현으로 쓴다(IDD IF-ENTITY-01) -->
+                  <!-- confirmed_count 는 연결된 자료 수(확인 전 포함)다 — 「확인된」이라 쓰면 사람이 확인한 수로 읽힌다(IDD IF-ENTITY-01) -->
                   <p class="m-0 shrink-0 pt-0.5 text-2xs text-text-tertiary whitespace-nowrap [font-feature-settings:'tnum']">
-                    확인된 {{ entity.confirmedCount.toLocaleString() }}건
+                    연결된 {{ entity.confirmedCount.toLocaleString() }}건
                   </p>
                 </div>
 
@@ -482,10 +482,6 @@ import {
   ListFilter,
   SearchX,
   CircleAlert,
-  Film,
-  Image as ImageIcon,
-  FileText,
-  AudioLines,
   PanelLeftClose,
   PanelLeftOpen
 } from '@lucide/vue'
@@ -497,7 +493,7 @@ import AEmptyState from '../../components/AEmptyState.vue'
 import ATooltip from '../../components/ATooltip.vue'
 import AToast from '../../components/AToast.vue'
 
-import { MODALITY_ORDER } from './multimodalSearch.api'
+import { MODALITY_ORDER, MODALITY_STYLE } from './multimodalSearch.api'
 import { useMultimodalSearch } from './useMultimodalSearch'
 import EntityDetailModal from './EntityDetailModal.vue'
 import FileDetailModal from '../FileSearch/FileDetailModal.vue'
@@ -571,14 +567,6 @@ const {
   closePalette,
   runPaletteItem
 } = useMultimodalSearch()
-
-/* 모달리티별 배지 색·아이콘 — 파일 검색 목록의 확장자 배지 색과 맞춘다 (이미지·문서·영상) */
-const MODALITY_STYLE = {
-  문서: { icon: FileText, bg: 'color-mix(in oklch, var(--color-viz-1) 12%, white)', text: 'var(--color-viz-1)' },
-  이미지: { icon: ImageIcon, bg: 'color-mix(in oklch, var(--color-viz-2) 12%, white)', text: 'var(--color-viz-2)' },
-  영상: { icon: Film, bg: 'color-mix(in oklch, var(--color-viz-4) 12%, white)', text: 'var(--color-viz-4)' },
-  음성: { icon: AudioLines, bg: 'color-mix(in oklch, var(--color-viz-6) 12%, white)', text: 'var(--color-viz-6)' }
-}
 
 const skeletonCardCount = computed(() => (listLoading.value ? 6 : loadingMore.value ? 3 : 0))
 

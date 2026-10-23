@@ -1,5 +1,6 @@
 import { ref, computed, watch } from 'vue'
 import { useFileDetail } from '../../composables/useFileDetail'
+import { useEntityDetail } from '../../composables/useEntityDetail'
 import { downloadAsset } from '../FileSearch/fileSearch.api'
 import {
   PAGE_SIZE,
@@ -8,11 +9,7 @@ import {
   MODALITY_LABELS,
   fetchEntities,
   fetchEntityFacets,
-  fetchEntityCard,
-  downloadEntityBundle,
-  downloadEntityAssets,
-  normalizeEntity,
-  buildEntityDetail
+  normalizeEntity
 } from './multimodalSearch.api'
 
 function toggleIn(list, val) {
@@ -271,69 +268,19 @@ export function useMultimodalSearch() {
 
   /* ---------------------------------------------------------- 개체 상세 모달 */
 
-  const entityDetailOpen = ref(false)
-  const entityDetailTarget = ref(null)
-  const entityDetail = ref(null)
-  const entityDetailStatus = ref('ready')
-  const entityDetailError = ref('')
-  let detailSeq = 0
-
-  async function loadEntityDetail(target) {
-    const seq = ++detailSeq
-    entityDetailStatus.value = 'loading'
-    entityDetailError.value = ''
-    try {
-      const card = await fetchEntityCard(target.type, target.uid)
-      if (seq !== detailSeq) return
-      entityDetail.value = buildEntityDetail(card)
-      entityDetailStatus.value = 'ready'
-    } catch (e) {
-      if (seq !== detailSeq) return
-      entityDetail.value = null
-      entityDetailStatus.value = 'error'
-      entityDetailError.value = e.message
-    }
-  }
-
-  /** target: 목록 카드(normalizeEntity 결과) — 응답을 기다리는 동안 이름·종류를 먼저 보여준다 */
-  function openEntityDetail(target) {
-    entityDetailTarget.value = target
-    entityDetail.value = null
-    entityDetailOpen.value = true
-    loadEntityDetail(target)
-  }
-  function closeEntityDetail() {
-    entityDetailOpen.value = false
-  }
-  function retryEntityDetail() {
-    if (entityDetailTarget.value) loadEntityDetail(entityDetailTarget.value)
-  }
-
-  /* 묶음 다운로드 — 연결 자료 전체는 카드 묶음, 보고 있는 자료 유형 탭만은 그 탭의 자산 id 로 고른 자산 묶음을 받는다 */
-  const downloading = ref(false)
-  async function downloadEntity({ key, assetIds }) {
-    const target = entityDetailTarget.value
-    if (!target || downloading.value) return
-    downloading.value = true
-    try {
-      if (key === 'all') {
-        const r = await downloadEntityBundle(target.type, target.uid)
-        showToast(
-          r.missing > 0
-            ? `${target.name} · ${r.count}건 다운로드를 시작했습니다. (${r.missing}건 제외)`
-            : `${target.name} · ${r.count}건 다운로드를 시작했습니다.`,
-          3000
-        )
-      } else {
-        const r = await downloadEntityAssets(assetIds, { onError: (message) => showToast(message, 4000) })
-        showToast(`${target.name} · ${r.count}건 다운로드를 시작했습니다.`, 3000)
-      }
-    } catch (e) {
-      showToast(e.message, 4000)
-    } finally {
-      downloading.value = false
-    }
-  }
+  /* 조회 · 묶음 받기는 파일 검색의 소속 개체 칩과 같은 로직이라 composables/useEntityDetail 이 맡는다 */
+  const {
+    open: entityDetailOpen,
+    target: entityDetailTarget,
+    detail: entityDetail,
+    status: entityDetailStatus,
+    error: entityDetailError,
+    openDetail: openEntityDetail,
+    close: closeEntityDetail,
+    retry: retryEntityDetail,
+    downloading,
+    download: downloadEntity
+  } = useEntityDetail({ showToast })
 
   /* ------------------------------------------------- 연결 자료 → 파일 상세 */
 

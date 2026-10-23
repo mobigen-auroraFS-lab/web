@@ -4,7 +4,7 @@
   <ADialog
     :model-value="open"
     :title="`${title} 선택`"
-    :description="`전체 ${total}개 · 건수는 전체 자료 기준 · 선택 완료를 누르면 목록에 반영됩니다`"
+    :description="description"
     width="460px"
     @update:model-value="$emit('close')"
   >
@@ -40,18 +40,30 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import ADialog from '../components/ADialog.vue'
 import AInput from '../components/AInput.vue'
 import ACheckbox from '../components/ACheckbox.vue'
 import AButton from '../components/AButton.vue'
 
-defineProps({
+const props = defineProps({
   open: { type: Boolean, default: false },
   title: { type: String, default: '' },
   total: { type: Number, default: 0 },
+  /* 총계가 목록(rows)보다 클 때만 받은 수를 넘긴다 — 「전체 N개 중 상위 M개」로 밝힌다 */
+  shown: { type: Number, default: null },
   /* [{ label, count, active }] — 정렬·검색 필터링은 호출 쪽에서 끝낸 상태로 받는다 */
   rows: { type: Array, required: true },
   query: { type: String, default: '' }
 })
 defineEmits(['close', 'toggle', 'confirm', 'update:query'])
+
+/* 총계가 받은 목록보다 크면 「상위 M개」임을 첫 줄에 밝히고, 안내 문구는 둘째 줄로 내린다(줄바꿈은 ADialog 가 \n 을 살려 그린다) */
+const description = computed(() => {
+  const note = '건수는 전체 자료 기준 · 선택 완료를 누르면 목록에 반영됩니다'
+  const total = `전체 ${props.total.toLocaleString()}개`
+  return props.shown === null
+    ? `${total} · ${note}`
+    : `${total} 중 상위 ${props.shown.toLocaleString()}개 · 검색하면 나머지도 찾을 수 있습니다\n${note}`
+})
 </script>
