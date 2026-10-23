@@ -164,9 +164,11 @@ function detailInfo(core = {}) {
   return rows
 }
 
-function relationCard({ asset_id, file_name, modality }, reason) {
+/* tier — 관계 강도(IDD IF-ASSET-01 relations): strong(연관 · 확인된 강한 관계) · weak(참고 · 자동으로 묶인 약한 관계).
+   같은 분류 파일은 관계가 아니라 tier 가 없다 */
+function relationCard({ asset_id, file_name, modality, tier = null }, reason) {
   const p = presentation(extOf(file_name), modality)
-  return { id: asset_id, name: file_name, ext: extOf(file_name), typeBadge: p.category, typeBadgeStyle: p.extStyle, icon: p.icon, reason }
+  return { id: asset_id, name: file_name, ext: extOf(file_name), typeBadge: p.category, typeBadgeStyle: p.extStyle, icon: p.icon, reason, tier }
 }
 
 /**

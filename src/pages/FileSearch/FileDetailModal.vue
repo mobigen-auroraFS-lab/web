@@ -361,6 +361,13 @@
                         <span class="text-sm font-semibold text-text-primary truncate">{{ rel.name }}</span>
                       </span>
                       <span v-if="rel.reason" class="w-full text-xs text-text-tertiary truncate">{{ rel.reason }}</span>
+                      <!-- 강한 관계(strong)에만 「연관」 표시 — 서버가 강한 것부터 정렬해 주므로 위에 모인다.
+                           약한 관계(참고)는 표시 없이 둔다 — 지금 데이터는 전부 약한 관계라 모두 달면 소음이다 -->
+                      <span
+                        v-if="rel.tier === 'strong'"
+                        class="inline-flex items-center h-5 px-1.5 rounded-sm bg-primary-50 text-primary-700 text-2xs font-semibold"
+                        >연관</span
+                      >
                     </button>
                   </div>
 
@@ -425,6 +432,7 @@
  * @typedef {Object} FileDetailRelation
  * @property {string} id
  * @property {string} typeBadge      콘텐츠 유형 (예: 영상, 이미지, 문서)
+ * @property {'strong'|'weak'|null} [tier]  관계 강도 — strong 이면 「연관」 표시
  * @property {{ bg: string, text: string }} [typeBadgeStyle]  없으면 중립 색으로 표시
  * @property {Object|Function} [icon]  목록의 확장자 아이콘과 동일한 컴포넌트 — 없으면 아이콘 생략
  * @property {string} name           파일명
