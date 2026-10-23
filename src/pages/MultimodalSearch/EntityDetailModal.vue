@@ -77,6 +77,35 @@
             </button>
           </header>
 
+          <!-- 큰 묶음 확인 — 받기 전에 건수 · 용량을 보여 주고 묻는다(기준은 useEntityDetail 의 LARGE_BUNDLE_BYTES) -->
+          <div
+            v-if="bundleConfirm"
+            role="alertdialog"
+            aria-live="assertive"
+            class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-border-default bg-bg-surface-selected"
+          >
+            <p class="m-0 text-sm text-text-primary">
+              「{{ bundleConfirm.name }}」 {{ bundleConfirm.count.toLocaleString() }}건({{ bundleConfirm.sizeLabel }})을 한 파일로
+              받을까요? 용량이 커서 시간이 걸릴 수 있습니다.
+            </p>
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                class="h-8 px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                @click="$emit('answer-confirm', false)"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                class="h-8 px-3 rounded-md bg-action-primary border-none text-sm text-text-inverse font-medium cursor-pointer hover:bg-action-primary-hover"
+                @click="$emit('answer-confirm', true)"
+              >
+                받기
+              </button>
+            </div>
+          </div>
+
           <!-- 본문: 여기만 스크롤된다 -->
           <div class="flex-1 overflow-y-auto scrollbar-subtle px-6 sm:px-8 py-8 flex flex-col gap-10">
             <!-- 불러오는 중 -->
@@ -272,9 +301,11 @@ const props = defineProps({
   /* 종류 경로를 눌러 목록을 좁힐 수 있는 화면인지 */
   typeClickable: { type: Boolean, default: true },
   /* 묶음을 받는 중이면 메뉴를 막는다 */
-  downloading: { type: Boolean, default: false }
+  downloading: { type: Boolean, default: false },
+  /* 큰 묶음을 받기 전 확인 — { name, count, sizeLabel } 이면 머리 아래에 묻는 줄을 띄운다 */
+  bundleConfirm: { type: Object, default: null }
 })
-const emit = defineEmits(['update:open', 'type-click', 'download', 'asset-click', 'retry'])
+const emit = defineEmits(['update:open', 'type-click', 'download', 'asset-click', 'answer-confirm', 'retry'])
 
 const titleId = useId()
 const dialogRef = ref(null)

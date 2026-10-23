@@ -56,8 +56,8 @@ export function fetchEntityCard(type, uid) {
 }
 
 /** IF-ENTITY-06 — 카드의 구성 자산 전부 zip(묶음 링크 · 건수 · 용량 상한 없음) */
-export function downloadEntityBundle(type, uid) {
-  return downloadBundleByLink(`${entityPath(type, uid)}/bundle`)
+export function downloadEntityBundle(type, uid, options) {
+  return downloadBundleByLink(`${entityPath(type, uid)}/bundle`, options)
 }
 
 /** IF-ASSET-17 — 고른 자산들 zip(폼 제출) — 상세에서 보고 있는 자료 유형 탭만 받을 때 */
@@ -78,7 +78,10 @@ export function normalizeEntity(row) {
     areas: row.areas ?? [],
     modalities: (row.modalities ?? []).map((m) => MODALITY_LABELS[m]).filter(Boolean),
     confirmedCount: row.confirmed_count ?? 0,
-    matchReason: row.match_reason ?? ''
+    /* 검색으로 들어온 개체가 왜 맞았는지 — 서버의 match_reason(「글자 일치」 등)을 「일치:」에 이어 붙이면 말이 겹쳐서
+       by_text(글자) · by_semantic(뜻) 으로 화면 문구를 정한다. 둘 다 없으면 서버 문구를 그대로 쓴다 */
+    matchReason:
+      [row.by_text && '검색어가 들어 있음', row.by_semantic && '뜻이 비슷함'].filter(Boolean).join(' · ') || (row.match_reason ?? '')
   }
 }
 

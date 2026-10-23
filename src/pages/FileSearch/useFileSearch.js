@@ -21,6 +21,10 @@ import {
   DENSITY_STORAGE_KEY
 } from './fileSearch.api'
 
+/* 서버가 태그를 묶는 열쇠와 같은 정규화(NFKC · 공백 제거 · 소문자) */
+function tagKey(v) {
+  return String(v).normalize('NFKC').replace(/\s+/g, '').toLowerCase()
+}
 function toggleIn(list, val) {
   return list.includes(val) ? list.filter((v) => v !== val) : [...list, val]
 }
@@ -99,7 +103,9 @@ export function useFileSearch() {
     openDetail: openEntityDetail,
     retry: retryEntityDetail,
     downloading: entityDownloading,
-    download: downloadEntity
+    download: downloadEntity,
+    bundleConfirm: entityBundleConfirm,
+    answerBundleConfirm: answerEntityBundleConfirm
   } = useEntityDetail({ showToast })
   const density = ref(readStoredDensity())
 
@@ -374,7 +380,16 @@ export function useFileSearch() {
   const subtopicChips = computed(() => facetChips(facets.value.subtopic, subtopics.value))
   const showMoreSubtopics = computed(() => subtopicOptions.value.size > subtopicChips.value.length)
 
-  const visibleTagChips = computed(() => facetChips(facets.value.tag, tags.value))
+  /* 태그 칩에는 원문 표기(label)를 보인다 — key 는 서버가 묶어 세는 정규화 키(공백 제거 · 소문자)라 「ai목소리」처럼 보인다.
+     고른 값과 칩은 같은 정규화로 맞춰, 「전체 보기」에서 고른 원문과 칩이 같은 태그로 두 번 뜨지 않게 한다(W3) */
+  const visibleTagChips = computed(() => {
+    const entries = (facets.value.tag ?? []).map((e) => ({ label: e.label ?? e.key, norm: tagKey(e.label ?? e.key), count: e.count }))
+    const countOf = new Map(entries.map((e) => [e.norm, e.count]))
+    const pickedNorms = new Set(tags.value.map(tagKey))
+    const picked = tags.value.map((v) => toChip(v, true, countOf.get(tagKey(v)) ?? null))
+    const rest = entries.filter((e) => !pickedNorms.has(e.norm)).map((e) => toChip(e.label, false, e.count))
+    return [...picked, ...rest].slice(0, Math.max(FACET_VISIBLE_COUNT, picked.length))
+  })
   const showMoreTags = computed(() => tagOptions.value.size > visibleTagChips.value.length)
 
   /* 형식 칩은 서버가 소문자 확장자로 준다 — 화면·URL 은 지금처럼 대문자로 쓴다 */
@@ -570,6 +585,11 @@ export function useFileSearch() {
     closeFileDetail()
     openEntityDetail({ id: meta.id.replace(':', '/'), type, uid: rest.join(':'), name: meta.label })
   }
+  /* 상세의 키워드 칩 — 그 태그로 목록을 거른다(목록 태그와 같은 출처라 이 파일도 나온다) */
+  function onTagClickDetail(tag) {
+    if (!tags.value.some((t) => tagKey(t) === tagKey(tag))) tags.value = [...tags.value, tag]
+    closeFileDetail()
+  }
   function onRelationClickDetail(relation) {
     openFileDetail({ id: relation.id, name: relation.name, ext: relation.ext })
   }
@@ -647,11 +667,19 @@ export function useFileSearch() {
     return [...options.keys()]
       .filter((v) => !q || v.toLowerCase().includes(q))
       .sort((a, b) => a.localeCompare(b, 'ko'))
-      .map((v) => ({ label: v, active: picked.includes(v), count: options.get(v) ?? 0 }))
+      .map((v) => ({ label: v, active: isPicked(picked, v), count: options.get(v) ?? 0 }))
   })
 
+  /* 태그는 표기가 달라도(띄어쓰기 · 대소문자) 같은 태그다 — 주제 · 하위주제는 그대로 비교한다 */
+  function isPicked(picked, v) {
+    if (facetModal.value !== 'tag') return picked.includes(v)
+    return picked.some((p) => tagKey(p) === tagKey(v))
+  }
   function toggleFacetValue(label) {
-    facetDraft.value = toggleIn(facetDraft.value, label)
+    facetDraft.value =
+      facetModal.value === 'tag' && isPicked(facetDraft.value, label)
+        ? facetDraft.value.filter((p) => tagKey(p) !== tagKey(label))
+        : toggleIn(facetDraft.value, label)
   }
 
   /* --------------------------------------------------------- command palette */
@@ -784,6 +812,7 @@ export function useFileSearch() {
   return {
     searchDraft,
     resultSearchDraft,
+    resultSearchValue,
     topics,
     subtopics,
     tags,
@@ -860,11 +889,14 @@ export function useFileSearch() {
     retryEntityDetail,
     entityDownloading,
     downloadEntity,
+    entityBundleConfirm,
+    answerEntityBundleConfirm,
     retryFileDetail,
     onBreadcrumbClickDetail,
     onTopicClickDetail,
     onMetaClickDetail,
     onRelationClickDetail,
+    onTagClickDetail,
 
     openFacetModal,
     closeFacetModal,

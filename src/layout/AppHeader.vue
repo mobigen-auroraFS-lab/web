@@ -32,23 +32,13 @@
       <!-- 프로필 영역은 누를 때 하는 일이 없어(계정 화면 · 메뉴가 정해지지 않음 — 화면별 API 호출 기획서 부록 D) 지금은
            <div> 로 둔다. 계정 메뉴가 생기면 <button class="... cursor-pointer hover:bg-bg-surface-hover"> 로 되돌리고 클릭 핸들러를 단다 -->
       <div class="flex items-center gap-2 py-1 px-2 rounded-md">
-        <img
-          v-if="!profileImageError"
-          src="https://api.dicebear.com/9.x/notionists/svg?seed=hong-gildong&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&backgroundType=gradientLinear"
-          :alt="`${displayName} 프로필 사진`"
-          class="w-[30px] h-[30px] rounded-full object-cover shrink-0"
-          @error="profileImageError = true"
-        />
+        <!-- 사진은 /me 에 없어(IDD IF-AUTH-04) 이름 첫 글자 원으로 둔다 — 외부 아바타 서비스는 부르지 않는다 -->
         <span
-          v-else
           class="w-[30px] h-[30px] rounded-full bg-primary-100 text-primary-700 text-xs font-semibold flex items-center justify-center shrink-0"
+          aria-hidden="true"
           >{{ displayName.charAt(0) }}</span
         >
-        <!-- 이메일·사진은 /me 에 없는 값이라(IDD IF-AUTH-04) 계정 화면이 정해질 때까지 자리 표시로 둔다 -->
-        <span class="flex flex-col items-start gap-px">
-          <span class="text-sm text-text-primary font-semibold leading-tight">{{ displayName }}</span>
-          <span class="text-xs text-text-tertiary leading-tight">hong@data-portal.kr</span>
-        </span>
+        <span class="text-sm text-text-primary font-semibold leading-tight">{{ displayName }}</span>
       </div>
       <!-- 로그인 화면이 없어 로그아웃이 할 일이 없다(IDD 공통규약 401) — 감춰 둔다. 로그인 화면이 생기면 hidden 만 걷는다 -->
       <button
@@ -73,16 +63,15 @@ import { useHideOnScroll } from '../composables/useHideOnScroll'
 const NAV_ITEMS = [
   { key: 'multimodal-search', label: '멀티모달 검색', href: '#multimodal-search' },
   { key: 'file-search', label: '파일 검색', href: '#file-search' },
-  /* TODO: 개발 중 확인용 임시 메뉴 — 제품 화면이 아니므로 배포 전에 뺀다.
+  /* 개발 중 확인용 메뉴 — 제품 화면이 아니라 운영 빌드에서는 뺀다(라우터 · App.vue 도 같은 조건).
      디자인 가이드엔 헤더가 없어 돌아올 길이 없으므로 새 창으로 연다 */
-  { key: 'design-guide', label: '디자인 가이드', href: '#design-guide', newTab: true }
+  ...(import.meta.env.DEV ? [{ key: 'design-guide', label: '디자인 가이드', href: '#design-guide', newTab: true }] : [])
 ]
 
 defineProps({
   active: { type: String, default: 'file-search' }
 })
 
-const profileImageError = ref(false)
 const displayName = ref('사용자')
 /* xl 미만: 페이지(window) 스크롤에 맞춰 위로 밀어 숨긴다 */
 const headerVisible = ref(true)
@@ -106,10 +95,14 @@ function onWindowScroll() {
 onMounted(() => {
   lastScrollY = window.scrollY
   window.addEventListener('scroll', onWindowScroll, { passive: true })
-  /* 가입 때 이름을 안 줬으면 display_name 이 null — 로그인 아이디, 그것도 없는 개발용 주체는 user_id 로 보인다 */
+  /* 가입 때 이름을 안 줬으면 display_name 이 null — 로그인 아이디, 그것도 없는 개발용 주체는 user_id 로 보인다.
+     인증이 꺼진 운영은 익명 주체(user_id 'anonymous')라 「게스트」로 보인다 */
   fetchMe()
-    .then((me) => (displayName.value = me.display_name ?? me.login_id ?? me.user_id ?? '사용자'))
-    .catch(() => {})
+    .then((me) => {
+      const name = me.display_name ?? me.login_id
+      displayName.value = name ?? (me.user_id === 'anonymous' ? '게스트' : (me.user_id ?? '게스트'))
+    })
+    .catch(() => (displayName.value = '게스트'))
 })
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onWindowScroll)

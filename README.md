@@ -94,7 +94,7 @@ npm install
    붙이면 해당 화면(`src/pages/MultimodalSearch/MultimodalSearch.vue`)으로
    전환됩니다.
 4. 주소 뒤에 `#design-guide` 를 붙이면(`http://localhost:5173/#design-guide`) 디자인 시스템
-   컴포넌트 카탈로그(`src/DesignGuide/DesignGuide.vue`)로 전환됩니다.
+   컴포넌트 카탈로그(`src/DesignGuide/DesignGuide.vue`)로 전환됩니다. 개발 서버(`npm run dev`)에서만 열리고, 운영 빌드에서는 메뉴와 화면이 모두 빠집니다.
 
 ## 커밋 컨벤션
 

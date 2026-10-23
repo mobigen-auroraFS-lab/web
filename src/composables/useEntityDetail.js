@@ -1,10 +1,14 @@
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import {
   fetchEntityCard,
   downloadEntityBundle,
   downloadEntityAssets,
   buildEntityDetail
 } from '../pages/MultimodalSearch/multimodalSearch.api'
+import { formatBytes } from '../pages/FileSearch/fileSearch.api'
+
+/* 이보다 큰 묶음은 받기 전에 한 번 묻는다 — 브라우저 다운로드 관리자가 받지만 수 GB 는 시간이 오래 걸린다 */
+const LARGE_BUNDLE_BYTES = 200 * 1024 * 1024
 
 /**
  * 개체 상세 모달(pages/MultimodalSearch/EntityDetailModal)의 상태 · 조회 · 묶음 받기 — 멀티모달 검색 · 파일 검색(소속 개체 칩)이 함께 쓴다.
@@ -47,26 +51,42 @@ export function useEntityDetail({ showToast }) {
     open.value = true
     load(t)
   }
-  function close() {
-    open.value = false
-  }
   function retry() {
     if (target.value) load(target.value)
   }
 
   /* 묶음 다운로드 — 연결 자료 전체는 카드 묶음, 보고 있는 자료 유형 탭만은 그 탭의 자산 id 로 고른 자산 묶음을 받는다 */
   const downloading = ref(false)
+  /* 큰 묶음 확인 — { name, count, sizeLabel } 이 있으면 모달이 「받을까요?」를 띄우고 answerBundleConfirm 으로 답한다 */
+  const bundleConfirm = ref(null)
+  let confirmResolve = null
+  function askBundleConfirm(info) {
+    return new Promise((resolve) => {
+      confirmResolve = resolve
+      bundleConfirm.value = info
+    })
+  }
+  function answerBundleConfirm(ok) {
+    bundleConfirm.value = null
+    confirmResolve?.(ok)
+    confirmResolve = null
+  }
+
   async function download({ key, assetIds }) {
     const t = target.value
     if (!t || downloading.value) return
     downloading.value = true
     try {
       if (key === 'all') {
-        const r = await downloadEntityBundle(t.type, t.uid)
+        const r = await downloadEntityBundle(t.type, t.uid, {
+          confirm: ({ count, bytes }) =>
+            bytes > LARGE_BUNDLE_BYTES ? askBundleConfirm({ name: t.name, count, sizeLabel: formatBytes(bytes) }) : true
+        })
+        const size = r.bytes ? `(${formatBytes(r.bytes)})` : ''
         showToast(
           r.missing > 0
-            ? `${t.name} · ${r.count}건 다운로드를 시작했습니다. (${r.missing}건 제외)`
-            : `${t.name} · ${r.count}건 다운로드를 시작했습니다.`,
+            ? `${t.name} · ${r.count}건${size} 다운로드를 시작했습니다. (${r.missing}건 제외)`
+            : `${t.name} · ${r.count}건${size} 다운로드를 시작했습니다.`,
           3000
         )
       } else {
@@ -74,11 +94,20 @@ export function useEntityDetail({ showToast }) {
         showToast(`${t.name} · ${r.count}건 다운로드를 시작했습니다.`, 3000)
       }
     } catch (e) {
-      showToast(e.message, 4000)
+      if (!e.aborted) showToast(e.message, 4000)
     } finally {
       downloading.value = false
     }
   }
 
-  return { open, target, detail, status, error, retryable, openDetail, close, retry, downloading, download }
+  /* 모달이 닫히면(닫기 · Esc · 바깥 클릭 — v-model 로 바로 닫힌다) 묻던 확인은 거절로 끝낸다 */
+  watch(open, (isOpen) => {
+    if (!isOpen && bundleConfirm.value) answerBundleConfirm(false)
+  })
+
+  function close() {
+    open.value = false
+  }
+
+  return { open, target, detail, status, error, retryable, openDetail, close, retry, downloading, download, bundleConfirm, answerBundleConfirm }
 }

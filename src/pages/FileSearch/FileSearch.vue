@@ -63,7 +63,7 @@
               <div class="flex items-center gap-3 min-w-0">
                 <h1 class="m-0 text-xl font-semibold text-text-primary tracking-tight shrink-0">파일 검색</h1>
                 <span class="w-px h-4 bg-border-default shrink-0" aria-hidden="true"></span>
-                <p class="m-0 text-sm text-text-tertiary truncate">수만 건의 자료를 조건별로 필터링합니다.</p>
+                <p class="m-0 text-sm text-text-tertiary truncate">파일명 · 키워드로 찾고 주제 · 태그 · 형식 · 기간으로 좁힙니다.</p>
               </div>
               <div class="relative w-full sm:w-[420px] max-w-full shrink-0">
                 <div class="absolute inset-0 rounded-xl shadow-elevation-1 pointer-events-none"></div>
@@ -99,7 +99,7 @@
                 >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
-                    >⌘</kbd
+                    >{{ MOD_KEY }}</kbd
                   >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
@@ -180,6 +180,20 @@
                   <X :size="12" :stroke-width="1.5" />
                 </button>
               </div>
+              <!-- 결과 내 검색 규칙(서버) — 낱말이 모두 든 파일만, 낱말은 앞부분부터 맞는다.
+                   화면 오른쪽 끝 가까이라 가운데 정렬이면 잘려서, 오른쪽 끝을 맞춰 왼쪽으로 펼치고 문장마다 줄을 바꾼다 -->
+              <ATooltip
+                :text="'띄어 쓴 낱말이 모두 든 파일만 남깁니다.\n낱말 앞부분부터 맞춥니다(다보 ○ · 보탑 ✕).'"
+                placement="bottom-end"
+              >
+                <button
+                  type="button"
+                  aria-label="결과 내 검색 규칙: 띄어 쓴 낱말이 모두 든 파일만 남기고, 낱말은 앞부분부터 맞춥니다"
+                  class="-ml-1 inline-flex items-center justify-center w-6 h-6 p-0 rounded-full bg-transparent border-none text-icon-muted cursor-help hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                >
+                  <Info :size="14" :stroke-width="1.8" aria-hidden="true" />
+                </button>
+              </ATooltip>
               <ASegmentedControl v-model="density" :options="DENSITY_OPTIONS" aria-label="목록 밀도" />
             </div>
           </div>
@@ -239,7 +253,7 @@
                   role="columnheader"
                   class="flex items-center py-[var(--table-cell-padding-y)] px-[var(--table-cell-padding-x)] text-xs font-medium text-text-secondary"
                 >
-                  분류
+                  유형
                 </div>
                 <div
                   role="columnheader"
@@ -296,7 +310,7 @@
                     <span class="sr-only">{{ item.name }} 선택</span>
                   </ACheckbox>
                 </div>
-                <!-- 오른쪽 여백을 한 단계 더 둔다 — 긴 파일명이 말줄임될 때 분류 열에 바짝 붙어 보이지 않도록 -->
+                <!-- 오른쪽 여백을 한 단계 더 둔다 — 긴 파일명이 말줄임될 때 유형 열에 바짝 붙어 보이지 않도록 -->
                 <div
                   role="cell"
                   class="py-[var(--table-cell-padding-y)] pl-[var(--table-cell-padding-x)] pr-8 flex items-center gap-2 min-w-0"
@@ -417,8 +431,19 @@
               <AEmptyState
                 :icon="SearchX"
                 title="조건에 해당하는 파일이 없습니다"
-                :description="`적용된 조건 ${appliedConditions.length}개가 서로 맞지 않을 수 있습니다. 조건을 줄여보세요.`"
+                :description="
+                  resultSearchValue
+                    ? '결과 내 검색은 띄어 쓴 낱말이 모두 든 파일만 남기고, 낱말 앞부분부터 맞춥니다. 낱말 앞부분으로 다시 찾아 보세요.'
+                    : `적용된 조건 ${appliedConditions.length}개가 서로 맞지 않을 수 있습니다. 조건을 줄여보세요.`
+                "
               >
+                <button
+                  v-if="resultSearchValue"
+                  class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
+                  @click="setResultSearch('')"
+                >
+                  결과 내 검색 지우기
+                </button>
                 <button
                   v-if="searchTerms.length"
                   class="h-control-md px-3 rounded-md bg-bg-surface border border-border-default text-sm text-text-secondary font-medium cursor-pointer hover:bg-bg-surface-hover hover:text-text-primary"
@@ -436,7 +461,7 @@
               <!-- 로딩 중엔 스켈레톤이 보이므로 문구는 스크린리더에만 알린다 -->
               <span v-if="listLoading" class="sr-only">검색 중입니다</span>
               <span v-else-if="loadingMore" class="sr-only">더 불러오는 중입니다</span>
-              <span v-else-if="hasMore">더 불러오는 중...</span>
+              <span v-else-if="hasMore">아래로 내리면 더 보입니다</span>
               <span v-else-if="visibleRows.length > 0">전체 결과를 불러왔습니다.</span>
             </div>
           </div>
@@ -460,6 +485,7 @@
     @breadcrumb-click="onBreadcrumbClickDetail"
     @topic-click="onTopicClickDetail"
     @meta-click="onMetaClickDetail"
+    @tag-click="onTagClickDetail"
     @relation-click="onRelationClickDetail"
   />
 
@@ -474,7 +500,9 @@
     :modality-style="MODALITY_STYLE"
     :downloading="entityDownloading"
     :type-clickable="false"
+    :bundle-confirm="entityBundleConfirm"
     @download="downloadEntity"
+    @answer-confirm="answerEntityBundleConfirm"
     @asset-click="openFileDetail"
     @retry="retryEntityDetail"
   />
@@ -509,7 +537,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { X, Download, SearchX, ArrowUp, ListFilter, CircleAlert } from '@lucide/vue'
+import { X, Download, SearchX, ArrowUp, ListFilter, CircleAlert, Info } from '@lucide/vue'
 
 import AInput from '../../components/AInput.vue'
 import AButton from '../../components/AButton.vue'
@@ -525,14 +553,19 @@ import FileDetailModal from './FileDetailModal.vue'
 import EntityDetailModal from '../MultimodalSearch/EntityDetailModal.vue'
 import { MODALITY_STYLE } from '../MultimodalSearch/multimodalSearch.api'
 import CommandPalette from '../../layout/CommandPalette.vue'
+import ATooltip from '../../components/ATooltip.vue'
 
 import { DENSITY_OPTIONS } from './fileSearch.api'
 import { useFileSearch } from './useFileSearch'
 import { useHideOnScroll } from '../../composables/useHideOnScroll'
 
+/* 단축키 표기 — 맥은 ⌘, 그 밖(Windows 등)은 Ctrl. 단축키 처리는 둘 다 받는다(metaKey || ctrlKey) */
+const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl'
+
 const {
   searchDraft,
   resultSearchDraft,
+  resultSearchValue,
   topics,
   subtopics,
   tags,
@@ -602,11 +635,14 @@ const {
   retryEntityDetail,
   entityDownloading,
   downloadEntity,
+  entityBundleConfirm,
+  answerEntityBundleConfirm,
   retryFileDetail,
   onBreadcrumbClickDetail,
   onTopicClickDetail,
   onMetaClickDetail,
   onRelationClickDetail,
+  onTagClickDetail,
   openFacetModal,
   closeFacetModal,
   confirmFacetModal,

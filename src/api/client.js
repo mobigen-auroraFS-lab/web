@@ -238,8 +238,9 @@ const BUNDLE_ERRORS = {
   503: '묶음 내려받기가 몰려 있습니다. 잠시 후 다시 시도해 주세요.'
 }
 
-/** GET 묶음(관계 · 개체 · 카드) — 링크를 열기 전 HEAD 로 확인해 오류를 문장으로 알린다(바로 열었다 실패하면 브라우저가 JSON 화면으로 이동한다) */
-export async function downloadBundleByLink(url) {
+/** GET 묶음(관계 · 분류 · 개체 · 카드) — 링크를 열기 전 HEAD 로 확인해 오류를 문장으로 알린다(바로 열었다 실패하면 브라우저가 JSON 화면으로 이동한다).
+    HEAD 가 담길 건수 · 용량(X-Bundle-Bytes)을 알려 주므로, confirm 을 주면 받기 전에 물어볼 수 있다 — 거절하면 aborted 오류로 끝낸다 */
+export async function downloadBundleByLink(url, { confirm } = {}) {
   const href = await mintBundleLink('GET', url)
   let head
   try {
@@ -248,13 +249,20 @@ export async function downloadBundleByLink(url) {
     throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0)
   }
   if (!head.ok) throw new ApiError(BUNDLE_ERRORS[head.status] ?? `묶음을 받지 못했습니다. (${head.status})`, head.status)
+  const result = {
+    count: Number(head.headers.get('X-Bundle-Count')) || 0,
+    missing: Number(head.headers.get('X-Bundle-Missing')) || 0,
+    bytes: Number(head.headers.get('X-Bundle-Bytes')) || 0
+  }
+  /* 링크는 곧 만료되지만(약 5분) 묻는 동안은 충분하다 */
+  if (confirm && !(await confirm(result))) throw new ApiError('다운로드를 취소했습니다.', 0, null, { aborted: true })
   const a = document.createElement('a')
   a.href = href
   a.download = ''
   document.body.appendChild(a)
   a.click()
   a.remove()
-  return { count: Number(head.headers.get('X-Bundle-Count')) || 0, missing: Number(head.headers.get('X-Bundle-Missing')) || 0 }
+  return result
 }
 
 /** 고른 자산 묶음 — 폼 제출(IF-ASSET-17)로 받는다. 숨은 iframe 으로 제출해 화면은 그대로 두고, 서버가 오류 JSON 을 주면 onError 로 알린다 */

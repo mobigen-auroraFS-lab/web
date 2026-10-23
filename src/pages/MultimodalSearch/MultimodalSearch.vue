@@ -238,7 +238,7 @@
                 >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
-                    >⌘</kbd
+                    >{{ MOD_KEY }}</kbd
                   >
                   <kbd
                     class="h-5 min-w-5 px-1 inline-flex items-center justify-center rounded border border-border-default bg-bg-canvas text-2xs font-medium text-text-tertiary font-sans"
@@ -391,7 +391,7 @@
                 </div>
 
                 <!-- 검색으로 들어온 개체만 — 서버가 무엇 때문에 맞았는지 알려준다 -->
-                <p v-if="entity.matchReason" class="m-0 text-2xs text-text-tertiary truncate">일치: {{ entity.matchReason }}</p>
+                <p v-if="entity.matchReason" class="m-0 text-2xs text-text-tertiary truncate">{{ entity.matchReason }}</p>
               </li>
             </template>
             <!-- 스켈레톤 카드 — 첫 조회·조건 변경 중엔 목록 자리를, 더 불러오는 중엔 목록 끝을 채운다 -->
@@ -446,7 +446,9 @@
     :modality-style="MODALITY_STYLE"
     :downloading="downloading"
     @type-click="applyEntityType"
+    :bundle-confirm="entityBundleConfirm"
     @download="downloadEntity"
+    @answer-confirm="answerEntityBundleConfirm"
     @asset-click="openFileDetail"
     @retry="retryEntityDetail"
   />
@@ -464,6 +466,7 @@
     @breadcrumb-click="onFileBreadcrumbClick"
     @topic-click="onFileTopicClick"
     @meta-click="onFileMetaClick"
+    @tag-click="onFileTagClick"
     @relation-click="openFileDetail"
   />
 
@@ -520,6 +523,9 @@ import CommandPalette from '../../layout/CommandPalette.vue'
 import FacetPickerDialog from '../../layout/FacetPickerDialog.vue'
 import AScrollTopButton from '../../components/AScrollTopButton.vue'
 import { useHideOnScroll } from '../../composables/useHideOnScroll'
+
+/* 단축키 표기 — 맥은 ⌘, 그 밖(Windows 등)은 Ctrl. 단축키 처리는 둘 다 받는다(metaKey || ctrlKey) */
+const MOD_KEY = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl'
 
 const {
   searchDraft,
@@ -581,8 +587,11 @@ const {
   onFileMetaClick,
   onFileBreadcrumbClick,
   onFileTopicClick,
+  onFileTagClick,
   downloadFileOriginal,
   downloadEntity,
+  entityBundleConfirm,
+  answerEntityBundleConfirm,
   downloading,
   toastMessage,
   applyUrlState,

@@ -241,7 +241,10 @@ export function useMultimodalSearch() {
      파일 검색과 같이 묶음마다 상위 몇 개만 보이고, 고른 칩은 순위와 상관없이 늘 앞에 붙든다 */
   const areaOptionsByGroup = computed(() => {
     const groups = new Map()
+    /* 고르지 않은 0건 갈래는 숨긴다 — 서버는 0건 축도 싣지만(IF-ENTITY-02) 늘 0건인 칩이 자리만 차지한다.
+       고른 칩은 0이어도 남겨야 풀 수 있다. 칩이 모두 숨으면 그 묶음 제목도 사라진다 */
     facetAreas.value.forEach((a) => {
+      if (a.entities === 0 && !areas.value.includes(a.name)) return
       if (!groups.has(a.skill)) groups.set(a.skill, [])
       groups.get(a.skill).push(a)
     })
@@ -345,7 +348,9 @@ export function useMultimodalSearch() {
     close: closeEntityDetail,
     retry: retryEntityDetail,
     downloading,
-    download: downloadEntity
+    download: downloadEntity,
+    bundleConfirm: entityBundleConfirm,
+    answerBundleConfirm: answerEntityBundleConfirm
   } = useEntityDetail({ showToast })
 
   /* ------------------------------------------------- 연결 자료 → 파일 상세 */
@@ -371,19 +376,22 @@ export function useMultimodalSearch() {
   }
 
   /* 분류 경로 · 주제 칩은 개체 검색에는 없는 조건이라, 그 분류로 거른 파일 검색 화면으로 보낸다 */
-  function goFileSearch(topic, subtopic) {
+  function goFileSearch(conditions) {
     const p = new URLSearchParams()
-    p.set('topic', topic)
-    if (subtopic) p.set('sub', subtopic)
+    Object.entries(conditions).forEach(([k, v]) => v && p.set(k, v))
     closeFileDetail()
     location.hash = `#file-search?${p}`
   }
   function onFileBreadcrumbClick(crumb) {
     const [topicCrumb, subtopicCrumb] = fileDetail.value?.breadcrumb ?? []
-    if (topicCrumb) goFileSearch(topicCrumb.label, crumb.level === 'subtopic' ? subtopicCrumb?.label : null)
+    if (topicCrumb) goFileSearch({ topic: topicCrumb.label, sub: crumb.level === 'subtopic' ? subtopicCrumb?.label : null })
   }
   function onFileTopicClick(topicChip) {
-    goFileSearch(topicChip.topic, topicChip.subtopic)
+    goFileSearch({ topic: topicChip.topic, sub: topicChip.subtopic })
+  }
+  /* 키워드 칩도 개체 검색에는 없는 조건이라 그 태그로 거른 파일 검색으로 보낸다 */
+  function onFileTagClick(tag) {
+    goFileSearch({ tag })
   }
 
   /* 파일 상세의 「이 데이터만」 — 연관 · 분류 묶음은 협의 전이라 모달에서 막혀 있다 */
@@ -499,8 +507,11 @@ export function useMultimodalSearch() {
     onFileMetaClick,
     onFileBreadcrumbClick,
     onFileTopicClick,
+    onFileTagClick,
     downloadFileOriginal,
     downloadEntity,
+    entityBundleConfirm,
+    answerEntityBundleConfirm,
     downloading,
 
     toastMessage,

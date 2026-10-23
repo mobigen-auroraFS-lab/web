@@ -212,7 +212,7 @@
                     <p class="m-0 text-base text-text-primary leading-relaxed">{{ file.extractedInfo.summary }}</p>
                   </section>
 
-                  <section v-if="file.topics?.length || file.multimodalMeta?.length" class="flex flex-col gap-2 min-w-0">
+                  <section v-if="file.topics?.length || file.multimodalMeta?.length || file.tags?.length" class="flex flex-col gap-2 min-w-0">
                     <h3 class="m-0 text-xs font-semibold text-text-tertiary tracking-wide">키워드·분류 라벨</h3>
                     <div class="flex flex-wrap gap-1.5">
                       <button
@@ -255,6 +255,18 @@
                       >
                         그 밖의 개체 {{ unlistedMeta.length }}
                         <ChevronDown :size="12" :stroke-width="2" :class="showUnlistedMeta ? 'rotate-180' : ''" />
+                      </button>
+                    </div>
+                    <!-- 키워드(태그) — 분류 · 개체 칩과 줄을 나눈다. 누르면 그 태그로 파일 검색을 건다 -->
+                    <div v-if="file.tags?.length" class="flex flex-wrap gap-1.5">
+                      <button
+                        v-for="tag in file.tags"
+                        :key="tag"
+                        type="button"
+                        class="inline-flex items-center h-7 px-2.5 rounded-full bg-slate-100 border-none text-sm text-text-secondary cursor-pointer hover:bg-slate-200 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        @click="$emit('tag-click', tag)"
+                      >
+                        #{{ tag }}
                       </button>
                     </div>
                   </section>
@@ -432,6 +444,7 @@
  * @property {{ summary: string }} extractedInfo
  * @property {FileDetailBasicInfoItem[]} basicInfo  '상세 정보'의 확장 메타로 표시된다
  * @property {FileDetailTopic[]} topics
+ * @property {string[]} tags   키워드(태그)
  * @property {FileDetailMeta[]} multimodalMeta
  * @property {{ related: FileDetailRelation[], sameTopic: FileDetailRelation[], sameTopicCount: number }} relations
  */
@@ -461,6 +474,7 @@ const emit = defineEmits([
   'breadcrumb-click',
   'topic-click',
   'meta-click',
+  'tag-click',
   'relation-click',
   'retry'
 ])
@@ -554,7 +568,6 @@ const breadcrumbPathLabel = computed(() => (props.file?.breadcrumb ?? []).map((c
 
 /* --------------------------------------------------------------- 상세 정보 */
 
-/* 'format' 은 배지·'파일 형식' 행, 'file_size' 는 헤더 메타 줄로 이미 나가므로 확장 메타에서는 뺀다 */
 /* 소속 개체 칩 — listed 가 거짓인 개체(묶인 파일 3개 미만)는 멀티모달 목록에 없어 「그 밖의 개체」로 접는다.
    임계값은 서버가 정하므로 웹이 숫자를 들고 있지 않다(IDD IF-ASSET-10) */
 const listedMeta = computed(() => (props.file?.multimodalMeta ?? []).filter((m) => m.listed))
@@ -568,7 +581,8 @@ watch(
   }
 )
 
-const extendedMeta = computed(() => (props.file?.basicInfo ?? []).filter((i) => i.key !== 'format' && i.key !== 'file_size'))
+/* 보일 키 · 이름 · 단위는 buildFileDetail(detailInfo)이 이미 골라 둔다 */
+const extendedMeta = computed(() => props.file?.basicInfo ?? [])
 
 /* --------------------------------------------------------- 관계 정보 탭 */
 

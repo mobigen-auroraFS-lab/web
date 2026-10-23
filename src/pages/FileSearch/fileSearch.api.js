@@ -63,11 +63,13 @@ function presentation(ext, modality) {
 }
 
 /* 목록의 크기 0 은 '모름'이다(서버가 NULL 을 0 으로 채운다 · IDD 11절 ⑫) */
-function formatBytes(bytes) {
+export function formatBytes(bytes) {
   if (!bytes) return '—'
   if (bytes < 1024) return `${bytes}B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`
   const mb = bytes / (1024 * 1024)
+  /* 묶음(zip)은 수 GB 가 될 수 있다 */
+  if (mb >= 1024) return `${(mb / 1024).toFixed(1)}GB`
   return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)}MB`
 }
 
@@ -128,11 +130,38 @@ export function fetchRelationKinds() {
 
 /* ------------------------------------------------------ 파일 상세 모달 매핑 */
 
-function metaValue(v) {
-  if (v === null || v === undefined) return null
-  if (Array.isArray(v)) return v.join(', ')
-  if (typeof v === 'object') return JSON.stringify(v)
-  return v
+/* ------------------------------------------------- 상세 정보(core_meta) 표시 */
+
+const LANGUAGE_NAMES = { ko: '한국어', en: '영어', ja: '일본어', zh: '중국어' }
+
+function formatDuration(seconds) {
+  const total = Math.round(seconds)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  if (h) return `${h}시간 ${m}분 ${sec}초`
+  if (m) return `${m}분 ${sec}초`
+  return `${sec}초`
+}
+/* 소수 끝의 0 을 떼고 보인다(29.970 → 29.97, 44.1 → 44.1) */
+const trimNumber = (n, digits) => String(Number(Number(n).toFixed(digits)))
+
+/* 「상세 정보」는 보일 키만 골라 한글 이름 · 단위를 붙인다 — core_meta 를 키 = 값 그대로 보이면 영문 키 · 토큰 수 ·
+   색 코드가 나열된다. 목록에 없는 키는 보이지 않는다(새 키가 생기면 백엔드가 알린다 · 전달사항 부록 A).
+   file_format(「파일 형식」과 겹침) · encoding · num_tokens · dominant_colors 는 뺀다 */
+function detailInfo(core = {}) {
+  const rows = []
+  const add = (key, label, value) => rows.push({ key, label, value })
+  if (core.width != null && core.height != null) add('resolution', '해상도', `${core.width.toLocaleString()} × ${core.height.toLocaleString()} px`)
+  if (core.duration != null) add('duration', '재생 시간', formatDuration(core.duration))
+  if (core.frame_rate != null) add('frame_rate', '프레임 속도', `${trimNumber(core.frame_rate, 2)}fps`)
+  if (core.sample_rate != null) add('sample_rate', '샘플링 주파수', `${trimNumber(core.sample_rate / 1000, 1)}kHz`)
+  if (core.channels != null) add('channels', '채널', core.channels === 1 ? '모노' : core.channels === 2 ? '스테레오' : `${core.channels}채널`)
+  if (core.color_mode) add('color_mode', '색 모드', core.color_mode)
+  if (core.length != null) add('length', '글자 수', `${core.length.toLocaleString()}자`)
+  if (core.num_sentences != null) add('num_sentences', '문장 수', `${core.num_sentences.toLocaleString()}문장`)
+  if (core.language) add('language', '언어', LANGUAGE_NAMES[core.language] ?? core.language)
+  return rows
 }
 
 function relationCard({ asset_id, file_name, modality }, reason) {
@@ -174,7 +203,7 @@ export function buildFileDetail(detail, mmMeta, kindNames) {
       : [],
     /* 등급이 모자라면 summary 키 자체가 빠진다(IDD 공통규약 ext_meta 키 omit) */
     extractedInfo: { summary: detail.ext_meta?.summary || '요약 정보가 없습니다.' },
-    basicInfo: Object.entries(detail.core_meta ?? {}).map(([key, value]) => ({ key, label: key, value: metaValue(value) })),
+    basicInfo: detailInfo(detail.core_meta ?? {}),
     topics: topic
       ? [
           {
@@ -186,6 +215,8 @@ export function buildFileDetail(detail, mmMeta, kindNames) {
           }
         ]
       : [],
+    /* 키워드(태그) — 목록 행의 태그와 같은 값(ext_meta.keywords)이라 이 태그로 걸면 이 파일도 결과에 나온다 */
+    tags: detail.tags ?? [],
     multimodalMeta: (mmMeta?.items ?? []).map((m) => ({
       id: `${m.entity_type}:${m.entity_uid}`,
       label: m.name,
