@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useFileDetail } from '../../composables/useFileDetail'
 import { useEntityDetail } from '../../composables/useEntityDetail'
 import { downloadAsset } from '../FileSearch/fileSearch.api'
@@ -230,6 +230,8 @@ export function useMultimodalSearch() {
       if (location.hash.startsWith(HASH_ROUTE) && location.hash !== next) history.replaceState(null, '', next)
     }, 200)
   })
+  /* 화면을 떠나면 남은 쓰기를 지운다 — 위의 주소 확인과 함께, 옮겨 간 화면의 주소를 덮지 않게 한다 */
+  onBeforeUnmount(() => clearTimeout(urlWriteTimer))
   watch([entityType, areas, modalities], fetchFacets, { immediate: true })
 
   const typeChips = computed(() => facetTypes.value.map((t) => toChip(t.name, entityType.value === t.name, t.entities)))
