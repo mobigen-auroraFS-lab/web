@@ -16,8 +16,6 @@
           v-for="item in NAV_ITEMS"
           :key="item.key"
           :href="item.href"
-          :target="item.newTab ? '_blank' : undefined"
-          :rel="item.newTab ? 'noopener' : undefined"
           class="flex items-center h-8 px-3 rounded-md text-base no-underline"
           :class="
             active === item.key
@@ -62,10 +60,9 @@ import { useHideOnScroll } from '../composables/useHideOnScroll'
 /* 여러 제품 페이지가 생기면 이 목록에 항목만 추가하면 된다 */
 const NAV_ITEMS = [
   { key: 'multimodal-search', label: '멀티모달 검색', href: '#multimodal-search' },
-  { key: 'file-search', label: '파일 검색', href: '#file-search' },
-  /* 개발 중 확인용 메뉴 — 제품 화면이 아니라 운영 빌드에서는 뺀다(라우터 · App.vue 도 같은 조건).
-     디자인 가이드엔 헤더가 없어 돌아올 길이 없으므로 새 창으로 연다 */
-  ...(import.meta.env.DEV ? [{ key: 'design-guide', label: '디자인 가이드', href: '#design-guide', newTab: true }] : [])
+  { key: 'file-search', label: '파일 검색', href: '#file-search' }
+  /* 디자인 가이드는 제품 화면이 아니라 메뉴에 두지 않는다 — 개발 서버에서 주소창에 #design-guide 를 직접 입력해 연다
+     (라우터 · App.vue 가 운영 빌드에서는 이 경로를 빼므로 운영에서는 열리지 않는다) */
 ]
 
 defineProps({
