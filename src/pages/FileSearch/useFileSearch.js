@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useFileDetail } from '../../composables/useFileDetail'
 import { useEntityDetail } from '../../composables/useEntityDetail'
 import {
@@ -574,8 +574,13 @@ export function useFileSearch() {
     addTopicFilter(topicCrumb?.label, crumb.level === 'subtopic' ? subtopicCrumb?.label : null)
     closeFileDetail()
   }
+  /* 주제 칩 · 「이 분류 전체 N건 파일 검색에서 보기」 — 숫자는 그 분류 전체(검색어 · 다른 조건 없이) 수다.
+     지금 조건(검색어 등)에 분류만 더하면 결과가 숫자보다 적게 나오므로(「기생충」 검색 중 564 → 82), 다른 조건을 모두 비우고
+     그 분류만 건다. 하위주제가 없는 파일은 주제만 건다(칩 숫자도 주제 기준) */
   function onTopicClickDetail(topicChip) {
-    addTopicFilter(topicChip.topic, topicChip.subtopic)
+    clearAllConditions()
+    topics.value = [topicChip.topic]
+    subtopics.value = topicChip.subtopic ? [topicChip.subtopic] : []
     closeFileDetail()
   }
   /* 소속 개체 칩 — 같은 이름의 태그로 파일 검색을 걸면 칩 숫자(개체에 묶인 파일 수)와 결과가 달라서, 개체 상세를 연다.
@@ -744,6 +749,9 @@ export function useFileSearch() {
   }
 
   function writeUrl() {
+    /* 다른 화면으로 옮겨 간 뒤에는 쓰지 않는다 — 조건을 바꾸고 200ms 안에 멀티모달 검색으로 가면,
+       남은 쓰기가 주소만 파일 검색으로 덮어 새로고침 · 공유 때 엉뚱한 화면이 뜬다(빈 해시는 기본 화면 = 파일 검색) */
+    if (location.hash && !location.hash.startsWith(HASH_ROUTE)) return
     const next = buildHash()
     /* pushState를 쓰면 글자 하나마다 히스토리가 쌓인다 — 뒤로가기는
        "이 페이지를 떠난다"로 두고 URL은 항상 현재 상태를 가리키게 한다 */
@@ -753,6 +761,8 @@ export function useFileSearch() {
     clearTimeout(urlWriteTimer)
     urlWriteTimer = setTimeout(writeUrl, 200)
   }
+  /* 화면을 떠나면 남은 쓰기를 지운다 */
+  onBeforeUnmount(() => clearTimeout(urlWriteTimer))
 
   function applyUrlState() {
     const p = parseHashParams()
